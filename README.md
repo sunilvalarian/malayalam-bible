@@ -11,6 +11,22 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
 - **Editing**: ☰ → *ഈ അധ്യായം തിരുത്തുക* opens a side-by-side editor with live preview. Format: `[5]` starts verse 5, `## text` is a heading, each line is a paragraph. The editor warns about missing or out-of-order verse numbers. *യഥാർത്ഥം* restores the original PDF text.
 - **PDF upload**: ☰ → *PDF അപ്‌ലോഡ്*. Drop one or more PDFs. The book and chapter number are detected (from the file name or an `അധ്യായം N` header) and can be changed. Preview, then save. The chapter becomes part of the reader, and ☰ → *HTML ആയി ഡൗൺലോഡ്* exports a whole book as a single HTML file.
 
+## Hosting
+The GitHub repository is **private**: nobody can download the source, the PDFs or the history. The website is published by **Cloudflare Pages**, which serves only the `app/` folder and redeploys automatically on every `git push` to `main`.
+
+One-time Cloudflare setup:
+1. Sign in at https://dash.cloudflare.com (free account).
+2. Go to **Workers & Pages → Create → Pages → Connect to Git**. If you only see Workers, click the "Looking to deploy Pages? Get started" link.
+3. Authorize GitHub and allow access to **only** the `malayalam-bible` repository.
+4. Select the repository, then enter:
+   - Production branch: `main`
+   - Framework preset: `None`
+   - Build command: *(leave empty)*
+   - Build output directory: `app`
+5. Click **Save and Deploy**. The site appears at `https://<project-name>.pages.dev`.
+
+`app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
+
 ## Login and permissions
 The published site can use Firebase for login. Permissions are enforced on Firebase's servers by [`firestore.rules`](firestore.rules), so they can't be bypassed from the page source.
 
@@ -30,7 +46,7 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 ### One-time Firebase setup
 1. Go to https://console.firebase.google.com and create a project (Google Analytics can be off).
 2. **Build → Authentication → Get started → Sign-in method**: enable **Email/Password** and **Google**.
-3. **Authentication → Settings → Authorized domains**: add `sunilvalarian.github.io`.
+3. **Authentication → Settings → Authorized domains**: add the site domain, e.g. `malayalam-bible.pages.dev`.
 4. **Build → Firestore Database → Create database**: *production mode*, location `asia-south1 (Mumbai)`.
 5. **Firestore → Rules**: replace the contents with [`firestore.rules`](firestore.rules) and click **Publish**. Do this again whenever that file changes.
 6. **Project settings (⚙) → General → Your apps → Web (`</>`)**: register an app, then copy the `firebaseConfig` object into `app/js/firebase-config.js` as `window.FIREBASE_CONFIG = { … }`. These values are not secret.

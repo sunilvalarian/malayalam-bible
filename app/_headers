@@ -1,0 +1,10 @@
+# Cloudflare Pages response headers (this folder, app/, is the published site)
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+
+# the service worker must always be re-checked so app updates reach installed phones
+/sw.js
+  Cache-Control: no-cache
