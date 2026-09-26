@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fbfaf7">
+<title>മലയാളം ബൈബിൾ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gayathri:wght@400;700&family=Manjari:wght@400;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Serif+Malayalam:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+    <symbol id="i-aa" viewBox="0 0 24 24"><path d="M3 19 8.5 5 14 19M5 14h7M15.5 19l3.5-9 3.5 9M16.6 16h4.8"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M14 4v5h5M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 16v4h16v-4"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
+    <symbol id="i-highlight" viewBox="0 0 24 24"><path d="m14 4 6 6-9 9H5v-6z"/><path d="M4 21h16"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M8 7h7"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <button class="icon-btn" id="btnMenu" aria-label="മെനു" title="മെനു"><svg><use href="#i-menu"/></svg></button>
+  <button class="ref-btn" id="btnRef" aria-label="പുസ്തകം / അധ്യായം തിരഞ്ഞെടുക്കുക">
+    <span id="refLabel">…</span><svg><use href="#i-down"/></svg>
+  </button>
+  <div class="topbar-right">
+    <button class="icon-btn" id="btnSearch" aria-label="തിരയുക" title="തിരയുക (/)"><svg><use href="#i-search"/></svg></button>
+    <button class="icon-btn" id="btnSettings" aria-label="വായനാ ക്രമീകരണം" title="വായനാ ക്രമീകരണം"><svg><use href="#i-aa"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+  <article id="reader" class="reader" aria-live="polite"></article>
+</main>
+
+<nav class="chapter-nav" aria-label="അധ്യായം മാറ്റുക">
+  <button class="fab" id="btnPrev" aria-label="മുൻ അധ്യായം" title="മുൻ അധ്യായം (←)"><svg><use href="#i-left"/></svg></button>
+  <button class="fab" id="btnNext" aria-label="അടുത്ത അധ്യായം" title="അടുത്ത അധ്യായം (→)"><svg><use href="#i-right"/></svg></button>
+</nav>
+
+<!-- verse action bar -->
+<div class="actionbar" id="actionbar" hidden>
+  <div class="actionbar-head">
+    <strong id="selRef"></strong>
+    <button class="icon-btn sm" id="btnSelClose" aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="swatches" role="group" aria-label="ഹൈലൈറ്റ് നിറം">
+    <button class="swatch hl-yellow" data-color="yellow" aria-label="മഞ്ഞ"></button>
+    <button class="swatch hl-green" data-color="green" aria-label="പച്ച"></button>
+    <button class="swatch hl-blue" data-color="blue" aria-label="നീല"></button>
+    <button class="swatch hl-pink" data-color="pink" aria-label="പിങ്ക്"></button>
+    <button class="swatch hl-orange" data-color="orange" aria-label="ഓറഞ്ച്"></button>
+    <button class="swatch none" data-color="" aria-label="ഹൈലൈറ്റ് നീക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="actions">
+    <button data-act="copy"><svg><use href="#i-copy"/></svg><span>പകർത്തുക</span></button>
+    <button data-act="share"><svg><use href="#i-share"/></svg><span>പങ്കിടുക</span></button>
+    <button data-act="bookmark"><svg><use href="#i-bookmark"/></svg><span>ബുക്ക്മാർക്ക്</span></button>
+    <button data-act="note"><svg><use href="#i-note"/></svg><span>കുറിപ്പ്</span></button>
+    <button data-act="edit"><svg><use href="#i-edit"/></svg><span>തിരുത്തുക</span></button>
+  </div>
+</div>
+
+<!-- menu drawer -->
+<dialog class="drawer" id="dlgMenu" aria-label="മെനു">
+  <div class="drawer-head">
+    <div class="brand"><svg><use href="#i-book"/></svg><div><strong>മലയാളം ബൈബിൾ</strong><small id="libStats"></small></div></div>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <nav class="menu">
+    <div class="menu-label">എന്റെ ലൈബ്രറി</div>
+    <button data-menu="bookmarks"><svg><use href="#i-bookmark"/></svg>ബുക്ക്മാർക്കുകൾ <span class="count" id="cntBookmarks"></span></button>
+    <button data-menu="highlights"><svg><use href="#i-highlight"/></svg>ഹൈലൈറ്റുകൾ <span class="count" id="cntHighlights"></span></button>
+    <button data-menu="notes"><svg><use href="#i-note"/></svg>കുറിപ്പുകൾ <span class="count" id="cntNotes"></span></button>
+    <button data-menu="history"><svg><use href="#i-history"/></svg>വായനാ ചരിത്രം</button>
+    <div class="menu-label">ഉള്ളടക്കം</div>
+    <button data-menu="upload"><svg><use href="#i-upload"/></svg>PDF അപ്‌ലോഡ് ചെയ്യുക</button>
+    <button data-menu="edit"><svg><use href="#i-edit"/></svg>ഈ അധ്യായം തിരുത്തുക</button>
+    <button data-menu="exportHtml"><svg><use href="#i-file"/></svg>പുസ്തകം HTML ആയി ഡൗൺലോഡ്</button>
+    <div class="menu-label">ഡാറ്റ</div>
+    <button data-menu="exportData"><svg><use href="#i-download"/></svg>data.js എക്സ്പോർട്ട് <small>(സ്ഥിരമായി സൂക്ഷിക്കാൻ)</small></button>
+    <button data-menu="backup"><svg><use href="#i-download"/></svg>ബാക്കപ്പ് ഡൗൺലോഡ് (.json)</button>
+    <button data-menu="restore"><svg><use href="#i-upload"/></svg>ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക</button>
+    <button data-menu="reset" class="danger"><svg><use href="#i-reset"/></svg>തിരുത്തലുകൾ എല്ലാം മായ്ക്കുക</button>
+  </nav>
+  <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+</dialog>
+
+<!-- book / chapter / verse picker -->
+<dialog class="sheet" id="dlgPicker" aria-label="പുസ്തകം തിരഞ്ഞെടുക്കുക">
+  <div class="sheet-head">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="books">പുസ്തകം</button>
+      <button role="tab" data-tab="chapters">അധ്യായം</button>
+      <button role="tab" data-tab="verses">വാക്യം</button>
+    </div>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <form class="goto" id="gotoForm" autocomplete="off">
+    <input id="gotoInput" type="text" inputmode="text" placeholder="നേരിട്ട് പോകുക: 3:15 / ഉത്പ 12:1" aria-label="റഫറൻസ്">
+    <button class="btn primary" type="submit">പോകുക</button>
+  </form>
+  <div class="sheet-body" id="pickerBody"></div>
+</dialog>
+
+<!-- search -->
+<dialog class="sheet" id="dlgSearch" aria-label="തിരയുക">
+  <div class="sheet-head search-head">
+    <div class="search-box">
+      <svg><use href="#i-search"/></svg>
+      <input id="searchInput" type="search" placeholder="വാക്ക് അല്ലെങ്കിൽ അധ്യായം:വാക്യം (ഉദാ: ദൈവം, 3:15)" aria-label="തിരയുക" autocomplete="off">
+    </div>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="search-opts">
+    <select id="searchScope" aria-label="എവിടെ തിരയണം">
+      <option value="all">എല്ലാ പുസ്തകങ്ങളും</option>
+      <option value="book">ഈ പുസ്തകം</option>
+      <option value="chapter">ഈ അധ്യായം</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="searchWhole"> പൂർണ്ണ വാക്ക് മാത്രം</label>
+    <span class="hint">"ഉദ്ധരണി" = കൃത്യമായ വാചകം</span>
+  </div>
+  <div class="sheet-body" id="searchBody"></div>
+</dialog>
+
+<!-- reading settings -->
+<dialog class="popover" id="dlgSettings" aria-label="വായനാ ക്രമീകരണം">
+  <div class="set-row">
+    <span>അക്ഷര വലിപ്പം</span>
+    <div class="stepper">
+      <button class="btn" data-font="-1" aria-label="ചെറുതാക്കുക">A−</button>
+      <output id="fontSizeOut">20</output>
+      <button class="btn" data-font="1" aria-label="വലുതാക്കുക">A+</button>
+    </div>
+  </div>
+  <div class="set-row">
+    <span>വരി അകലം</span>
+    <input type="range" id="lineHeight" min="1.5" max="2.4" step="0.1" aria-label="വരി അകലം">
+  </div>
+  <div class="set-row col">
+    <span>ഫോണ്ട്</span>
+    <div class="seg" id="fontSeg">
+      <button data-v="noto-serif" style="font-family:'Noto Serif Malayalam'">നോട്ടോ സെരിഫ്</button>
+      <button data-v="noto-sans" style="font-family:'Noto Sans Malayalam'">നോട്ടോ സാൻസ്</button>
+      <button data-v="manjari" style="font-family:Manjari">മഞ്ജരി</button>
+      <button data-v="gayathri" style="font-family:Gayathri">ഗായത്രി</button>
+    </div>
+  </div>
+  <div class="set-row col">
+    <span>തീം</span>
+    <div class="seg themes" id="themeSeg">
+      <button data-v="light" class="t-light">വെളിച്ചം</button>
+      <button data-v="sepia" class="t-sepia">സെപിയ</button>
+      <button data-v="dark" class="t-dark">ഇരുട്ട്</button>
+      <button data-v="auto">ഓട്ടോ</button>
+    </div>
+  </div>
+  <div class="set-row col">
+    <span>ക്രമീകരണം</span>
+    <div class="seg" id="layoutSeg">
+      <button data-v="para">ഖണ്ഡിക</button>
+      <button data-v="verse">വാക്യം തോറും</button>
+    </div>
+  </div>
+  <label class="set-row chk"><input type="checkbox" id="optNumbers"> വാക്യ നമ്പറുകൾ കാണിക്കുക</label>
+  <label class="set-row chk"><input type="checkbox" id="optHeadings"> തലക്കെട്ടുകൾ കാണിക്കുക</label>
+</dialog>
+
+<!-- library lists: bookmarks / highlights / notes / history -->
+<dialog class="sheet" id="dlgLibrary" aria-label="ലൈബ്രറി">
+  <div class="sheet-head">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-lib="bookmarks">ബുക്ക്മാർക്ക്</button>
+      <button role="tab" data-lib="highlights">ഹൈലൈറ്റ്</button>
+      <button role="tab" data-lib="notes">കുറിപ്പ്</button>
+      <button role="tab" data-lib="history">ചരിത്രം</button>
+    </div>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="sheet-body" id="libraryBody"></div>
+</dialog>
+
+<!-- note -->
+<dialog class="modal" id="dlgNote" aria-label="കുറിപ്പ്">
+  <form method="dialog" id="noteForm">
+    <h2 id="noteTitle">കുറിപ്പ്</h2>
+    <blockquote id="noteVerse" class="quote"></blockquote>
+    <textarea id="noteText" rows="5" placeholder="നിങ്ങളുടെ കുറിപ്പ് ഇവിടെ എഴുതുക…"></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn danger ghost" id="noteDelete">നീക്കുക</button>
+      <span class="spacer"></span>
+      <button value="cancel" class="btn">റദ്ദാക്കുക</button>
+      <button value="save" class="btn primary">സേവ്</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- quick verse edit -->
+<dialog class="modal" id="dlgVerseEdit" aria-label="വാക്യം തിരുത്തുക">
+  <form method="dialog" id="verseEditForm">
+    <h2 id="verseEditTitle">വാക്യം തിരുത്തുക</h2>
+    <textarea id="verseEditText" rows="7"></textarea>
+    <p class="hint">പുതിയ വരി = പുതിയ ഖണ്ഡിക. മുഴുവൻ അധ്യായത്തിനും ‘അധ്യായം തിരുത്തുക’ ഉപയോഗിക്കുക.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="verseEditFull">അധ്യായം തിരുത്തുക</button>
+      <span class="spacer"></span>
+      <button value="cancel" class="btn">റദ്ദാക്കുക</button>
+      <button value="save" class="btn primary">സേവ്</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- chapter editor -->
+<dialog class="fullscreen" id="dlgEditor" aria-label="അധ്യായം തിരുത്തുക">
+  <div class="fs-head">
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+    <h2 id="editorTitle">തിരുത്തുക</h2>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="edRestore" title="PDF-ൽ നിന്നുള്ള യഥാർത്ഥ പാഠം"><svg><use href="#i-reset"/></svg><span>യഥാർത്ഥം</span></button>
+    <button class="btn danger ghost" id="edDelete" title="ഈ അധ്യായം നീക്കുക"><svg><use href="#i-trash"/></svg><span>നീക്കുക</span></button>
+    <button class="btn primary" id="edSave"><svg><use href="#i-check"/></svg><span>സേവ്</span></button>
+  </div>
+  <div class="ed-toolbar">
+    <button class="btn sm" id="edInsVerse" title="കഴ്സറിൽ വാക്യ നമ്പർ ചേർക്കുക">+ [വാക്യം]</button>
+    <button class="btn sm" id="edInsHead" title="തലക്കെട്ട് വരി ചേർക്കുക">+ ## തലക്കെട്ട്</button>
+    <span class="ed-help"><code>[5]</code> = വാക്യം 5 തുടങ്ങുന്നു · <code>## …</code> = തലക്കെട്ട് · ഓരോ വരിയും ഒരു ഖണ്ഡിക</span>
+    <div class="ed-view seg" id="edViewSeg">
+      <button data-v="split">രണ്ടും</button><button data-v="text">പാഠം</button><button data-v="preview">പ്രിവ്യൂ</button>
+    </div>
+  </div>
+  <div class="ed-warn" id="edWarn" hidden></div>
+  <div class="ed-panes" id="edPanes">
+    <textarea id="edText" spellcheck="false" aria-label="അധ്യായത്തിന്റെ പാഠം"></textarea>
+    <div class="ed-preview reader" id="edPreview"></div>
+  </div>
+</dialog>
+
+<!-- upload -->
+<dialog class="fullscreen" id="dlgUpload" aria-label="PDF അപ്‌ലോഡ്">
+  <div class="fs-head">
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+    <h2>PDF അപ്‌ലോഡ് → HTML</h2>
+    <span class="spacer"></span>
+    <button class="btn primary" id="upSave" disabled><svg><use href="#i-check"/></svg><span>സേവ് ചെയ്യുക</span></button>
+  </div>
+  <div class="up-body">
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="upInput" accept="application/pdf,.pdf" multiple hidden>
+      <svg><use href="#i-upload"/></svg>
+      <strong>PDF ഫയലുകൾ ഇവിടെ ഇടുക അല്ലെങ്കിൽ ക്ലിക്ക് ചെയ്ത് തിരഞ്ഞെടുക്കുക</strong>
+      <small>ഒന്നിലധികം ഫയലുകൾ ഒരുമിച്ച് ചേർക്കാം. അധ്യായ നമ്പർ ഫയൽ പേരിൽ നിന്നോ ഉള്ളടക്കത്തിൽ നിന്നോ സ്വയം കണ്ടെത്തും.</small>
+    </label>
+    <div class="up-default">
+      <label>പുസ്തകം:
+        <select id="upBook"></select>
+      </label>
+      <small>കണ്ടെത്തിയ ഓരോ അധ്യായത്തിനും താഴെ മാറ്റാം.</small>
+    </div>
+    <div id="upList" class="up-list"></div>
+  </div>
+</dialog>
+
+<!-- confirm -->
+<dialog class="modal" id="dlgConfirm">
+  <form method="dialog">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button value="cancel" class="btn">റദ്ദാക്കുക</button>
+      <button value="ok" class="btn primary" id="confirmOk">ശരി</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/books.js"></script>
+<script src="js/data.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/pdf-extract.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
