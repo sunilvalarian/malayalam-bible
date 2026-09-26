@@ -310,6 +310,7 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
   .ed-panes.v-preview .ed-preview { display: block; }
   .fs-head .btn span { display: none; }
   .ed-help { display: none; }
+  .ed-view button[data-v="split"] { display: none; }
 }
 
 .up-body { flex: 1; overflow: auto; padding: 16px; max-width: 980px; width: 100%; margin: 0 auto; }
@@ -352,10 +353,102 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-@media (max-width: 520px) {
-  .ref-btn { max-width: calc(100% - 150px); font-size: 15px; padding: 6px 10px 6px 14px; }
-  .topbar .icon-btn { width: 38px; height: 38px; }
-  main { padding: 4px 16px 140px; }
+/* ---------- touch & phones ---------- */
+html, body { touch-action: manipulation; }
+button, .v, a { -webkit-tap-highlight-color: transparent; }
+body:has(dialog[open]) { overflow: hidden; }
+.menu button small { display: block; }
+.menu button .m-text { display: flex; flex-direction: column; }
+.set-row.chk { justify-content: flex-start; }
+.menu button.install { background: var(--accent-soft); color: var(--accent); margin: 6px 0 2px; }
+.menu button.install svg { color: var(--accent); }
+@media (hover: none) { .desk-only { display: none; } }
+.fs-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-head .spacer { display: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+@media (max-width: 600px) {
+  .topbar { gap: 0; padding-left: max(4px, env(safe-area-inset-left)); padding-right: max(4px, env(safe-area-inset-right)); }
+  .topbar .icon-btn { width: 44px; height: 44px; }
+  .ref-btn {
+    position: static; transform: none; margin: 0 auto; min-width: 0; max-width: none; flex: 0 1 auto;
+    font-size: 16px; min-height: 40px; padding: 6px 10px 6px 16px;
+  }
+  .topbar-right { margin-left: 0; }
+  main { padding: 4px max(16px, env(safe-area-inset-right)) 150px max(16px, env(safe-area-inset-left)); }
+  .reader .ch-title { margin: 16px 0 18px; }
+  .reader .ch-title span { font-size: 1.8em; }
+  .fab { width: 52px; height: 52px; bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); }
+  #btnPrev { left: max(14px, env(safe-area-inset-left)); } #btnNext { right: max(14px, env(safe-area-inset-right)); }
+
+  /* dialogs become full-height sheets that respect the notch / home bar */
+  .sheet { height: 100vh; height: 100dvh; }
+  .sheet-head, .fs-head { padding-top: max(8px, env(safe-area-inset-top)); }
+  .sheet-body { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .tabs button { padding: 10px 12px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); }
+
+  /* settings: bottom sheet */
+  .popover {
+    top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-height: 85dvh; overflow: auto;
+    border-radius: 20px 20px 0 0; border-bottom: 0; padding: 8px 18px max(18px, env(safe-area-inset-bottom));
+    animation: sheet-up .22s ease-out;
+  }
+  .popover::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--line); margin: 4px auto 8px; }
+  .popover::backdrop { background: rgba(10, 8, 5, .35); }
+  .set-row { min-height: 48px; }
+  .stepper .btn { min-width: 52px; min-height: 44px; justify-content: center; }
+  .seg button { min-height: 44px; }
+
+  /* search options on one line */
+  .search-opts { gap: 8px 12px; padding: 8px 14px; }
+  .search-opts .hint { display: none; }
+  .search-opts select { flex: 1; min-width: 0; min-height: 40px; }
+
+  /* small modals sit near the top so the on-screen keyboard doesn't cover them */
+  .modal { margin: max(12px, env(safe-area-inset-top)) auto auto; max-height: calc(100dvh - 24px); overflow: auto; }
+  .modal-actions .btn { min-height: 44px; }
+
+  /* editor + upload headers stay on one row: icon buttons + labelled primary action */
+  .fs-head { flex-wrap: nowrap; gap: 4px; padding-left: 6px; padding-right: 10px; }
+  .fs-head h2 { font-size: 16px; }
+  .fs-head .btn:not(.primary) { padding: 0; width: 44px; min-height: 44px; justify-content: center; }
+  .fs-head .btn:not(.primary) span { display: none; }
+  .fs-head .btn.primary { min-height: 40px; }
+  .fs-head .btn.primary span { display: inline; }
+  .ed-toolbar { flex-wrap: nowrap; overflow-x: auto; padding: 8px 10px; }
+  .ed-toolbar .btn { flex: none; min-height: 38px; }
+  .ed-view { margin-left: auto; flex: none; }
+  .ed-panes textarea { font-size: 17px; padding: 14px max(14px, env(safe-area-inset-left)) 60px; }
+  .ed-preview { padding: 0 16px 60px; }
+
+  .up-body { padding: 12px 14px max(24px, env(safe-area-inset-bottom)); }
+  .dropzone { padding: 22px 14px; }
+  .up-default select { flex: 1; min-width: 0; }
+  .up-row { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; }
+  .up-row .fname { min-width: 0; }
+  .up-row select, .up-row label, .up-row .status, .up-row .up-prev { grid-column: 1 / -1; }
+  .up-row select { max-width: none; width: 100%; }
+  .up-row label { display: flex; align-items: center; gap: 10px; }
+  .up-row .status { justify-self: start; }
+  .up-row .up-prev { justify-self: start; min-height: 40px; }
+
+  .actionbar { border-radius: 20px 20px 0 0; padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  .swatches { justify-content: space-between; }
+  .swatch { width: 40px; height: 40px; }
+  .actions button { min-height: 56px; font-size: 11.5px; }
+  .toast { bottom: calc(96px + env(safe-area-inset-bottom)); border-radius: 14px; }
+  .menu button { min-height: 48px; }
+  .drawer { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+}
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@media (max-width: 360px) {
+  .reader { font-size: calc(var(--fs) - 1px); }
+  .actions button span { font-size: 10.5px; }
+}
+/* installed app (standalone) */
+@media (display-mode: standalone) {
+  .topbar { padding-top: max(8px, env(safe-area-inset-top)); }
 }
 @media print {
   .topbar, .chapter-nav, .actionbar, .toast { display: none !important; }

@@ -205,6 +205,8 @@
     return null;
   }
 
+  const refOrder = (b, c) => books.findIndex((x) => x.id === b) * 1000 + c;
+
   function neighbours() {
     const bi = books.findIndex((b) => b.id === cur.book);
     if (bi < 0) return {};
@@ -239,7 +241,10 @@
     $('#btnPrev').disabled = !nb.prev;
     $('#btnNext').disabled = !nb.next;
     const h = `#/${cur.book}/${cur.chapter}` + (opts.verse ? '/' + opts.verse : '');
-    if (location.hash !== h) history.replaceState(null, '', h);
+    if (location.hash !== h) history.replaceState(history.state, '', h);
+    if (opts.dir && reader.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reader.animate([{ opacity: 0, transform: `translateX(${opts.dir * 28}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
+    }
     if (opts.keepScroll != null) window.scrollTo(0, opts.keepScroll);
     else if (opts.verse) scrollToVerse(opts.verse, opts.verseEnd, true);
     else window.scrollTo(0, 0);
@@ -266,9 +271,12 @@
       toast(`${book.name} ${c} ലഭ്യമല്ല`);
       return false;
     }
+    // called from inside a dialog that is closing: navigate once its history entry is gone
+    if (historyBusy()) { hist.queue.push(() => go(b, c, opts)); return true; }
     const changed = cur.book !== b || cur.chapter !== c;
+    const dir = cur.book ? Math.sign(refOrder(b, c) - refOrder(cur.book, cur.chapter)) : 0;
     cur.book = b; cur.chapter = c;
-    if (changed || !opts || !opts.verse) render(opts);
+    if (changed || !opts || !opts.verse) render(Object.assign({ dir: changed ? dir : 0 }, opts));
     else scrollToVerse(opts.verse, opts.verseEnd, true);
     settings.last = { b, c };
     if (changed) {
@@ -335,12 +343,30 @@
     const noteIc = e.target.closest('.note-ic');
     if (noteIc) { openNote(noteIc.dataset.note); return; }
     const span = e.target.closest('.v');
-    if (!span) { if (selection.size) clearSelection(); return; }
+    if (!span) { if (selection.size) clearSelection(); else showChrome(); return; }
     if (String(window.getSelection && window.getSelection()).trim()) return; // user is selecting text
     const v = +span.dataset.v;
     if (selection.has(v)) selection.delete(v); else selection.add(v);
     updateSelection();
+    if (selection.has(v)) keepAboveActionbar(span);
   });
+
+  // make sure the tapped verse isn't hidden behind the bottom action bar
+  function keepAboveActionbar(span) {
+    requestAnimationFrame(() => {
+      const bar = $('#actionbar');
+      const rects = span.getClientRects();
+      if (!rects.length || bar.hidden) return;
+      const bottom = rects[rects.length - 1].bottom;
+      const limit = window.innerHeight - bar.offsetHeight - 12;
+      if (bottom > limit) window.scrollBy({ top: bottom - limit, behavior: 'smooth' });
+    });
+  }
+
+  function showChrome() {
+    $('.topbar').classList.remove('hide');
+    document.body.classList.remove('chrome-hidden');
+  }
 
   $('#btnSelClose').addEventListener('click', clearSelection);
 
@@ -420,9 +446,45 @@
   });
 
   // ---------- dialogs ----------
+  // Each open dialog owns one history entry, so the phone's Back button closes the
+  // dialog instead of leaving the app. Closing a dialog in the UI removes its entry
+  // (history.back()); navigation waits for that to finish so the URL stays right.
+  const hist = { stack: [], pendingBack: 0, queue: [] };
+  const historyBusy = () => hist.stack.length > 0 || hist.pendingBack > 0;
   function openDialog(d) {
-    if (!d.open) d.showModal();
+    if (d.open) return;
+    if (hist.pendingBack) { hist.queue.push(() => openDialog(d)); return; }
+    d.showModal();
+    hist.stack.push(d.id);
+    history.pushState({ dlg: d.id }, '', location.href);
   }
+  window.addEventListener('popstate', () => {
+    if (hist.pendingBack) {
+      if (--hist.pendingBack === 0) hist.queue.splice(0).forEach((fn) => fn());
+      return;
+    }
+    const id = hist.stack.pop();
+    const d = id && document.getElementById(id);
+    if (!d || !d.open) return;
+    if (d.id === 'dlgEditor' && editorDirty()) {
+      hist.stack.push(id);
+      history.pushState({ dlg: id }, '', location.href);
+      requestClose(d);
+      return;
+    }
+    d.dataset.popClose = '1';
+    d.close();
+  });
+  $$('dialog').forEach((d) => {
+    d.addEventListener('close', () => {
+      if (d.dataset.popClose) { delete d.dataset.popClose; return; }
+      const i = hist.stack.lastIndexOf(d.id);
+      if (i < 0) return;
+      hist.stack.splice(i, 1);
+      hist.pendingBack++;
+      history.back();
+    });
+  });
   $$('dialog').forEach((d) => {
     d.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) { requestClose(d); return; }
@@ -824,7 +886,7 @@
     Object.assign(editor, { book: bookId, chapter: ch, dirty: false });
     editor.original = P.toEditorText(b.chapters.get(ch));
     $('#edText').value = editor.original;
-    $('#editorTitle').textContent = `തിരുത്തുക · ${b.name} ${ch}`;
+    $('#editorTitle').textContent = `${b.name} ${ch} · തിരുത്തുക`;
     $('#edRestore').hidden = !(b.base.has(ch) && b.changed.has(ch));
     setEditorView(matchMedia('(max-width: 800px)').matches ? 'text' : 'split');
     updateEditorPreview();
@@ -1125,6 +1187,7 @@ p{margin:0 0 .9em}
     else if (a === 'exportData') exportDataJs();
     else if (a === 'backup') exportBackup();
     else if (a === 'restore') $('#restoreInput').click();
+    else if (a === 'install') installApp();
     else if (a === 'reset') {
       const n = Object.values(overlay.books).reduce((s, b) => s + Object.keys(b.chapters || {}).length, 0);
       if (!n) { toast('തിരുത്തലുകൾ ഒന്നുമില്ല'); return; }
@@ -1198,7 +1261,40 @@ p{margin:0 0 .9em}
     go(books[0].id, books[0].nums[0]);
   }
 
+  // ---------- install as app + offline ----------
+  let installEvt = null;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installEvt = e;
+    $('#menuInstall').hidden = false;
+  });
+  window.addEventListener('appinstalled', () => {
+    installEvt = null;
+    $('#menuInstall').hidden = true;
+    toast('ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്തു — ഹോം സ്ക്രീനിൽ നോക്കുക');
+  });
+  if (isIOS && !isStandalone && /^https?:/.test(location.protocol)) $('#menuInstall').hidden = false;
+  async function installApp() {
+    if (installEvt) {
+      installEvt.prompt();
+      const choice = await installEvt.userChoice.catch(() => null);
+      if (choice && choice.outcome === 'accepted') $('#menuInstall').hidden = true;
+      installEvt = null;
+    } else if (isIOS) {
+      await confirmBox('ഹോം സ്ക്രീനിൽ ചേർക്കുക', 'Safari-യിൽ താഴെയുള്ള "Share" ബട്ടൺ (⬆︎) അമർത്തി "Add to Home Screen" തിരഞ്ഞെടുക്കുക.', 'ശരി');
+    } else {
+      toast('ബ്രൗസർ മെനുവിൽ (⋮) "Install app" / "Add to Home screen" തിരഞ്ഞെടുക്കുക', 5000);
+    }
+  }
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+
   // ---------- boot ----------
+  // a reload keeps the history entry of a dialog that was open; it isn't open any more
+  if (history.state && history.state.dlg) history.replaceState(null, '', location.href);
   buildLibrary();
   applySettings();
   updateCounts();
