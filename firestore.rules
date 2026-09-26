@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// Malayalam Bible — who may do what.
+//   anyone (no login)  : read the text (bundled text + shared edits)
+//   reader             : + keep their own highlights / bookmarks / notes in the cloud
+//   editor             : + edit chapters, upload PDFs, restore original text
+//   admin              : + delete chapters, reset all edits, manage users, roles and invites, see activity
+// The owner e-mail below is always admin (once its e-mail address is verified).
+// Keep this list in sync with APP_OWNERS in app/js/firebase-config.js.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function owners() { return ['sunilvalarian@gmail.com']; }
+    function roles() { return ['reader', 'editor', 'admin']; }
+
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function isOwner() { return verified() && myEmail() in owners(); }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function myRole() {
+      return signedIn() && exists(userPath()) ? get(userPath()).data.role : 'none';
+    }
+    function isAdmin() { return isOwner() || myRole() == 'admin'; }
+    function isEditor() { return isAdmin() || myRole() == 'editor'; }
+    function invitePath() { return /databases/$(database)/documents/invites/$(myEmail()); }
+    function invitedAs(role) {
+      return verified() && exists(invitePath()) && get(invitePath()).data.role == role;
+    }
+
+    // Chapters bundled with the app (app/js/data.js). hasBase must match this, so an editor
+    // can't mark an uploaded chapter as "bundled" to get delete rights. Update when data.js
+    // gains books (e.g. `|| (b == 'EXO' && c >= 1 && c <= 40)`).
+    function isBundled(b, c) { return b == 'GEN' && c >= 1 && c <= 50; }
+
+    // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
+    match /chapters/{id} {
+      allow read: if true;
+
+      function validChapter() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['book', 'chapter', 'items', 'deleted', 'bookName', 'hasBase', 'updatedAt', 'updatedBy'])
+          && d.book is string && d.book.size() > 0 && d.book.size() <= 20
+          && d.chapter is int && d.chapter > 0 && d.chapter <= 200
+          && id == d.book + '_' + string(d.chapter)
+          && d.items is list && d.items.size() <= 3000
+          && d.deleted is bool
+          // a chapter must have content unless it is being hidden (admin-only, below)
+          && (d.deleted == true || d.items.size() > 0)
+          && d.hasBase == isBundled(d.book, d.chapter)
+          && (d.bookName == null || (d.bookName is string && d.bookName.size() <= 60))
+          && d.updatedBy == myEmail()
+          && d.updatedAt == request.time;
+      }
+
+      // editors write content; hiding a chapter (deleted = true) is admin-only
+      allow create: if isEditor() && validChapter()
+        && (request.resource.data.deleted == false || isAdmin());
+      allow update: if isEditor() && validChapter()
+        && (request.resource.data.deleted == false || isAdmin());
+      // removing an override: editors may only "restore original" of a bundled chapter;
+      // removing an uploaded chapter entirely is admin-only
+      allow delete: if isAdmin() || (isEditor() && resource.data.hasBase == true);
+    }
+
+    // ---- user profiles + roles ----
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+
+      function profileOk() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['email', 'name', 'role', 'createdAt', 'lastLogin'])
+          && d.email == myEmail() && d.role in roles()
+          && d.name is string && d.name.size() <= 100;
+      }
+      // first sign-in: start as reader, or as the role an admin invited this e-mail for
+      allow create: if signedIn() && request.auth.uid == uid && profileOk()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastLogin == request.time
+        && (request.resource.data.role == 'reader'
+            || (request.resource.data.role == 'admin' && isOwner())
+            || invitedAs(request.resource.data.role));
+
+      // the user may update their own name / last login, and take up an invite
+      allow update: if signedIn() && request.auth.uid == uid && profileOk()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (request.resource.data.lastLogin == request.time || request.resource.data.lastLogin == resource.data.lastLogin)
+        && (request.resource.data.role == resource.data.role
+            || invitedAs(request.resource.data.role)
+            || (request.resource.data.role == 'admin' && isOwner()));
+
+      // admins change roles; an owner can never be demoted
+      allow update: if isAdmin() && request.auth.uid != uid
+        && request.resource.data.role in roles()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && !(resource.data.email in owners());
+      allow delete: if isAdmin() && request.auth.uid != uid && !(resource.data.email in owners());
+    }
+
+    // ---- invitations: admin pre-assigns a role to an e-mail (id = lower-case e-mail) ----
+    match /invites/{email} {
+      allow read: if isAdmin() || (verified() && email == myEmail());
+      allow create, update: if isAdmin()
+        && email == email.lower()
+        && request.resource.data.keys().hasOnly(['role', 'by', 'at'])
+        && request.resource.data.role in ['editor', 'admin']
+        && request.resource.data.by == myEmail();
+      // the invited person removes it once claimed, so it can't re-apply after a demotion
+      allow delete: if isAdmin() || (verified() && email == myEmail());
+    }
+
+    // ---- personal highlights / bookmarks / notes ----
+    match /userdata/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- activity log ----
+    match /changes/{id} {
+      allow read: if isAdmin();
+      allow create: if isEditor()
+        && request.resource.data.keys().hasOnly(['action', 'book', 'chapter', 'by', 'at'])
+        && request.resource.data.by == myEmail()
+        && request.resource.data.at == request.time;
+    }
+  }
+}

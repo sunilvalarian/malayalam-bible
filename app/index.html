@@ -21,7 +21,7 @@
 <title>മലയാളം ബൈബിൾ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gayathri:wght@400;700&family=Manjari:wght@400;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Serif+Malayalam:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gayathri:wght@400;700&family=Manjari:wght@400;700&family=Noto+Sans+Malayalam:wght@400;600;700;800&family=Noto+Serif+Malayalam:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -48,6 +48,10 @@
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
     <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
   </defs>
 </svg>
@@ -91,7 +95,7 @@
     <button data-act="share"><svg><use href="#i-share"/></svg><span>പങ്കിടുക</span></button>
     <button data-act="bookmark"><svg><use href="#i-bookmark"/></svg><span>ബുക്ക്മാർക്ക്</span></button>
     <button data-act="note"><svg><use href="#i-note"/></svg><span>കുറിപ്പ്</span></button>
-    <button data-act="edit"><svg><use href="#i-edit"/></svg><span>തിരുത്തുക</span></button>
+    <button data-act="edit" data-perm="edit"><svg><use href="#i-edit"/></svg><span>തിരുത്തുക</span></button>
   </div>
 </div>
 
@@ -101,6 +105,7 @@
     <div class="brand"><svg><use href="#i-book"/></svg><div><strong>മലയാളം ബൈബിൾ</strong><small id="libStats"></small></div></div>
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
   </div>
+  <div class="account" id="accountCard"></div>
   <nav class="menu">
     <button data-menu="install" id="menuInstall" class="install" hidden><svg><use href="#i-download"/></svg><span class="m-text">ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യുക<small>ഹോം സ്ക്രീനിൽ ചേർക്കാം, ഓഫ്‌ലൈനിലും വായിക്കാം</small></span></button>
     <div class="menu-label">എന്റെ ലൈബ്രറി</div>
@@ -109,14 +114,15 @@
     <button data-menu="notes"><svg><use href="#i-note"/></svg>കുറിപ്പുകൾ <span class="count" id="cntNotes"></span></button>
     <button data-menu="history"><svg><use href="#i-history"/></svg>വായനാ ചരിത്രം</button>
     <div class="menu-label">ഉള്ളടക്കം</div>
-    <button data-menu="upload"><svg><use href="#i-upload"/></svg>PDF അപ്‌ലോഡ് ചെയ്യുക</button>
-    <button data-menu="edit"><svg><use href="#i-edit"/></svg>ഈ അധ്യായം തിരുത്തുക</button>
+    <button data-menu="upload" data-perm="upload"><svg><use href="#i-upload"/></svg>PDF അപ്‌ലോഡ് ചെയ്യുക</button>
+    <button data-menu="edit" data-perm="edit"><svg><use href="#i-edit"/></svg>ഈ അധ്യായം തിരുത്തുക</button>
     <button data-menu="exportHtml"><svg><use href="#i-file"/></svg>പുസ്തകം HTML ആയി ഡൗൺലോഡ്</button>
+    <button data-menu="admin" data-perm="users"><svg><use href="#i-users"/></svg><span class="m-text">ഉപയോക്താക്കളും അനുമതികളും<small>റോളുകൾ, ക്ഷണങ്ങൾ, മാറ്റങ്ങളുടെ ചരിത്രം</small></span></button>
     <div class="menu-label">ഡാറ്റ</div>
-    <button data-menu="exportData"><svg><use href="#i-download"/></svg><span class="m-text">data.js എക്സ്പോർട്ട്<small>തിരുത്തലുകൾ സ്ഥിരമായി സൂക്ഷിക്കാൻ</small></span></button>
+    <button data-menu="exportData" data-perm="export"><svg><use href="#i-download"/></svg><span class="m-text">data.js എക്സ്പോർട്ട്<small>തിരുത്തലുകൾ സ്ഥിരമായി സൂക്ഷിക്കാൻ</small></span></button>
     <button data-menu="backup"><svg><use href="#i-download"/></svg>ബാക്കപ്പ് ഡൗൺലോഡ് (.json)</button>
     <button data-menu="restore"><svg><use href="#i-upload"/></svg>ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക</button>
-    <button data-menu="reset" class="danger"><svg><use href="#i-reset"/></svg>തിരുത്തലുകൾ എല്ലാം മായ്ക്കുക</button>
+    <button data-menu="reset" data-perm="reset" class="danger"><svg><use href="#i-reset"/></svg>തിരുത്തലുകൾ എല്ലാം മായ്ക്കുക</button>
   </nav>
   <input type="file" id="restoreInput" accept=".json,application/json" hidden>
 </dialog>
@@ -131,6 +137,12 @@
     </div>
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
   </div>
+  <form class="combo" id="comboForm" autocomplete="off">
+    <label class="cb-book"><span>പുസ്തകം</span><select id="cbBook"></select></label>
+    <label class="cb-ch"><span>അധ്യായം</span><select id="cbChapter"></select></label>
+    <label class="cb-v"><span>വാക്യം</span><select id="cbVerse"></select></label>
+    <button class="btn primary cb-go" type="submit">പോകുക</button>
+  </form>
   <form class="goto" id="gotoForm" autocomplete="off">
     <input id="gotoInput" type="text" inputmode="text" placeholder="നേരിട്ട് പോകുക: 3:15 / ഉത്പ 12:1" aria-label="റഫറൻസ്">
     <button class="btn primary" type="submit">പോകുക</button>
@@ -238,7 +250,7 @@
     <textarea id="verseEditText" rows="7"></textarea>
     <p class="hint">പുതിയ വരി = പുതിയ ഖണ്ഡിക. മുഴുവൻ അധ്യായത്തിനും ‘അധ്യായം തിരുത്തുക’ ഉപയോഗിക്കുക.</p>
     <div class="modal-actions">
-      <button type="button" class="btn ghost" id="verseEditFull">അധ്യായം തിരുത്തുക</button>
+      <button type="button" class="btn ghost" id="verseEditFull" data-perm="edit">അധ്യായം തിരുത്തുക</button>
       <span class="spacer"></span>
       <button value="cancel" class="btn">റദ്ദാക്കുക</button>
       <button value="save" class="btn primary">സേവ്</button>
@@ -252,8 +264,8 @@
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
     <h2 id="editorTitle">തിരുത്തുക</h2>
     <span class="spacer"></span>
-    <button class="btn ghost" id="edRestore" title="PDF-ൽ നിന്നുള്ള യഥാർത്ഥ പാഠം"><svg><use href="#i-reset"/></svg><span>യഥാർത്ഥം</span></button>
-    <button class="btn danger ghost" id="edDelete" title="ഈ അധ്യായം നീക്കുക"><svg><use href="#i-trash"/></svg><span>നീക്കുക</span></button>
+    <button class="btn ghost" id="edRestore" data-perm="restore" title="PDF-ൽ നിന്നുള്ള യഥാർത്ഥ പാഠം"><svg><use href="#i-reset"/></svg><span>യഥാർത്ഥം</span></button>
+    <button class="btn danger ghost" id="edDelete" data-perm="delete" title="ഈ അധ്യായം നീക്കുക"><svg><use href="#i-trash"/></svg><span>നീക്കുക</span></button>
     <button class="btn primary" id="edSave"><svg><use href="#i-check"/></svg><span>സേവ്</span></button>
   </div>
   <div class="ed-toolbar">
@@ -297,6 +309,46 @@
   </div>
 </dialog>
 
+<!-- login -->
+<dialog class="modal" id="dlgLogin" aria-label="ലോഗിൻ">
+  <form id="loginForm" novalidate>
+    <div class="login-head">
+      <h2 id="loginTitle">ലോഗിൻ</h2>
+      <button type="button" class="icon-btn sm" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+    </div>
+    <div class="tabs login-tabs" role="tablist">
+      <button type="button" role="tab" data-login-tab="signin" aria-selected="true">ലോഗിൻ</button>
+      <button type="button" role="tab" data-login-tab="signup" aria-selected="false">പുതിയ അക്കൗണ്ട്</button>
+    </div>
+    <button type="button" class="btn google-btn" id="btnGoogle">
+      <svg viewBox="0 0 24 24" aria-hidden="true" style="stroke:none"><path fill="#4285F4" d="M22.5 12.3c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.3-4.7 3.3-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.2-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.7 1.1-2.9 0-5.3-1.9-6.2-4.5H2.2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.8 14.2a6.6 6.6 0 0 1 0-4.3V7.1H2.2a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1A11 11 0 0 0 2.2 7.1l3.6 2.8C6.7 7.3 9.1 5.4 12 5.4z"/></svg>
+      <span>Google ഉപയോഗിച്ച് തുടരുക</span>
+    </button>
+    <div class="or"><span>അല്ലെങ്കിൽ ഇമെയിൽ</span></div>
+    <label class="field" id="fieldName" hidden>പേര്<input type="text" id="loginName" autocomplete="name" maxlength="100"></label>
+    <label class="field">ഇമെയിൽ<input type="email" id="loginEmail" autocomplete="email" inputmode="email" required></label>
+    <label class="field">പാസ്‌വേഡ്<input type="password" id="loginPassword" autocomplete="current-password" minlength="6" required></label>
+    <p class="form-error" id="loginError" role="alert" hidden></p>
+    <button type="submit" class="btn primary block" id="loginSubmit">ലോഗിൻ</button>
+    <button type="button" class="linkish" id="btnForgot">പാസ്‌വേഡ് മറന്നോ?</button>
+    <p class="hint">ലോഗിൻ ചെയ്താൽ നിങ്ങളുടെ ഹൈലൈറ്റുകളും കുറിപ്പുകളും എല്ലാ ഉപകരണങ്ങളിലും ലഭിക്കും. തിരുത്താനുള്ള അനുമതി അഡ്മിൻ നൽകും.</p>
+  </form>
+</dialog>
+
+<!-- users & permissions (admin) -->
+<dialog class="sheet" id="dlgAdmin" aria-label="ഉപയോക്താക്കളും അനുമതികളും">
+  <div class="sheet-head">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-admin="users">ഉപയോക്താക്കൾ</button>
+      <button role="tab" data-admin="invites">ക്ഷണങ്ങൾ</button>
+      <button role="tab" data-admin="activity">ചരിത്രം</button>
+      <button role="tab" data-admin="roles">അനുമതികൾ</button>
+    </div>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="sheet-body" id="adminBody"></div>
+</dialog>
+
 <!-- confirm -->
 <dialog class="modal" id="dlgConfirm">
   <form method="dialog">
@@ -316,6 +368,8 @@
 <script src="js/data.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/pdf-extract.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
