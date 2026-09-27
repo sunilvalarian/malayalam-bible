@@ -1,8 +1,8 @@
-﻿/* Offline support: the app shell and Bible text are cached on first visit.
+/* Offline support: the app shell and Bible text are cached on first visit.
  * Same-origin files use stale-while-revalidate, so after a `git push` the new
  * version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes. */
-const VERSION = 'v10';
+const VERSION = 'v11';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const SHELL = [
