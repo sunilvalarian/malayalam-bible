@@ -196,6 +196,19 @@
     LINK_PARAMS.forEach((p) => u.searchParams.delete(p));
     return u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash;
   };
+  // this page's address (no hash, no query except ?emulator): where the links in Firebase's e-mails lead back to
+  const returnUrl = () => {
+    const u = new URL(location.href);
+    u.hash = '';
+    [...u.searchParams.keys()].forEach((k) => { if (k !== 'emulator') u.searchParams.delete(k); });
+    return u.href;
+  };
+  // verification / password-reset e-mails: add a "continue" link back to this page; if the domain isn't
+  // an authorized domain in Firebase, send the e-mail without it rather than not at all
+  const withReturn = (send) => send({ url: returnUrl() }).catch((e) => {
+    if (/continue-uri|unauthorized-domain/.test((e && e.code) || '')) return send(undefined);
+    throw e;
+  });
 
   const Cloud = {
     available: configured && /^https?:/.test(location.protocol),
@@ -209,6 +222,9 @@
     PROVIDERS,
     PROVIDER_IDS,
     LocalOwner,
+    // the address Firebase sends its e-mails from (for "look in Spam for …" hints)
+    mailSender: config && config.authDomain ? 'noreply@' + config.authDomain : '',
+    verificationError: null,
     pendingLink: null,   // { email, providerId, methods } while an account-exists conflict waits for sign-in
     _listeners: [],
     on(fn) { this._listeners.push(fn); },
@@ -253,6 +269,8 @@
         );
       }
       auth.onAuthStateChanged((u) => this._onAuth(u));
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this._checkVerified(); });
+      window.addEventListener('focus', () => this._checkVerified());
       this.ready = true;
       this._emit('ready');
       // opened from a sign-in link in an e-mail
@@ -388,7 +406,9 @@
       let cred;
       try { cred = await auth.createUserWithEmailAndPassword(email.trim(), password); } catch (e) { this._method = ''; throw e; }
       if (this._pendingName) await cred.user.updateProfile({ displayName: this._pendingName }).catch(() => {});
-      await cred.user.sendEmailVerification().catch(() => {});
+      // the account exists either way; remember a failed verification e-mail so the login screen can say so
+      this.verificationError = null;
+      await withReturn((a) => cred.user.sendEmailVerification(a)).catch((e) => { this.verificationError = e; });
       if (this.user && this.user.uid === cred.user.uid && !this.user.name && this._pendingName) {
         this.user.name = this._pendingName;
         this._emit('role', this.role);
@@ -399,10 +419,7 @@
     // passwordless: e-mail a sign-in link that comes back to this page
     async sendEmailLink(email, name) {
       email = email.trim();
-      const u = new URL(location.href);
-      u.hash = '';
-      [...u.searchParams.keys()].forEach((k) => { if (k !== 'emulator') u.searchParams.delete(k); });
-      await auth.sendSignInLinkToEmail(email, { url: u.href, handleCodeInApp: true });
+      await auth.sendSignInLinkToEmail(email, { url: returnUrl(), handleCodeInApp: true });
       ls.set('mlb.emailForSignIn', { email, name: (name || '').trim(), t: Date.now() });
     },
     async completeEmailLink(email) {
@@ -515,8 +532,26 @@
       this.cancelPendingLink();
     },
 
-    resetPassword(email) { return auth.sendPasswordResetEmail(email.trim()); },
-    resendVerification() { return auth.currentUser ? auth.currentUser.sendEmailVerification() : Promise.resolve(); },
+    resetPassword(email) { return withReturn((a) => auth.sendPasswordResetEmail(email.trim(), a)); },
+    resendVerification() { return auth.currentUser ? withReturn((a) => auth.currentUser.sendEmailVerification(a)) : Promise.resolve(); },
+    // an e-mail + password account that isn't verified yet: when the user comes back to this tab (after
+    // opening the link in the verification e-mail elsewhere), check again, so the role applies without
+    // pressing anything
+    async _checkVerified() {
+      const u = auth && auth.currentUser;
+      if (!u || u.emailVerified || !u.email || this._verifyCheck || Date.now() - (this._verifyCheckAt || 0) < 5000) return;
+      this._verifyCheck = true;
+      this._verifyCheckAt = Date.now();
+      try {
+        await u.reload();
+        if (auth.currentUser === u && u.emailVerified) {
+          await u.getIdToken(true);
+          await this._onAuth(u);
+          this._emit('verified', this.user);
+        }
+      } catch (e) { /* offline: try again next time */ }
+      this._verifyCheck = false;
+    },
     // after the user clicks the link in the verification e-mail
     async refreshUser() {
       if (!auth.currentUser) return;

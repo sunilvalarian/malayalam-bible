@@ -77,7 +77,7 @@
   // ---------- which screen ----------
   let authKnown = !cloudMode;
   let current = null;           // current section id
-  AuthUI.configure({ dismissible: false, notify: (m) => toast(m, 4500) });
+  AuthUI.configure({ dismissible: false, notify: (m, ms) => toast(m, ms || 4500) });
   $('#authBack').href = readerUrl;
 
   function showOnly(which) {

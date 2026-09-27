@@ -1265,7 +1265,7 @@ p{margin:0 0 .9em}
     if (a === 'lock') { LocalOwner.lock(); toast('ലോക്ക് ചെയ്തു'); return; }
     if (a === 'addPasskey') { addPasskey(); return; }
     if (a === 'admin') { openAdminPortal(); return; }
-    if (a === 'verifyResend') { try { await Cloud.resendVerification(); toast('സ്ഥിരീകരണ ലിങ്ക് അയച്ചു — ഇമെയിൽ നോക്കുക', 5000); } catch (err) { toast(authMessage(err)); } return; }
+    if (a === 'verifyResend') { try { await Cloud.resendVerification(); toast('സ്ഥിരീകരണ ലിങ്ക് അയച്ചു. ' + (AuthUI ? AuthUI.mailHint() : 'ഇമെയിൽ നോക്കുക'), 10000); } catch (err) { toast(authMessage(err), 7000); } return; }
     if (a === 'verifyCheck') {
       await Cloud.refreshUser().catch(() => {});
       toast(Cloud.user && Cloud.user.verified ? 'ഇമെയിൽ സ്ഥിരീകരിച്ചു' : 'ഇതുവരെ സ്ഥിരീകരിച്ചിട്ടില്ല — ഇമെയിലിലെ ലിങ്ക് തുറക്കുക', 4000);
@@ -1440,7 +1440,7 @@ p{margin:0 0 .9em}
         <span class="role-badge role-${esc(Cloud.role)}">${ROLE_LABEL[Cloud.role] || ''}</span>
       </div>
       ${Cloud.blocked ? '<div class="acct-blocked">ഈ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു — വായിക്കാം, പക്ഷേ തിരുത്താനോ സിങ്ക് ചെയ്യാനോ കഴിയില്ല.</div>' : ''}
-      ${unverified ? `<div class="acct-verify">ഇമെയിൽ സ്ഥിരീകരിച്ചിട്ടില്ല. ക്ഷണിച്ച റോൾ ലഭിക്കാൻ ഇമെയിലിലെ ലിങ്ക് തുറക്കുക.
+      ${unverified ? `<div class="acct-verify">ഇമെയിൽ സ്ഥിരീകരിച്ചിട്ടില്ല. ക്ഷണിച്ച റോൾ ലഭിക്കാൻ ഇമെയിലിലെ ലിങ്ക് തുറക്കുക.${AuthUI ? ` <small>${esc(AuthUI.mailHint())}</small>` : ''}
         <div><button class="btn sm" data-menu="verifyResend">ലിങ്ക് വീണ്ടും അയയ്ക്കുക</button> <button class="btn sm" data-menu="verifyCheck">സ്ഥിരീകരിച്ചു</button></div></div>` : ''}
       <div class="acct-actions">
         <button class="btn ghost sm acct-logout" data-menu="logout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>
@@ -1449,7 +1449,7 @@ p{margin:0 0 .9em}
   }
 
   // ---- login screen (js/auth-ui.js, shared with the admin portal) ----
-  if (AuthUI) AuthUI.configure({ show: (d) => openDialog(d), notify: (msg) => toast(msg, 4500) });
+  if (AuthUI) AuthUI.configure({ show: (d) => openDialog(d), notify: (msg, ms) => toast(msg, ms || 4500) });
   function openLogin(mode) {
     if (!AuthUI) return;
     AuthUI.open({ mode: mode || 'signin' });
@@ -1677,6 +1677,7 @@ p{margin:0 0 .9em}
       if (type === 'chapters') onCloudChapters(data);
       else if (type === 'auth') onAuthChanged();
       else if (type === 'role') onRoleChanged();
+      else if (type === 'verified') toast('ഇമെയിൽ സ്ഥിരീകരിച്ചു', 4000);
       else if (type === 'userdata') applyCloudUserData(data);
       else if (type === 'error') cloudError(data);
     });

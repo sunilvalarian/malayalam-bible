@@ -25,6 +25,11 @@
   };
   const methodName = (id) => METHOD_NAME[id] || id || '';
 
+  // Firebase's own e-mails often land in Spam / Promotions: say where to look and who sends them
+  const SENDER = (Cloud && Cloud.mailSender) || '';
+  const mailHint = () => 'ഇൻബോക്സിൽ കാണുന്നില്ലെങ്കിൽ Spam / Promotions ഫോൾഡറുകൾ നോക്കുക' + (SENDER ? ` — അയയ്ക്കുന്നത് ${SENDER}` : '') + '. എത്താൻ ഒന്നുരണ്ട് മിനിറ്റ് എടുത്തേക്കാം.';
+  const isGmail = (email) => /@(gmail|googlemail)\.com$/i.test(email || '');
+
   function message(e) {
     const c = (e && e.code) || '';
     if (c === 'auth/account-exists-with-different-credential') {
@@ -47,6 +52,8 @@
       'auth/missing-email': 'ഇമെയിൽ വിലാസം നൽകുക',
       'auth/missing-password': 'പാസ്‌വേഡ് നൽകുക',
       'auth/too-many-requests': 'വളരെയധികം ശ്രമങ്ങൾ — കുറച്ച് കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക',
+      // Firebase's free plan caps the e-mails it sends per day (e-mail sign-in links: only 5 a day)
+      'auth/quota-exceeded': 'ഇന്ന് അയയ്ക്കാവുന്ന ഇമെയിലുകളുടെ പരിധി കഴിഞ്ഞു — Google ഉപയോഗിച്ച് ലോഗിൻ ചെയ്യുക, അല്ലെങ്കിൽ നാളെ വീണ്ടും ശ്രമിക്കുക',
       'auth/network-request-failed': 'നെറ്റ്‌വർക്ക് പ്രശ്നം — ഇന്റർനെറ്റ് പരിശോധിക്കുക',
       'auth/unauthorized-domain': 'ഈ വെബ്സൈറ്റ് Firebase-ൽ അനുവദിച്ചിട്ടില്ല (Authorized domains)',
       'auth/unauthorized-continue-uri': 'ഈ വെബ്സൈറ്റ് Firebase-ൽ അനുവദിച്ചിട്ടില്ല (Authorized domains)',
@@ -75,6 +82,8 @@
       'passkey/expired': 'സമയം കഴിഞ്ഞു — വീണ്ടും ശ്രമിക്കുക',
       'passkey/not-signed-in': 'ആദ്യം ലോഗിൻ ചെയ്യുക',
     };
+    // with e-mail enumeration protection an unknown address also gives "invalid credential"
+    if (/invalid-credential|invalid-login-credentials|wrong-password/.test(c) && state.mode === 'signin') return map[c] + ' — പുതിയ ആളാണെങ്കിൽ മുകളിലെ "രജിസ്റ്റർ ചെയ്യുക" തിരഞ്ഞെടുക്കുക';
     if (map[c]) return map[c];
     if (/^passkey\//.test(c)) return 'പാസ്‌കീ പരിശോധന പരാജയപ്പെട്ടു — വീണ്ടും ശ്രമിക്കുക';
     if (/unavailable|network/.test(c)) return map['auth/network-request-failed'];
@@ -130,7 +139,9 @@
 
   const state = {
     mode: 'signin',          // signin | signup
-    usePassword: !P.emailLink && !!P.password,
+    // e-mail + password first: Firebase's free plan sends only 5 e-mail sign-in links a day (for the whole
+    // site), but up to 1000 verification e-mails, so the link is the second choice
+    usePassword: !!P.password,
     confirmLink: false,      // opened from an e-mail sign-in link, asking for the address again
     dismissible: true,
     busy: false,
@@ -150,9 +161,10 @@
     el.hidden = !msg;
     if (msg) $('#loginInfo').hidden = true;
   }
-  function showInfo(msg) {
+  function showInfo(msg, hint) {
     const el = $('#loginInfo');
     el.textContent = msg || '';
+    if (msg && hint) { const h = document.createElement('small'); h.textContent = hint; el.append(h); }
     el.hidden = !msg;
     if (msg) $('#loginError').hidden = true;
   }
@@ -239,6 +251,7 @@
     el: dlg,
     message,
     methodName,
+    mailHint,
     configure(o) { Object.assign(hooks, o || {}); },
     get isOpen() { return dlg.open; },
     // opts: { mode: 'signin' | 'signup', dismissible: true, confirmLink: false }
@@ -311,14 +324,28 @@
           state.confirmLink = false;
         } else if (usePw && state.mode === 'signup') {
           await Cloud.signUp(name, email, pw);
-          hooks.notify('അക്കൗണ്ട് ഉണ്ടാക്കി — സ്ഥിരീകരണ ലിങ്ക് ഇമെയിലിൽ അയച്ചു');
+          const ve = Cloud.verificationError;
+          hooks.notify(ve
+            ? `അക്കൗണ്ട് ഉണ്ടാക്കി, പക്ഷേ സ്ഥിരീകരണ ഇമെയിൽ അയയ്ക്കാനായില്ല (${message(ve)}). ☰ → അക്കൗണ്ട് → "ലിങ്ക് വീണ്ടും അയയ്ക്കുക" പിന്നീട് ശ്രമിക്കുക.`
+            : `അക്കൗണ്ട് ഉണ്ടാക്കി — സ്ഥിരീകരണ ലിങ്ക് ${email}-ലേക്ക് അയച്ചു. ${mailHint()}`, 12000);
         } else if (usePw) {
           await Cloud.signIn(email, pw);
         } else {
           await Cloud.sendEmailLink(email, state.mode === 'signup' ? name : '');
-          showInfo(`ലിങ്ക് അയച്ചു, ഇമെയിൽ പരിശോധിക്കുക (${email}). ആ ലിങ്ക് ഈ ബ്രൗസറിൽ തുറന്നാൽ ലോഗിൻ ആകും.`);
+          showInfo(`ലിങ്ക് അയച്ചു, ഇമെയിൽ പരിശോധിക്കുക (${email}). ആ ലിങ്ക് ഈ ബ്രൗസറിൽ തുറന്നാൽ ലോഗിൻ ആകും.`, mailHint());
         }
-      } catch (err) { showError(message(err)); }
+      } catch (err) {
+        if (err && err.code === 'auth/quota-exceeded' && !usePw && !state.confirmLink) {
+          // the day's e-mail sign-in links are used up: offer the password form right here
+          const google = P.google ? (isGmail(email) ? 'Gmail വിലാസമായതിനാൽ ഏറ്റവും എളുപ്പം: "Google ഉപയോഗിച്ച് തുടരുക". അല്ലെങ്കിൽ ' : 'Google ഉപയോഗിച്ച് ലോഗിൻ ചെയ്യുക, അല്ലെങ്കിൽ ') : '';
+          const pwOk = !!P.password;
+          if (pwOk) state.usePassword = true;
+          showError(`ഇമെയിൽ ലിങ്കുകളുടെ ഇന്നത്തെ പരിധി കഴിഞ്ഞു (സൗജന്യ പ്ലാനിൽ ദിവസം 5 എണ്ണം മാത്രം). ${google}${pwOk ? (state.mode === 'signup' ? 'ഒരു പാസ്‌വേഡ് നൽകി അക്കൗണ്ട് ഉണ്ടാക്കുക.' : 'പാസ്‌വേഡ് ഉപയോഗിക്കുക — അക്കൗണ്ട് ഇല്ലെങ്കിൽ "രജിസ്റ്റർ ചെയ്യുക".') : 'നാളെ വീണ്ടും ശ്രമിക്കുക.'}`);
+          if (pwOk) setTimeout(() => { render(); $('#loginPassword').focus(); }, 0);
+          return;
+        }
+        showError(message(err));
+      }
     });
   });
 
@@ -326,7 +353,11 @@
     const email = $('#loginEmail').value.trim();
     if (!EMAIL_RE.test(email)) { showError('ആദ്യം ഇമെയിൽ നൽകുക'); $('#loginEmail').focus(); return; }
     busy(async () => {
-      try { await Cloud.resetPassword(email); showInfo('പാസ്‌വേഡ് മാറ്റാനുള്ള ലിങ്ക് ഇമെയിലിൽ അയച്ചു'); } catch (err) { showError(message(err)); }
+      try {
+        await Cloud.resetPassword(email);
+        // with e-mail enumeration protection Firebase answers the same whether or not the account exists
+        showInfo(`പാസ്‌വേഡ് മാറ്റാനുള്ള ലിങ്ക് ഇമെയിലിൽ അയച്ചു (${email}) — ഈ ഇമെയിലിൽ പാസ്‌വേഡ് അക്കൗണ്ട് ഉണ്ടെങ്കിൽ മാത്രം. ഇല്ലെങ്കിൽ "രജിസ്റ്റർ ചെയ്യുക".`, mailHint());
+      } catch (err) { showError(message(err)); }
     });
   });
 

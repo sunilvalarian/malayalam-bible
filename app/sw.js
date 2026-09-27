@@ -2,7 +2,7 @@
  * Same-origin files use stale-while-revalidate, so after a `git push` the new
  * version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes. */
-const VERSION = 'v12';
+const VERSION = 'v13';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const SHELL = [
