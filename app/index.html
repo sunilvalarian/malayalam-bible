@@ -139,16 +139,6 @@
     </div>
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
   </div>
-  <form class="combo" id="comboForm" autocomplete="off">
-    <label class="cb-book"><span>പുസ്തകം</span><select id="cbBook"></select></label>
-    <label class="cb-ch"><span>അധ്യായം</span><select id="cbChapter"></select></label>
-    <label class="cb-v"><span>വാക്യം</span><select id="cbVerse"></select></label>
-    <button class="btn primary cb-go" type="submit">പോകുക</button>
-  </form>
-  <form class="goto" id="gotoForm" autocomplete="off">
-    <input id="gotoInput" type="text" inputmode="text" placeholder="നേരിട്ട് പോകുക: 3:15 / ഉത്പ 12:1" aria-label="റഫറൻസ്">
-    <button class="btn primary" type="submit">പോകുക</button>
-  </form>
   <div class="sheet-body" id="pickerBody"></div>
 </dialog>
 
@@ -178,9 +168,9 @@
   <div class="set-row">
     <span>അക്ഷര വലിപ്പം</span>
     <div class="stepper">
-      <button class="btn" data-font="-1" aria-label="ചെറുതാക്കുക">A−</button>
+      <button class="btn" data-font="-2" aria-label="ചെറുതാക്കുക">A−</button>
       <output id="fontSizeOut">20</output>
-      <button class="btn" data-font="1" aria-label="വലുതാക്കുക">A+</button>
+      <button class="btn" data-font="2" aria-label="വലുതാക്കുക">A+</button>
     </div>
   </div>
   <div class="set-row">

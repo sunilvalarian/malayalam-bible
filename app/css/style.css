@@ -196,8 +196,6 @@ dialog[open] { animation: fade .16s ease-out; }
 .tabs button { border: 0; background: transparent; padding: 8px 12px; border-radius: 999px; font-weight: 600; color: var(--muted); white-space: nowrap; }
 .tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
 
-.goto { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.goto input { flex: 1; min-width: 0; }
 input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="password"], select, textarea {
   padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); min-height: 40px;
 }
@@ -358,16 +356,6 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 .grid button { font-weight: 800; font-size: 17px; }
 .result .r-ref, .ref-card .r-ref { font-weight: 800; }
 
-/* ---------- combined book / chapter / verse selector ---------- */
-.combo {
-  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end;
-  padding: 12px 14px 4px;
-}
-.combo label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); min-width: 0; }
-.combo select { width: 100%; font-weight: 700; font-size: 16px; color: var(--text); }
-.combo .cb-ch select, .combo .cb-v select { text-align: center; font-weight: 800; }
-.combo .cb-go { min-height: 40px; }
-.goto { padding-top: 8px; }
 
 /* ---------- account / login / admin ---------- */
 .account { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
@@ -545,11 +533,6 @@ body:has(dialog[open]) { overflow: hidden; }
   .set-row { min-height: 48px; }
   .stepper .btn { min-width: 52px; min-height: 44px; justify-content: center; }
   .seg button { min-height: 44px; }
-
-  /* book | chapter | verse on one row, the Go button full width below */
-  .combo { grid-template-columns: minmax(0, 1fr) 76px 76px; padding: 10px 14px 2px; }
-  .combo select { min-height: 44px; }
-  .combo .cb-go { grid-column: 1 / -1; min-height: 44px; justify-content: center; }
 
   /* search options on one line */
   .search-opts { gap: 8px 12px; padding: 8px 14px; }

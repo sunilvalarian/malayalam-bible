@@ -586,44 +586,14 @@
 
   // ---------- picker ----------
   const picker = { tab: 'chapters', book: null, chapter: null };
-  // combined book + chapter + verse selector at the top of the picker
-  function fillCombo(bookId, ch, v) {
-    const b = bookMap.get(bookId) || books[0];
-    if (!b) return;
-    $('#cbBook').innerHTML = books.map((x) => `<option value="${x.id}" ${x.id === b.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
-    const chapter = b.chapters.has(ch) ? ch : b.nums[0];
-    $('#cbChapter').innerHTML = b.nums.map((n) => `<option value="${n}" ${n === chapter ? 'selected' : ''}>${n}</option>`).join('');
-    const vs = [...P.verseMap(b.chapters.get(chapter)).keys()].sort((x, y) => x - y);
-    $('#cbVerse').innerHTML = '<option value="">—</option>' + vs.map((n) => `<option value="${n}" ${n === v ? 'selected' : ''}>${n}</option>`).join('');
-  }
   // navigation happens only once a verse is chosen: book → chapter → verse
   function pickVerse(bookId, ch, v) {
-    if (!v) { toast('വാക്യം തിരഞ്ഞെടുക്കുക'); return; }
     if (go(bookId, ch, { verse: v })) $('#dlgPicker').close();
   }
-  $('#cbBook').addEventListener('change', (e) => {
-    fillCombo(e.target.value, null, null);
-    picker.book = $('#cbBook').value; picker.chapter = +$('#cbChapter').value;
-    renderPicker('chapters');
-  });
-  $('#cbChapter').addEventListener('change', (e) => {
-    fillCombo($('#cbBook').value, +e.target.value, null);
-    picker.chapter = +$('#cbChapter').value;
-    renderPicker('verses');
-  });
-  $('#cbVerse').addEventListener('change', (e) => {
-    if (e.target.value) pickVerse($('#cbBook').value, +$('#cbChapter').value, +e.target.value);
-  });
-  $('#comboForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    pickVerse($('#cbBook').value, +$('#cbChapter').value, +$('#cbVerse').value || null);
-  });
 
   function openPicker(tab) {
     picker.book = cur.book;
     picker.chapter = cur.chapter;
-    fillCombo(cur.book, cur.chapter, null);
-    $('#gotoInput').value = '';
     openDialog($('#dlgPicker'));
     renderPicker(tab || 'chapters');
   }
@@ -663,17 +633,11 @@
     const t = e.target.closest('[data-tab]');
     if (t) { renderPicker(t.dataset.tab); return; }
     const bk = e.target.closest('[data-book]');
-    if (bk) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; fillCombo(picker.book, picker.chapter, null); renderPicker('chapters'); return; }
+    if (bk) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; renderPicker('chapters'); return; }
     const ch = e.target.closest('[data-ch]');
-    if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; fillCombo(picker.book, picker.chapter, null); renderPicker('verses'); return; }
+    if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; renderPicker('verses'); return; }
     const vs = e.target.closest('[data-verse]');
     if (vs && !vs.disabled) pickVerse(picker.book, picker.chapter, +vs.dataset.verse);
-  });
-  $('#gotoForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const r = parseRef($('#gotoInput').value);
-    if (r && goRef(r)) $('#dlgPicker').close();
-    else toast('റഫറൻസ് കണ്ടെത്താനായില്ല (ഉദാ: 3:15, ഉത്പ 12:1)');
   });
 
   // ---------- search ----------
@@ -840,6 +804,7 @@
   });
 
   // ---------- settings ----------
+  const FONT_MIN = 14, FONT_MAX = 60;   // reading text size range (px)
   function applySettings() {
     const root = document.documentElement;
     root.dataset.theme = settings.theme;
@@ -850,6 +815,9 @@
     reader.classList.toggle('hide-headings', !settings.headings);
     reader.classList.toggle('layout-verse', settings.layout === 'verse');
     $('#fontSizeOut').textContent = settings.fontSize;
+    $$('#dlgSettings button[data-font]').forEach((b) => {
+      b.disabled = +b.dataset.font < 0 ? settings.fontSize <= FONT_MIN : settings.fontSize >= FONT_MAX;
+    });
     $('#lineHeight').value = settings.lineHeight;
     $('#optNumbers').checked = settings.numbers;
     $('#optHeadings').checked = settings.headings;
@@ -863,7 +831,7 @@
   const changeSetting = (k, v) => { settings[k] = v; saveSettings(); applySettings(); };
   $('#dlgSettings').addEventListener('click', (e) => {
     const f = e.target.closest('button[data-font]');
-    if (f) changeSetting('fontSize', Math.min(34, Math.max(14, settings.fontSize + +f.dataset.font)));
+    if (f) changeSetting('fontSize', Math.min(FONT_MAX, Math.max(FONT_MIN, settings.fontSize + +f.dataset.font)));
     const seg = e.target.closest('.seg button');
     if (seg) {
       const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout' }[seg.parentElement.id];
@@ -1692,7 +1660,7 @@ p{margin:0 0 .9em}
     if (!b || !b.chapters.has(cur.chapter)) { if (!$('dialog[open]')) startAtFirst(); return; }
     const cur1 = JSON.stringify(b.chapters.get(cur.chapter));
     if (cur1 !== cur0 && !(editor.dirty && $('#dlgEditor').open)) rerenderKeep();
-    if ($('#dlgPicker').open) { renderPicker(picker.tab); fillCombo($('#cbBook').value, +$('#cbChapter').value, +$('#cbVerse').value || null); }
+    if ($('#dlgPicker').open) renderPicker(picker.tab);
   }
 
   if (cloudMode) {
