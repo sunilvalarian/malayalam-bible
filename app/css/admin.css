@@ -69,7 +69,11 @@ body.adm { min-height: 100vh; min-height: 100dvh; }
 .adm-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
 .adm-search svg { color: var(--muted); width: 20px; height: 20px; }
 .adm-search input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0; outline: none; min-height: 44px; }
-.adm-more { text-align: center; }
+.adm-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.adm-pager[hidden] { display: none; }
+.adm-pager .btn { min-height: 44px; }
+.adm-pager .btn:disabled { opacity: .45; cursor: default; }
+.adm-pager-info { color: var(--muted); font-size: 14px; text-align: center; }
 .adm-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--muted); vertical-align: middle; }
 .adm-pill { display: inline-block; font-size: 13px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .adm-pill.ok { background: color-mix(in srgb, #16a34a 16%, var(--surface)); color: #15803d; }

@@ -24,6 +24,7 @@
     ? { apiKey: 'demo-key', authDomain: 'demo-bible.firebaseapp.com', projectId: 'demo-bible' }
     : window.FIREBASE_CONFIG;
   const OWNERS = (window.APP_OWNERS || []).map((e) => e.toLowerCase());
+  const PRESET_EDITORS = (window.APP_EDITORS || []).map((e) => e.toLowerCase());
   const configured = !!(config && config.apiKey && config.projectId);
 
   const ss = {
@@ -338,11 +339,15 @@
       const consumeInvite = () => db.collection('invites').doc(email).delete().catch(() => {});
       // Create the profile in a transaction: when two tabs sign in at once, the second one
       // sees the first one's profile (instead of a second create that the rules reject).
-      const newRole = isOwner ? 'admin' : invited || 'reader';
+      // a preset editor starts as editor on first sign-in, unless invited for a higher role
+      const preset = u.emailVerified && PRESET_EDITORS.includes(email) ? 'editor' : null;
+      const newRole = isOwner ? 'admin'
+        : preset && !(invited && ROLE_RANK[invited] > ROLE_RANK[preset]) ? preset
+        : invited || 'reader';
       const existing = await db.runTransaction(async (tx) => {
         const s = await tx.get(ref);
         if (s.exists) return s.data();
-        tx.set(ref, { email, name: u.displayName || this._pendingName || '', role: newRole, provider, createdAt: ts(), lastLogin: ts() });
+        tx.set(ref, Object.assign({ email, name: u.displayName || this._pendingName || '', role: newRole, provider, createdAt: ts(), lastLogin: ts() }, preset ? { presetApplied: true } : {}));
         return null;
       });
       if (!existing) {
@@ -355,7 +360,12 @@
       if (isOwner && role !== 'admin') role = 'admin';
       else if (invited && ROLE_RANK[invited] > ROLE_RANK[role]) { role = invited; claimed = true; }
       else if (invited) await consumeInvite();   // invite no longer needed
+      // a preset editor whose profile was made before the e-mail was verified becomes editor now,
+      // once (presetApplied), so a later demotion by an admin sticks
+      const presetNow = preset && !data.presetApplied;
+      if (presetNow && role === 'reader') role = 'editor';
       const upd = { role, name: u.displayName || data.name || '', lastLogin: ts() };
+      if (presetNow) upd.presetApplied = true;
       if (fresh || !data.provider) upd.provider = provider;
       await ref.update(upd).catch(() => {});
       if (claimed) await consumeInvite();

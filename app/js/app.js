@@ -1317,6 +1317,15 @@ p{margin:0 0 .9em}
     else if (e.key === 'Escape' && selection.size) clearSelection();
   });
 
+  // no page zoom: iOS Safari ignores user-scalable=no, and desktop zooms on ctrl+wheel / ctrl +/-
+  const noZoom = (e) => e.preventDefault();
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach((t) => document.addEventListener(t, noZoom, { passive: false }));
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  document.addEventListener('wheel', (e) => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', '0'].includes(e.key)) e.preventDefault();
+  });
+
   // swipe left/right to change chapter
   let touch = null;
   $('#main').addEventListener('touchstart', (e) => {

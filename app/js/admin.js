@@ -329,29 +329,50 @@
         <select id="actAction" aria-label="പ്രവർത്തനം"><option value="">എല്ലാ പ്രവർത്തനങ്ങളും</option>${Object.keys(ACTION_LABEL).map((a) => `<option value="${a}">${ACTION_LABEL[a]}</option>`).join('')}</select>
       </div>
       <div id="actList">${spinner}</div>
-      <p class="adm-more"><button class="btn" id="actMore" hidden>കൂടുതൽ കാണിക്കുക</button></p>`;
+      <nav class="adm-pager" id="actPager" aria-label="പേജുകൾ" hidden>
+        <button class="btn" id="actPrev"><svg><use href="#i-left"/></svg>മുൻ പേജ്</button>
+        <span class="adm-pager-info" id="actInfo" aria-live="polite"></span>
+        <button class="btn" id="actNext">അടുത്ത പേജ്<svg><use href="#i-right"/></svg></button>
+      </nav>`;
     Cloud.listUsers().then((users) => {
       if (!still('activity')) return;
       $('#actBy').insertAdjacentHTML('beforeend', users.filter((u) => u.email).map((u) => `<option value="${esc(u.email)}">${esc(u.email)}</option>`).join(''));
     }).catch(() => {});
-    let cursor = null, items = [];
-    const load = async (more) => {
-      if (!more) { items = []; cursor = null; $('#actList').innerHTML = spinner; }
-      $('#actMore').disabled = true;
-      try {
-        const page = await Cloud.listChanges({ limit: 50, by: $('#actBy').value, action: $('#actAction').value, cursor: more ? cursor : null });
-        if (!still('activity')) return;
-        items = items.concat(page.items);
-        cursor = page.cursor;
-        $('#actList').innerHTML = activityTable(items);
-        $('#actMore').hidden = !cursor;
-      } catch (e) { if (still('activity')) $('#actList').innerHTML = failMsg(e); }
-      $('#actMore').disabled = false;
+    // cursors[i] is where page i starts (page 0 starts at the top); going back reuses a saved cursor
+    const PAGE = 50;
+    let cursors = [null], pageNo = 0, hasNext = false, seq = 0;
+    const setBusy = (busy) => {
+      $('#actPrev').disabled = busy || pageNo === 0;
+      $('#actNext').disabled = busy || !hasNext;
     };
-    $('#actBy').addEventListener('change', () => load(false));
-    $('#actAction').addEventListener('change', () => load(false));
-    $('#actMore').addEventListener('click', () => load(true));
-    load(false);
+    const load = async (to) => {
+      const my = ++seq;                          // a newer request (filter change, quick clicks) wins
+      setBusy(true);
+      $('#actList').innerHTML = spinner;
+      try {
+        const page = await Cloud.listChanges({ limit: PAGE, by: $('#actBy').value, action: $('#actAction').value, cursor: cursors[to] });
+        if (!still('activity') || my !== seq) return;
+        pageNo = to;
+        hasNext = !!page.cursor;
+        cursors = cursors.slice(0, to + 1);
+        if (page.cursor) cursors.push(page.cursor);
+        $('#actList').innerHTML = activityTable(page.items);
+        const from = to * PAGE + 1;
+        $('#actInfo').textContent = page.items.length ? `പേജ് ${to + 1} · ${from}–${from + page.items.length - 1}` : '';
+        $('#actPager').hidden = to === 0 && !hasNext;
+      } catch (e) {
+        if (!still('activity') || my !== seq) return;
+        $('#actList').innerHTML = failMsg(e);
+      }
+      setBusy(false);
+    };
+    const turn = (to) => { load(to).then(() => { if (still('activity')) $('#actList').scrollIntoView({ block: 'start' }); }); };
+    const restart = () => { cursors = [null]; pageNo = 0; hasNext = false; load(0); };
+    $('#actBy').addEventListener('change', restart);
+    $('#actAction').addEventListener('change', restart);
+    $('#actPrev').addEventListener('click', () => { if (pageNo > 0) turn(pageNo - 1); });
+    $('#actNext').addEventListener('click', () => { if (hasNext) turn(pageNo + 1); });
+    load(0);
   };
 
   // -- content: chapters that differ from the bundled text --

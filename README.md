@@ -43,6 +43,7 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 
 - New accounts start as **Reader**. **Blocked** (role `none`, set by an admin) = signed in, but nothing more than a visitor.
 - `sunilvalarian@gmail.com` is always **Admin** once its e-mail is verified (with any sign-in method). Change this in both `firestore.rules` and `app/js/firebase-config.js`.
+- `haiabel43@gmail.com` is a **preset editor**: it starts as **Editor** (edit chapters, upload PDFs) on its first sign-in, once its e-mail is verified. After that an admin can change the role in the portal and the change sticks. The list is `APP_EDITORS` in `app/js/firebase-config.js` and `presetEditors()` in `firestore.rules`; keep the two the same.
 - Edits by editors are saved to Firestore and show up live for everyone.
 
 ### Single sign-on login screen

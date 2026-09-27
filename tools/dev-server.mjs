@@ -68,7 +68,7 @@ http.createServer(async (req, res) => {
     if (p.endsWith('/')) p += 'index.html';
     else if (!path.extname(p)) p += '.html';          // Pages "pretty URLs": /admin → admin.html
     const file = path.join(APP, p);
-    if (!file.startsWith(APP)) { res.writeHead(403); res.end(); return; }
+    if (!file.startsWith(APP + path.sep)) { res.writeHead(403); res.end(); return; }
     const data = await fs.readFile(file);
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
