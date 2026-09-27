@@ -68,6 +68,8 @@ Without a Firebase config the app runs in **local mode**, and edits stay in that
 - **On a public web address**: read-only for everyone, and the login screen says that login hasn't been set up yet.
 
 ### One-time Firebase setup
+Already done for this site: Firebase project **`malayalam-bible-app`** (owner sunilvalarian@gmail.com), Firestore in `asia-south1` with `firestore.rules` deployed, web app config in `app/js/firebase-config.js`. To redeploy the rules after changing them: `firebase deploy --only firestore:rules` (the project is set in `.firebaserc`). Authentication providers must be switched on in the console (Google needs billing to do it by API).
+
 1. Go to https://console.firebase.google.com and create a project (Google Analytics can be off).
 2. **Build → Authentication → Get started**.
 3. **Authentication → Settings → Authorized domains**: add the site domain, e.g. `malayalam-bible.pages.dev` (also needed for e-mail links).
