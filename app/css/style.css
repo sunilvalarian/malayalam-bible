@@ -382,6 +382,17 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 .acct-blocked { font-size: 13px; background: color-mix(in srgb, var(--danger) 10%, var(--surface)); color: var(--danger); padding: 8px 10px; border-radius: 10px; }
 .role-badge.role-none { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); color: var(--danger); }
 .role-badge.role-local { background: var(--accent-soft); color: var(--accent); }
+
+/* access code dialog (auth-ui.js; reader + admin portal) */
+.redeem .hint { margin: 0; line-height: 1.6; }
+.redeem .modal-actions .spacer { display: none; }
+.redeem .modal-actions .btn { flex: 1 1 auto; justify-content: center; }
+input.code-input {
+  width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: 24px; font-weight: 700; letter-spacing: .12em;
+  text-align: center; text-transform: uppercase; padding: 12px; min-height: 52px;
+}
+input.code-input::placeholder { color: var(--muted); opacity: .5; font-weight: 400; }
+.redeem-msg { margin: 0; font-size: 14px; color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--surface)); padding: 8px 10px; border-radius: 10px; }
 .btn:disabled { opacity: .55; cursor: default; }
 
 /* ---------- login screen (auth-ui.js; shared by the reader and the admin portal) ---------- */

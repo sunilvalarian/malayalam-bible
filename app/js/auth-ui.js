@@ -81,11 +81,22 @@
       'passkey/blocked': 'ഈ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു',
       'passkey/expired': 'സമയം കഴിഞ്ഞു — വീണ്ടും ശ്രമിക്കുക',
       'passkey/not-signed-in': 'ആദ്യം ലോഗിൻ ചെയ്യുക',
+      // access codes (Cloud.redeemCode)
+      'code/not-signed-in': 'കോഡ് ഉപയോഗിക്കാൻ ആദ്യം ലോഗിൻ ചെയ്യുക',
+      'code/blocked': 'നിങ്ങളുടെ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു — കോഡ് ഉപയോഗിക്കാനാവില്ല',
+      'code/invalid': 'ഈ കോഡ് ശരിയല്ല — അക്ഷരങ്ങൾ പരിശോധിച്ച് വീണ്ടും നൽകുക',
+      'code/used': 'ഈ കോഡ് ഇതിനകം ഉപയോഗിച്ചു — ഓരോ കോഡും ഒരു തവണ മാത്രം. പുതിയ കോഡിന് അഡ്മിനെ ബന്ധപ്പെടുക',
+      'code/expired': 'ഈ കോഡിന്റെ കാലാവധി കഴിഞ്ഞു — പുതിയ കോഡിന് അഡ്മിനെ ബന്ധപ്പെടുക',
+      'code/revoked': 'ഈ കോഡ് അഡ്മിൻ റദ്ദാക്കി — പുതിയ കോഡിന് അഡ്മിനെ ബന്ധപ്പെടുക',
+      'code/has-role': 'നിങ്ങൾക്ക് ഇതിനകം ഈ റോൾ / ഉയർന്ന റോൾ ഉണ്ട് — കോഡ് ഉപയോഗിച്ചിട്ടില്ല',
+      'code/failed': 'കോഡ് ഉപയോഗിക്കാനായില്ല — വീണ്ടും ശ്രമിക്കുക',
     };
+    if (c === 'code/used' && e.usedByMe) return 'നിങ്ങൾ ഈ കോഡ് ഇതിനകം ഉപയോഗിച്ചു — ഓരോ കോഡും ഒരു തവണ മാത്രം';
     // with e-mail enumeration protection an unknown address also gives "invalid credential"
     if (/invalid-credential|invalid-login-credentials|wrong-password/.test(c) && state.mode === 'signin') return map[c] + ' — പുതിയ ആളാണെങ്കിൽ മുകളിലെ "രജിസ്റ്റർ ചെയ്യുക" തിരഞ്ഞെടുക്കുക';
     if (map[c]) return map[c];
     if (/^passkey\//.test(c)) return 'പാസ്‌കീ പരിശോധന പരാജയപ്പെട്ടു — വീണ്ടും ശ്രമിക്കുക';
+    if (/^code\//.test(c)) return map['code/failed'];
     if (/unavailable|network/.test(c)) return map['auth/network-request-failed'];
     return 'ലോഗിൻ പരാജയപ്പെട്ടു' + (c ? ` (${c})` : '');
   }
@@ -133,9 +144,38 @@
       <a class="auth-back" id="authBack" href="./" hidden>← വായനയിലേക്ക് മടങ്ങുക</a>
     </div>
   </div>
+</dialog>
+<dialog id="dlgRedeem" class="modal redeem" aria-labelledby="redeemTitle">
+  <form id="redeemForm" novalidate>
+    <h2 id="redeemTitle">ആക്സസ് കോഡ് നൽകുക</h2>
+    <p class="hint">അഡ്മിൻ തന്ന കോഡ് നൽകുക (ഉദാ. <b>K7QM-4XPA</b>; വലിയക്ഷരം / ചെറിയക്ഷരം, - ഇല്ലെങ്കിലും മതി). ശരിയാണെങ്കിൽ ഉടൻ എഡിറ്റർ അല്ലെങ്കിൽ അഡ്മിൻ റോൾ ലഭിക്കും. ഓരോ കോഡും ഒരു തവണ മാത്രം.</p>
+    <input type="text" id="redeemCode" class="code-input" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="24" placeholder="XXXX-XXXX" aria-label="ആക്സസ് കോഡ്">
+    <p class="redeem-msg" id="redeemError" role="alert" hidden></p>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="redeemCancel">റദ്ദാക്കുക</button>
+      <button type="submit" class="btn primary" id="redeemSubmit">കോഡ് ഉപയോഗിക്കുക</button>
+    </div>
+  </form>
 </dialog>`;
   document.body.insertAdjacentHTML('beforeend', html);
   const dlg = $('#dlgLogin');
+  const rdlg = $('#dlgRedeem');
+  const ROLE_NAME = { editor: 'എഡിറ്റർ', admin: 'അഡ്മിൻ' };
+  const CODE_LOGIN_INFO = 'ആക്സസ് കോഡ് ഉപയോഗിക്കാൻ ആദ്യം ലോഗിൻ ചെയ്യുക (പുതിയ ആളാണെങ്കിൽ "രജിസ്റ്റർ ചെയ്യുക"). ലോഗിൻ കഴിഞ്ഞാൽ കോഡ് സ്വയം പൂരിപ്പിക്കും — ഇമെയിൽ സ്ഥിരീകരണം ആവശ്യമില്ല.';
+  // a code from a ?code= link waits here while the user signs in (localStorage: an e-mail sign-in link
+  // opens in a new tab); it is dropped after 30 minutes
+  const pendingCode = {
+    get() {
+      try {
+        const p = JSON.parse(localStorage.getItem('mlb.pendingCode') || 'null');
+        if (p && Date.now() - (p.t || 0) < 30 * 60 * 1000) return typeof p.code === 'string' ? p.code : '';
+      } catch (e) { /* ignore */ }
+      return null;
+    },
+    set(code) { try { localStorage.setItem('mlb.pendingCode', JSON.stringify({ code: String(code || '').slice(0, 24), t: Date.now() })); } catch (e) { /* ignore */ } },
+    clear() { try { localStorage.removeItem('mlb.pendingCode'); } catch (e) { /* ignore */ } },
+  };
 
   const state = {
     mode: 'signin',          // signin | signup
@@ -278,6 +318,17 @@
     },
     close() { if (dlg.open) dlg.close(); },
     render,
+    // the "enter an access code" dialog (reader drawer, portal access-denied page, ?code= links)
+    openRedeem(prefill) {
+      if (!(Cloud && Cloud.available)) return;
+      if (!Cloud.user) { pendingCode.set(prefill || ''); AuthUI.open({ mode: 'signin', info: CODE_LOGIN_INFO }); return; }
+      showRedeemError('');
+      $('#redeemCode').value = prefill ? Cloud.fmtCode(Cloud.normCode(prefill)) : '';
+      redeemBusy(false);
+      if (!rdlg.open) hooks.show(rdlg);
+      setTimeout(() => { const el = $('#redeemCode'); if (el && !el.value) el.focus(); else $('#redeemSubmit').focus(); }, 80);
+    },
+    get redeemOpen() { return rdlg.open; },
   };
 
   // ---- events ----
@@ -389,12 +440,73 @@
     });
   });
 
+  // ---- access code dialog ----
+  function showRedeemError(msg) {
+    const el = $('#redeemError');
+    el.textContent = msg || '';
+    el.hidden = !msg;
+  }
+  function redeemBusy(on) {
+    $('#redeemSubmit').disabled = on;
+    $('#redeemCode').disabled = on;
+    $('#redeemSubmit').textContent = on ? 'പരിശോധിക്കുന്നു…' : 'കോഡ് ഉപയോഗിക്കുക';
+  }
+  $('#redeemCancel').addEventListener('click', () => rdlg.close());
+  $('#redeemCode').addEventListener('input', () => showRedeemError(''));
+  $('#redeemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if ($('#redeemSubmit').disabled) return;
+    const raw = $('#redeemCode').value;
+    const code = Cloud.normCode(raw);
+    if (!code) { showRedeemError('കോഡ് നൽകുക'); $('#redeemCode').focus(); return; }
+    if (!Cloud.CODE_RE.test(code)) { showRedeemError(message({ code: 'code/invalid' })); $('#redeemCode').select(); return; }
+    redeemBusy(true);
+    try {
+      const role = await Cloud.redeemCode(code);
+      redeemBusy(false);
+      if (rdlg.open) rdlg.close();
+      hooks.notify(`നിങ്ങൾ ഇപ്പോൾ ${ROLE_NAME[role] || role}`, 5000);
+    } catch (err) {
+      redeemBusy(false);
+      showRedeemError(message(err));
+    }
+  });
+
+  // ?code=XXXX-XXXX (the link an admin shares): take it out of the address bar at once, then open the
+  // dialog with it filled in — after signing in, if needed
+  (function () {
+    const u = new URL(location.href);
+    if (!u.searchParams.has('code')) return;
+    const code = u.searchParams.get('code') || '';
+    u.searchParams.delete('code');
+    history.replaceState(history.state, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash);
+    if (Cloud && Cloud.available) pendingCode.set(code);
+  })();
+  let authSettled = false;
+  function takePendingCode() {
+    const code = pendingCode.get();
+    if (code === null) return;
+    if (Cloud.user) {
+      pendingCode.clear();
+      // after the login screen has closed (the reader removes its history entry first)
+      setTimeout(() => AuthUI.openRedeem(code), 0);
+    } else if (!authSettled) {
+      authSettled = true;
+      if (!dlg.open) AuthUI.open({ mode: 'signin', info: CODE_LOGIN_INFO });
+      else showInfo(CODE_LOGIN_INFO);
+    }
+  }
+
   if (Cloud) {
     Cloud.on((type, data) => {
       if (type === 'ready') render();
       else if (type === 'auth' && data) {
         state.confirmLink = false;
         if (dlg.open) AuthUI.close();
+        takePendingCode();
+      } else if (type === 'auth') {
+        if (rdlg.open) rdlg.close();
+        takePendingCode();
       } else if (type === 'authError') {
         if (data && data.code === 'auth/popup-closed-by-user') return;
         AuthUI.open({ error: data, dismissible: dlg.open ? state.dismissible : undefined });

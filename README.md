@@ -9,6 +9,7 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
 - **Tap a verse**: highlight (5 colours), copy, share, bookmark, note, edit. Lists are under ☰ → My library.
 - **Aa**: font size, line spacing, 4 Malayalam fonts, Light / Sepia / Dark / Auto themes, paragraph or verse-per-line layout.
 - **Editing**: ☰ → *ഈ അധ്യായം തിരുത്തുക* opens a side-by-side editor with live preview. Format: `[5]` starts verse 5, `## text` is a heading, each line is a paragraph. The editor warns about missing or out-of-order verse numbers. *യഥാർത്ഥം* restores the original PDF text.
+- **Access codes and open editing**: an admin can hand out one-time codes that make someone an editor or admin, and can open PDF upload / chapter editing to everyone who is signed in (see [Login and permissions](#login-and-permissions)).
 - **PDF upload**: ☰ → *PDF അപ്‌ലോഡ്*. Drop one or more PDFs. The book and chapter number are detected (from the file name or an `അധ്യായം N` header) and can be changed. Preview, then save. The chapter becomes part of the reader, and ☰ → *HTML ആയി ഡൗൺലോഡ്* exports a whole book as a single HTML file.
 
 ## Hosting
@@ -36,10 +37,15 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 |---|:-:|:-:|:-:|:-:|:-:|
 | Read, search, highlights / notes in this browser | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Own highlights / bookmarks / notes synced across devices | | | ✓ | ✓ | ✓ |
-| Edit verses and chapters, upload PDFs, restore original text | | | | ✓ | ✓ |
+| Edit verses and chapters | | | ✓* | ✓ | ✓ |
+| Upload PDFs | | | ✓* | ✓ | ✓ |
+| Restore original text (remove an edit) | | | | ✓ | ✓ |
 | Download data.js, backup (.json), book as HTML; restore a backup | | | | ✓ | ✓ |
 | Delete chapters, reset all edits | | | | | ✓ |
-| Administrator portal: users, roles, invites, activity, content, passkeys | | | | | ✓ |
+| Enter an access code (become Editor / Admin) | | | ✓ | ✓ | |
+| Administrator portal: users, roles, invites, access codes, settings, activity, content, passkeys | | | | | ✓ |
+
+\* only while an admin has ticked it in the portal → **ക്രമീകരണങ്ങൾ** (see [Open to everyone](#open-to-everyone-settings)).
 
 - New accounts start as **Reader**. **Blocked** (role `none`, set by an admin) = signed in, but nothing more than a visitor.
 - `sunilvalarian@gmail.com` is always **Admin** once its e-mail is verified (with any sign-in method). Change this in both `firestore.rules` and `app/js/firebase-config.js`.
@@ -58,9 +64,30 @@ If an e-mail already has an account with another method (e.g. Google, then GitHu
 Hide a method by setting it to `false` in `window.AUTH_PROVIDERS` in `app/js/firebase-config.js`.
 
 ### Administrator portal
-☰ → **അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ** (or open `/admin`). Admins only; others see an access-denied page. Sections: dashboard (counts + last activity), users (search, change role, block), invites, the role × permission table, activity log (filter by user / action), content (chapters edited online — revert one to the original text), passkeys (revoke), and login methods (what is switched on, and whether the passkey server answers).
+☰ → **അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ** (or open `/admin`). Admins only; others see an access-denied page (where they can also enter an access code). Sections: dashboard (counts + last activity), users (search, change role, block), invites, access codes, the role × permission table, settings (open upload / editing to everyone), activity log (filter by user / action), content (chapters edited online — revert one to the original text), passkeys (revoke), and login methods (what is switched on, and whether the passkey server answers).
 
 An admin can invite an e-mail as Editor/Admin before the person signs up; the role applies once they sign in with that e-mail (verified). An admin can't change their own role or the owner's.
+
+The dashboard also shows how many access codes are still usable and what is open to everyone.
+
+### Access codes
+Invites need a verified e-mail, and on the free plan Firebase sends only 5 e-mail sign-in links a day, so people often sign up with a password and never get (or never open) the verification mail. An **access code** needs no verification:
+1. Portal → **ആക്സസ് കോഡുകൾ**: pick the role (എഡിറ്റർ / അഡ്മിനിസ്ട്രേറ്റർ), how long it is valid (1 hour, 24 hours, 7 days, 30 days) and optionally who it is for, then **കോഡ് ഉണ്ടാക്കുക**. The code looks like `K7QM-4XPA` (8 random characters from `crypto.getRandomValues`, without the look-alikes 0 O 1 I L, ≈ 40 bits). Copy it, or press **WhatsApp-ൽ അയയ്ക്കുക** (a `wa.me` message with the code, a link `…/app/?code=K7QM-4XPA` and short Malayalam steps).
+2. The person signs in with any method (a new password account is fine), then ☰ → account card → **കോഡ് നൽകുക** (also on the portal's access-denied page) and types the code — upper / lower case and the dash don't matter. Or they just open the link: the code is taken out of the address bar, the login screen opens if needed, and afterwards the dialog opens with the code filled in.
+3. They get the role at once ("നിങ്ങൾ ഇപ്പോൾ എഡിറ്റർ / അഡ്മിൻ").
+
+Each code works **once**, until it expires or an admin revokes it (റദ്ദാക്കുക). The list shows every code with its role, note, who made it and when, expiry and status (ഉപയോഗിക്കാത്തത് / ഉപയോഗിച്ചു — by whom and when / കാലഹരണപ്പെട്ടു / റദ്ദാക്കി). A code never lowers a role and isn't used up by someone who already has that role or a higher one ("ഇതിനകം ഈ റോൾ / ഉയർന്ന റോൾ ഉണ്ട്"); blocked users can't use codes. Anyone who has the code can use it, so send it only to the intended person. Creating, revoking and redeeming are in the activity log (only the last 4 characters of the code).
+
+How the rules enforce it (no server code): codes are `accessCodes/{CODE}` (id = the code, upper case, no dash) with `role, note, createdBy, createdAt, expiresAt, used, usedBy, usedAt, revoked`. Only admins can create (fields checked, `createdBy` = their e-mail, server time, expiry in the future and at most 31 days), list and revoke (only `revoked` → true); nobody can delete a code or reset `used`. A signed-in user may read one code whose id they already know (to tell "used / expired / revoked" apart), but not list them. Redeeming is **one batched write**: `users/{uid}` gets `role` = the code's role and `redeemedCode` = the code (nothing else may change), and the code gets `used: true, usedBy: uid, usedAt: now`. The profile half is allowed only if, before the write, the code is unused, not revoked, not expired, grants exactly that role and it is a promotion from reader / editor — and, after the write (`getAfter`), the code is used by this user. The code half is allowed only if those three fields change as described, the user was a reader / editor below the code's role before, and after the write their profile has this `redeemedCode` and the code's role. So neither half works alone, a code can't be used twice (two people racing: the second write finds it used), and after an admin demotes someone their old `redeemedCode` is worthless (the code is already used). `redeemedCode` can't be set any other way (not on profile creation, not by an admin).
+
+### Open to everyone (settings)
+Portal → **ക്രമീകരണങ്ങൾ** has two tick boxes, saved immediately:
+- **എല്ലാവർക്കും PDF അപ്‌ലോഡ്** (`settings/permissions.openUpload`): everyone who is signed in and not blocked can upload PDFs (add chapters, also new books, or overwrite existing ones).
+- **എല്ലാവർക്കും അധ്യായം തിരുത്തൽ** (`settings/permissions.openEdit`): everyone who is signed in and not blocked can edit verses and chapters.
+
+Visitors who aren't signed in stay read-only, and blocked users stay blocked. Restore original text, backups / data.js / HTML download stay Editor+; deleting / hiding chapters, reset all, users and the portal stay Admin. The change applies live in every open tab: the drawer items, the verse action bar's edit button, the `e` shortcut and `?open=upload|edit` follow it, and an editor / upload dialog that a reader has open closes when the tick is removed. Readers' edits are logged in the activity log like editors' and can be reverted from the portal's content page. `settings/permissions` (`openUpload, openEdit, updatedBy, updatedAt`) is readable by everyone and writable only by admins; each change is logged as "ക്രമീകരണം മാറ്റി".
+
+In `firestore.rules` a chapter write by a non-editor is allowed only for an active (signed-in, not blocked) user with the usual chapter checks (`updatedBy` = their e-mail, server time, `hasBase` matches the bundled books, content not empty), never with `deleted: true`, and never on a chapter an admin has hidden. Firestore can't tell an upload from an edit, so: `openUpload` allows creating or overwriting any chapter; `openEdit` allows changing any existing visible chapter and creating the edited copy of a bundled chapter (but not a new, non-bundled one). Deleting a chapter document (remove an upload, or "restore original") stays Editor / Admin. When a reader edits a bundled chapter back to exactly its original text, the app stores that text instead of deleting the edit. Each such write costs one extra document read in the rules (the settings document).
 
 ### Local mode (no Firebase)
 Without a Firebase config the app runs in **local mode**, and edits stay in that browser:

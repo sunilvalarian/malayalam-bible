@@ -105,7 +105,10 @@
       let p;
       if (val === undefined) {
         if (!cloudDocs.has(docId)) continue;   // nothing stored online for this chapter
-        p = Cloud.removeChapter(id, n);
+        // an edit that brings a bundled chapter back to its original text, by someone who may edit
+        // (opened to everyone) but not "restore original" (remove the override): store the text itself
+        if (!can('restore') && baseChapter(id, n)) p = Cloud.saveChapter(id, n, baseChapter(id, n), ob && ob.name, true);
+        else p = Cloud.removeChapter(id, n);
       } else {
         p = Cloud.saveChapter(id, n, val, ob.name, !!baseChapter(id, n));
       }
@@ -1264,6 +1267,7 @@ p{margin:0 0 .9em}
     if (a === 'logout') { await Cloud.signOut(); toast('ലോഗൗട്ട് ചെയ്തു'); return; }
     if (a === 'lock') { LocalOwner.lock(); toast('ലോക്ക് ചെയ്തു'); return; }
     if (a === 'addPasskey') { addPasskey(); return; }
+    if (a === 'redeem') { if (AuthUI) AuthUI.openRedeem(); return; }
     if (a === 'admin') { openAdminPortal(); return; }
     if (a === 'verifyResend') { try { await Cloud.resendVerification(); toast('സ്ഥിരീകരണ ലിങ്ക് അയച്ചു. ' + (AuthUI ? AuthUI.mailHint() : 'ഇമെയിൽ നോക്കുക'), 10000); } catch (err) { toast(authMessage(err), 7000); } return; }
     if (a === 'verifyCheck') {
@@ -1398,11 +1402,13 @@ p{margin:0 0 .9em}
     document.body.dataset.role = cloudMode ? Cloud.role : LocalOwner.isUnlocked() ? 'local-owner' : 'local';
   }
 
-  // an open editor / upload loses its permission: close it
+  // an open editor / upload loses its permission: close it (returns true if it closed something)
   function enforcePermissions() {
-    if ($('#dlgEditor').open && !can('edit')) { editor.dirty = false; $('#dlgEditor').close(); }
-    if ($('#dlgUpload').open && !can('upload')) $('#dlgUpload').close();
-    if ($('#dlgVerseEdit').open && !can('edit')) $('#dlgVerseEdit').close();
+    let closed = false;
+    if ($('#dlgEditor').open && !can('edit')) { editor.dirty = false; $('#dlgEditor').close(); closed = true; }
+    if ($('#dlgUpload').open && !can('upload')) { $('#dlgUpload').close(); closed = true; }
+    if ($('#dlgVerseEdit').open && !can('edit')) { $('#dlgVerseEdit').close('lost'); closed = true; }
+    return closed;
   }
 
   function renderAccount() {
@@ -1434,6 +1440,8 @@ p{margin:0 0 .9em}
     const initial = esc(((u.name || u.email || '?').trim()[0] || '?').toUpperCase());
     const unverified = !u.verified && u.provider === 'password';
     const passkey = Cloud.PROVIDERS && Cloud.PROVIDERS.passkey && !Cloud.blocked && Cloud.passkeySupported && Cloud.passkeySupported();
+    // an access code from an admin can make a reader / editor an editor / admin (admins need none)
+    const redeem = !!AuthUI && (Cloud.role === 'reader' || Cloud.role === 'editor');
     el.innerHTML = `<div class="acct">
         <span class="avatar">${initial}</span>
         <div class="acct-info"><strong>${esc(u.name || (u.email || '').split('@')[0] || 'ഉപയോക്താവ്')}</strong><small>${esc(u.email || '')}</small></div>
@@ -1445,6 +1453,7 @@ p{margin:0 0 .9em}
       <div class="acct-actions">
         <button class="btn ghost sm acct-logout" data-menu="logout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>
         ${passkey ? '<button class="btn ghost sm" data-menu="addPasskey"><svg><use href="#i-key"/></svg><span>പാസ്‌കീ ചേർക്കുക</span></button>' : ''}
+        ${redeem ? '<button class="btn ghost sm" data-menu="redeem"><svg><use href="#i-ticket"/></svg><span>കോഡ് നൽകുക</span></button>' : ''}
       </div>`;
   }
 
@@ -1652,6 +1661,18 @@ p{margin:0 0 .9em}
     toast('നിങ്ങളുടെ റോൾ: ' + (ROLE_LABEL[Cloud.role] || Cloud.role));
   }
 
+  // an admin opened / closed PDF upload or chapter editing to everyone (settings/permissions)
+  let openSeen = null;
+  function onSettingsChanged() {
+    const now = JSON.stringify([can('upload'), can('edit')]);
+    if (now === openSeen) return;
+    openSeen = now;
+    applyPermissions();
+    const closed = enforcePermissions();
+    if (cur.book && !selection.size) rerenderKeep(); else if (!cur.book) render();
+    if (closed) toast('അഡ്മിൻ ഈ അനുമതി പിൻവലിച്ചു — മാറ്റം സേവ് ചെയ്തില്ല', 4500);
+  }
+
   function onCloudChapters(docs) {
     if (cloudStatus !== 'ready') { cloudStatus = 'ready'; renderAccount(); }
     cloudDocs = new Set(docs.map((d) => `${d.book}_${d.chapter}`));
@@ -1677,6 +1698,7 @@ p{margin:0 0 .9em}
       if (type === 'chapters') onCloudChapters(data);
       else if (type === 'auth') onAuthChanged();
       else if (type === 'role') onRoleChanged();
+      else if (type === 'settings') onSettingsChanged();
       else if (type === 'verified') toast('ഇമെയിൽ സ്ഥിരീകരിച്ചു', 4000);
       else if (type === 'userdata') applyCloudUserData(data);
       else if (type === 'error') cloudError(data);

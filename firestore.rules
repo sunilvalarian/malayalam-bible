@@ -6,6 +6,8 @@ rules_version = '2';
 //   editor             : + edit chapters, upload PDFs, restore original text
 //   admin              : + delete chapters, reset all edits, manage users, roles and invites, see activity
 //   none (blocked)     : signed in, but no rights beyond an anonymous visitor (set by an admin)
+// An admin can also open "upload PDFs" / "edit chapters" to every signed-in, non-blocked user
+// (settings/permissions), and hand out one-time access codes that grant editor / admin (accessCodes).
 // The owner e-mail below is always admin (once its e-mail address is verified).
 // Keep this list in sync with APP_OWNERS in app/js/firebase-config.js.
 
@@ -36,6 +38,31 @@ service cloud.firestore {
     function invitedAs(role) {
       return verified() && exists(invitePath()) && get(invitePath()).data.role == role;
     }
+    function rank(r) { return { 'none': 0, 'reader': 1, 'editor': 2, 'admin': 3 }.get(r, 0); }
+
+    // Admin switches (settings/permissions): openUpload / openEdit = true opens PDF upload /
+    // chapter editing to every signed-in user who isn't blocked.
+    function settingsPath() { return /databases/$(database)/documents/settings/permissions; }
+    function opened(key) {
+      return exists(settingsPath()) && get(settingsPath()).data.get(key, false) == true;
+    }
+
+    // Access codes (id = the code: 8–16 of A–Z / 2–9 without the look-alikes 0 O 1 I L)
+    function codeIdOk(c) { return c is string && c.matches('^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8,16}$'); }
+    function codePath(c) { return /databases/$(database)/documents/accessCodes/$(c); }
+    // Redeeming code c moves this user from oldRole to newRole: BEFORE this request the code must be
+    // unused, not revoked and not expired, and grant exactly newRole — a promotion (never the same or a
+    // lower role, never for a blocked user); and the same batch must mark it used by this user.
+    function codeGrants(c, oldRole, newRole) {
+      return codeIdOk(c) && exists(codePath(c))
+        && get(codePath(c)).data.used == false
+        && get(codePath(c)).data.revoked == false
+        && get(codePath(c)).data.expiresAt > request.time
+        && get(codePath(c)).data.role == newRole
+        && oldRole in ['reader', 'editor'] && rank(newRole) > rank(oldRole)
+        && getAfter(codePath(c)).data.used == true
+        && getAfter(codePath(c)).data.usedBy == request.auth.uid;
+    }
 
     // Chapters bundled with the app (app/js/data.js). hasBase must match this, so an editor
     // can't mark an uploaded chapter as "bundled" to get delete rights. Update when data.js
@@ -62,13 +89,23 @@ service cloud.firestore {
           && d.updatedAt == request.time;
       }
 
-      // editors write content; hiding a chapter (deleted = true) is admin-only
-      allow create: if isEditor() && validChapter()
-        && (request.resource.data.deleted == false || isAdmin());
-      allow update: if isEditor() && validChapter()
-        && (request.resource.data.deleted == false || isAdmin());
+      // editors write content; hiding a chapter (deleted = true) is admin-only.
+      // When an admin has opened it (settings/permissions), any signed-in user who isn't blocked may too:
+      //   openUpload: add or overwrite any chapter (what a PDF upload does);
+      //   openEdit:   change an existing, visible chapter, or create the override of a bundled one.
+      // A chapter an admin has hidden (deleted = true) stays hidden for them.
+      allow create: if validChapter()
+        && (request.resource.data.deleted == false || isAdmin())
+        && (isEditor()
+            || (active() && (opened('openUpload')
+                             || (opened('openEdit') && request.resource.data.hasBase == true))));
+      allow update: if validChapter()
+        && (request.resource.data.deleted == false || isAdmin())
+        && (isEditor()
+            || (active() && resource.data.deleted == false
+                && (opened('openUpload') || opened('openEdit'))));
       // removing an override: editors may only "restore original" of a bundled chapter;
-      // removing an uploaded chapter entirely is admin-only
+      // removing an uploaded chapter entirely is admin-only (neither is ever opened to everyone)
       allow delete: if isAdmin() || (isEditor() && resource.data.hasBase == true);
     }
 
@@ -78,17 +115,31 @@ service cloud.firestore {
 
       function profileOk() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['email', 'name', 'role', 'provider', 'createdAt', 'lastLogin', 'presetApplied'])
+        return d.keys().hasOnly(['email', 'name', 'role', 'provider', 'createdAt', 'lastLogin', 'presetApplied', 'redeemedCode'])
           && d.email == myEmail() && d.role in allRoles()
           && d.name is string && d.name.size() <= 100
           && (!('provider' in d) || d.provider in providers())
-          && (!('presetApplied' in d) || d.presetApplied == true);
+          && (!('presetApplied' in d) || d.presetApplied == true)
+          && (!('redeemedCode' in d) || codeIdOk(d.redeemedCode));
+      }
+      function sameCode() {
+        return request.resource.data.get('redeemedCode', null) == resource.data.get('redeemedCode', null);
+      }
+      // Redeeming an access code: only role + redeemedCode change, and the code is consumed in the same
+      // batched write (codeGrants). No e-mail verification needed. A used code can never be used again,
+      // so an old redeemedCode can't promote anyone again after an admin's demotion.
+      function redeeming() {
+        let d = request.resource.data;
+        return !sameCode()
+          && d.diff(resource.data).affectedKeys().hasOnly(['role', 'redeemedCode'])
+          && codeGrants(d.get('redeemedCode', ''), resource.data.role, d.role);
       }
       // first sign-in: start as reader, or as the role an admin invited this e-mail for
       allow create: if signedIn() && request.auth.uid == uid && profileOk()
         && request.resource.data.role in roles()
         && request.resource.data.createdAt == request.time
         && request.resource.data.lastLogin == request.time
+        && !('redeemedCode' in request.resource.data)
         && (request.resource.data.role == 'reader'
             || (request.resource.data.role == 'admin' && isOwner())
             || (request.resource.data.role == 'editor' && verified() && myEmail() in presetEditors())
@@ -98,16 +149,19 @@ service cloud.firestore {
       // (a blocked user stays 'none' unless an admin sends them a new invite).
       // A preset editor whose profile was made before the e-mail was verified becomes editor once,
       // on the first verified sign-in (presetApplied marks it used, so a later demotion sticks).
+      // Or redeem an access code (redeeming(), above) — the only way redeemedCode can change.
       allow update: if signedIn() && request.auth.uid == uid && profileOk()
         && request.resource.data.createdAt == resource.data.createdAt
         && (request.resource.data.lastLogin == request.time || request.resource.data.lastLogin == resource.data.lastLogin)
         && (!('presetApplied' in resource.data) || request.resource.data.get('presetApplied', false) == true)
-        && (request.resource.data.role == resource.data.role
-            || (request.resource.data.role in roles() && invitedAs(request.resource.data.role))
-            || (request.resource.data.role == 'admin' && isOwner())
-            || (request.resource.data.role == 'editor' && resource.data.role == 'reader'
-                && verified() && myEmail() in presetEditors()
-                && !('presetApplied' in resource.data) && request.resource.data.get('presetApplied', false) == true));
+        && ((sameCode()
+             && (request.resource.data.role == resource.data.role
+                 || (request.resource.data.role in roles() && invitedAs(request.resource.data.role))
+                 || (request.resource.data.role == 'admin' && isOwner())
+                 || (request.resource.data.role == 'editor' && resource.data.role == 'reader'
+                     && verified() && myEmail() in presetEditors()
+                     && !('presetApplied' in resource.data) && request.resource.data.get('presetApplied', false) == true)))
+            || redeeming());
 
       // admins change roles or block a user (role 'none'); an owner can never be demoted,
       // and an admin can't change their own role
@@ -128,6 +182,58 @@ service cloud.firestore {
         && request.resource.data.by == myEmail();
       // the invited person removes it once claimed, so it can't re-apply after a demotion
       allow delete: if isAdmin() || (verified() && email == myEmail());
+    }
+
+    // ---- access codes: an admin makes a one-time code that grants editor / admin ----
+    // id = the code itself (unguessable, ~40 bits). Redeeming is ONE batched write by the user:
+    //   users/{uid}        role := code role, redeemedCode := code    (users rule → codeGrants)
+    //   accessCodes/{code} used := true, usedBy := uid, usedAt := now  (rule below)
+    // Each half checks the other with getAfter(), so neither can be written on its own.
+    match /accessCodes/{code} {
+      // only admins list codes; a signed-in user may look up one code whose id they already know
+      // (so the app can say "used" / "expired" / "revoked")
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create: if isAdmin() && codeIdOk(code)
+        && request.resource.data.keys().hasOnly(['role', 'note', 'createdBy', 'createdAt', 'expiresAt', 'used', 'usedBy', 'usedAt', 'revoked'])
+        && request.resource.data.keys().hasAll(['role', 'note', 'createdBy', 'createdAt', 'expiresAt', 'used', 'usedBy', 'usedAt', 'revoked'])
+        && request.resource.data.role in ['editor', 'admin']
+        && request.resource.data.note is string && request.resource.data.note.size() <= 100
+        && request.resource.data.createdBy == myEmail()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(31, 'd')
+        && request.resource.data.used == false && request.resource.data.usedBy == null
+        && request.resource.data.usedAt == null && request.resource.data.revoked == false;
+      // an admin revokes a code (nothing else about it changes)
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked'])
+        && request.resource.data.revoked == true;
+      // the redeeming user marks it used, in the same batch that gives them the code's role
+      allow update: if signedIn()
+        && resource.data.used == false && resource.data.revoked == false
+        && resource.data.expiresAt > request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt'])
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.usedAt == request.time
+        && myRole() in ['reader', 'editor'] && rank(resource.data.role) > rank(myRole())
+        && getAfter(userPath()).data.get('redeemedCode', '') == code
+        && getAfter(userPath()).data.role == resource.data.role;
+      allow delete: if false;
+    }
+
+    // ---- site settings (public): the admin switches that open upload / editing to everyone ----
+    match /settings/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin() && id == 'permissions'
+        && request.resource.data.keys().hasOnly(['openUpload', 'openEdit', 'updatedBy', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['openUpload', 'openEdit', 'updatedBy', 'updatedAt'])
+        && request.resource.data.openUpload is bool && request.resource.data.openEdit is bool
+        && request.resource.data.updatedBy == myEmail()
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
     }
 
     // ---- personal highlights / bookmarks / notes (not for blocked users) ----
@@ -164,10 +270,15 @@ service cloud.firestore {
     }
 
     // ---- activity log ----
+    // (while editing / upload is open to everyone, readers' edits are logged too)
     match /changes/{id} {
       allow read: if isAdmin();
-      allow create: if isEditor()
-        && request.resource.data.keys().hasOnly(['action', 'book', 'chapter', 'by', 'at'])
+      allow create: if (isEditor()
+          || (active() && request.resource.data.action in ['edit', 'edit-verse', 'upload']
+              && (opened('openEdit') || opened('openUpload'))))
+        && request.resource.data.keys().hasOnly(['action', 'book', 'chapter', 'by', 'at', 'detail'])
+        && (!('detail' in request.resource.data)
+            || (request.resource.data.detail is string && request.resource.data.detail.size() <= 200))
         && request.resource.data.by == myEmail()
         && request.resource.data.at == request.time;
     }

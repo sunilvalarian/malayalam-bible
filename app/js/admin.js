@@ -21,7 +21,10 @@
   const ACTION_LABEL = {
     edit: 'അധ്യായം തിരുത്തി', 'edit-verse': 'വാക്യം തിരുത്തി', restore: 'യഥാർത്ഥം പുനഃസ്ഥാപിച്ചു', delete: 'അധ്യായം നീക്കി',
     upload: 'PDF അപ്‌ലോഡ് ചെയ്തു', 'reset-all': 'എല്ലാ തിരുത്തലുകളും മായ്ച്ചു', revert: 'അഡ്മിൻ യഥാർത്ഥത്തിലേക്ക് മാറ്റി',
+    'code-create': 'ആക്സസ് കോഡ് ഉണ്ടാക്കി', 'code-revoke': 'ആക്സസ് കോഡ് റദ്ദാക്കി', redeem: 'ആക്സസ് കോഡ് ഉപയോഗിച്ചു',
+    settings: 'ക്രമീകരണം മാറ്റി',
   };
+  const EXPIRY = [[1, '1 മണിക്കൂർ'], [24, '24 മണിക്കൂർ'], [168, '7 ദിവസം'], [720, '30 ദിവസം']];
   const PERM_LABEL = {
     edit: 'വാക്യം / അധ്യായം തിരുത്തുക', upload: 'PDF അപ്‌ലോഡ്', restore: 'യഥാർത്ഥ പാഠം / ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക',
     export: 'data.js, ബാക്കപ്പ്, HTML ഡൗൺലോഡ്', delete: 'അധ്യായം നീക്കുക', reset: 'എല്ലാ തിരുത്തലുകളും മായ്ക്കുക',
@@ -31,7 +34,9 @@
     { id: 'dashboard', icon: 'i-grid', title: 'ഡാഷ്‌ബോർഡ്', cloud: true },
     { id: 'users', icon: 'i-users', title: 'ഉപയോക്താക്കൾ', cloud: true },
     { id: 'invites', icon: 'i-mail', title: 'ക്ഷണങ്ങൾ', cloud: true },
+    { id: 'codes', icon: 'i-ticket', title: 'ആക്സസ് കോഡുകൾ', cloud: true },
     { id: 'roles', icon: 'i-shield', title: 'അനുമതികൾ', cloud: true },
+    { id: 'settings', icon: 'i-sliders', title: 'ക്രമീകരണങ്ങൾ', cloud: true },
     { id: 'activity', icon: 'i-history', title: 'പ്രവർത്തന ചരിത്രം', cloud: true },
     { id: 'content', icon: 'i-book', title: 'ഉള്ളടക്കം', cloud: true, local: true },
     { id: 'passkeys', icon: 'i-key', title: 'പാസ്‌കീകൾ', cloud: true },
@@ -110,12 +115,15 @@
           <dt>ഇമെയിൽ</dt><dd>${esc(u.email || '—')}</dd>
           <dt>റോൾ</dt><dd><span class="role-badge role-${esc(Cloud.role)}">${esc(ROLE_LABEL[Cloud.role] || Cloud.role)}</span></dd>
         </dl>
+        ${Cloud.blocked ? '' : '<p class="adm-denied-code">അഡ്മിൻ തന്ന ആക്സസ് കോഡ് ഉണ്ടോ? <button class="btn sm" id="deniedCode"><svg><use href="#i-ticket"/></svg><span>കോഡ് നൽകുക</span></button></p>'}
         <div class="adm-denied-actions">
           <button class="btn" id="deniedLogout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>
           <a class="btn primary" href="${esc(readerUrl)}"><svg><use href="#i-left"/></svg><span>വായനയിലേക്ക് മടങ്ങുക</span></a>
         </div>
       </div>`;
     $('#deniedLogout').addEventListener('click', () => Cloud.signOut());
+    const code = $('#deniedCode');
+    if (code) code.addEventListener('click', () => AuthUI.openRedeem());
     showOnly('denied');
   }
 
@@ -183,8 +191,9 @@
   RENDER.dashboard = async (body) => {
     body.innerHTML = spinner;
     const safe = (p) => p.catch((e) => { console.warn(e); return null; });
-    const [users, invites, chapters, passkeys, changes] = await Promise.all([
+    const [users, invites, chapters, passkeys, changes, codes] = await Promise.all([
       safe(Cloud.listUsers()), safe(Cloud.listInvites()), safe(Cloud.listChapters()), safe(Cloud.listAllPasskeys()), safe(Cloud.listChanges({ limit: 10 })),
+      safe(Cloud.listAccessCodes()),
     ]);
     if (!still('dashboard')) return;
     const byRole = { admin: 0, editor: 0, reader: 0, none: 0 };
@@ -199,6 +208,8 @@
         ${card('invites', 'ക്ഷണങ്ങൾ (ബാക്കി)', n(invites && invites.length), '')}
         ${card('content', 'തിരുത്തിയ അധ്യായങ്ങൾ', n(chapters && chapters.length), chapters ? `തിരുത്ത് ${edited} · അപ്‌ലോഡ് ${uploaded} · മറച്ചത് ${hidden}` : '')}
         ${card('passkeys', 'പാസ്‌കീകൾ', n(passkeys && passkeys.length), '')}
+        ${card('codes', 'ആക്സസ് കോഡുകൾ (സജീവം)', n(codes && codes.filter((c) => codeStatus(c) === 'active').length), codes ? `ആകെ ${codes.length} · ഉപയോഗിച്ചത് ${codes.filter((c) => c.used).length}` : '')}
+        ${card('settings', 'എല്ലാവർക്കും തുറന്നത്', `<span class="adm-stat-text">${[Cloud.settings.openUpload && 'PDF അപ്‌ലോഡ്', Cloud.settings.openEdit && 'തിരുത്തൽ'].filter(Boolean).join(' · ') || 'ഒന്നുമില്ല'}</span>`, 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (ക്രമീകരണങ്ങൾ)')}
       </div>
       <h2 class="adm-h2">അവസാന 10 പ്രവർത്തനങ്ങൾ</h2>
       ${changes ? activityTable(changes.items) : failMsg()}
@@ -207,11 +218,11 @@
 
   function activityTable(items) {
     if (!items.length) return '<div class="adm-empty">പ്രവർത്തനങ്ങൾ ഒന്നുമില്ല</div>';
-    return `<table class="adm-table"><thead><tr><th>സമയം</th><th>പ്രവർത്തനം</th><th>അധ്യായം</th><th>ആര്</th></tr></thead><tbody>
+    return `<table class="adm-table"><thead><tr><th>സമയം</th><th>പ്രവർത്തനം</th><th>അധ്യായം / വിവരം</th><th>ആര്</th></tr></thead><tbody>
       ${items.map((c) => `<tr>
         <td data-label="സമയം">${esc(fmtTime(c.at))}</td>
         <td data-label="പ്രവർത്തനം">${esc(ACTION_LABEL[c.action] || c.action)}</td>
-        <td data-label="അധ്യായം">${c.book && c.book !== '-' ? `<a href="${esc(readerUrl)}#/${encodeURIComponent(c.book)}/${+c.chapter}">${esc(bookName(c.book))} ${+c.chapter}</a>` : '—'}</td>
+        <td data-label="അധ്യായം">${c.book && c.book !== '-' ? `<a href="${esc(readerUrl)}#/${encodeURIComponent(c.book)}/${+c.chapter}">${esc(bookName(c.book))} ${+c.chapter}</a>` : c.detail ? `<span class="adm-wrap">${esc(detailText(c.detail))}</span>` : '—'}</td>
         <td data-label="ആര്">${esc(c.by || '')}</td></tr>`).join('')}
       </tbody></table>`;
   }
@@ -307,18 +318,175 @@
     });
   };
 
+  // -- access codes: one-time codes that grant editor / admin --
+  // active | used | revoked | expired
+  function codeStatus(c) {
+    if (c.used) return 'used';
+    if (c.revoked) return 'revoked';
+    if (tms(c.expiresAt) <= Date.now()) return 'expired';
+    return 'active';
+  }
+  // the reader's address with ?code=, so the link opens the "enter code" dialog with it filled in
+  function codeLink(code) {
+    const base = new URL('./', location.href).href;
+    return base + '?' + (Cloud.emulator ? 'emulator&' : '') + 'code=' + encodeURIComponent(Cloud.fmtCode(code));
+  }
+  function shareUrl(c) {
+    const code = Cloud.fmtCode(c.code);
+    const text = `പരിഷ്കരിച്ച മലയാളം ബൈബിൾ — ${ROLE_LABEL[c.role] || c.role} ആക്സസ് കോഡ്: ${code}\n\n`
+      + `1. ഈ ലിങ്ക് തുറക്കുക: ${codeLink(c.code)}\n`
+      + '2. ലോഗിൻ ചെയ്യുക (അക്കൗണ്ട് ഇല്ലെങ്കിൽ "രജിസ്റ്റർ ചെയ്യുക"; ഇമെയിൽ സ്ഥിരീകരണം വേണ്ട).\n'
+      + '3. കോഡ് സ്വയം പൂരിപ്പിക്കും — "കോഡ് ഉപയോഗിക്കുക" അമർത്തുക. (അല്ലെങ്കിൽ ☰ → അക്കൗണ്ട് → "കോഡ് നൽകുക")\n\n'
+      + `ഒരു തവണ മാത്രം ഉപയോഗിക്കാം; ${fmtTime(c.expiresAt)} വരെ സാധുത.`;
+    return 'https://wa.me/?text=' + encodeURIComponent(text);
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { /* fall back */ }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+  const detailText = (d) => String(d)
+    .replace(/^(editor|admin)\b/, (r) => ROLE_LABEL[r])
+    .replace(/openUpload=(true|false)/, (m, v) => 'PDF അപ്‌ലോഡ്: ' + (v === 'true' ? 'ഓൺ' : 'ഓഫ്'))
+    .replace(/openEdit=(true|false)/, (m, v) => 'തിരുത്തൽ: ' + (v === 'true' ? 'ഓൺ' : 'ഓഫ്'));
+  const codeActions = (c) => `<button class="btn sm" data-copy="${esc(c.code)}" title="കോഡ് പകർത്തുക"><svg><use href="#i-copy"/></svg><span>പകർത്തുക</span></button>
+      <a class="btn sm adm-wa" href="${esc(shareUrl(c))}" target="_blank" rel="noopener"><svg><use href="#i-chat"/></svg><span>WhatsApp-ൽ അയയ്ക്കുക</span></a>`;
+
+  RENDER.codes = async (body) => {
+    body.innerHTML = `<form class="adm-card adm-invite" id="codeForm">
+        <p class="hint">ഒരു തവണ മാത്രം ഉപയോഗിക്കാവുന്ന കോഡ് ഉണ്ടാക്കി ആ വ്യക്തിക്ക് അയയ്ക്കുക (ഉദാ. WhatsApp). അവർ ഏതു രീതിയിലും ലോഗിൻ ചെയ്ത് — ഇമെയിൽ സ്ഥിരീകരണം ആവശ്യമില്ല — ലിങ്ക് തുറക്കുകയോ ☰ → അക്കൗണ്ട് → “കോഡ് നൽകുക”-ൽ കോഡ് നൽകുകയോ ചെയ്താൽ ഉടൻ ആ റോൾ ലഭിക്കും. കോഡ് ഉള്ള ആർക്കും അത് ഉപയോഗിക്കാം; അതിനാൽ ഉദ്ദേശിച്ച ആൾക്ക് മാത്രം അയയ്ക്കുക.</p>
+        <div class="adm-invite-row">
+          <select id="codeRole" aria-label="റോൾ">${roleOptions('editor', ['editor', 'admin'])}</select>
+          <select id="codeExpiry" aria-label="കാലാവധി">${EXPIRY.map(([h, l]) => `<option value="${h}" ${h === 24 ? 'selected' : ''}>${l}</option>`).join('')}</select>
+          <input type="text" id="codeNote" maxlength="100" placeholder="ആർക്കാണ്? (ഐച്ഛികം)" aria-label="കുറിപ്പ്: ആർക്കാണ്" autocomplete="off">
+          <button class="btn primary" type="submit" id="codeCreate"><svg><use href="#i-ticket"/></svg><span>കോഡ് ഉണ്ടാക്കുക</span></button>
+        </div>
+      </form>
+      <div id="codeNew"></div>
+      <h2 class="adm-h2">കോഡുകൾ</h2>
+      <div id="codeList">${spinner}</div>`;
+    let users = [];
+    Cloud.listUsers().then((u) => { users = u; }).catch(() => {});
+    const who = (uid) => { const u = users.find((x) => x.uid === uid); return u ? u.email || u.name || uid : uid; };
+    const load = async () => {
+      let list;
+      try {
+        [list, users] = await Promise.all([Cloud.listAccessCodes(), Cloud.listUsers().catch(() => users)]);
+      } catch (e) { if (still('codes')) $('#codeList').innerHTML = failMsg(e); return; }
+      if (!still('codes')) return;
+      const label = { active: 'ഉപയോഗിക്കാത്തത്', used: 'ഉപയോഗിച്ചു', expired: 'കാലഹരണപ്പെട്ടു', revoked: 'റദ്ദാക്കി' };
+      const pill = { active: 'ok', used: '', expired: 'warn', revoked: 'warn' };
+      $('#codeList').innerHTML = list.length ? `<table class="adm-table adm-codes"><thead><tr><th>കോഡ്</th><th>റോൾ</th><th>ആർക്ക്</th><th>ഉണ്ടാക്കിയത്</th><th>കാലാവധി</th><th>നില</th><th></th></tr></thead><tbody>
+        ${list.map((c) => {
+          const st = codeStatus(c);
+          const used = st === 'used' ? `<small class="adm-sub">${esc(who(c.usedBy))} · ${esc(fmtTime(c.usedAt))}</small>` : '';
+          return `<tr class="code-${st}" data-code="${esc(c.code)}">
+            <td data-label="കോഡ്"><code class="adm-code">${esc(Cloud.fmtCode(c.code))}</code></td>
+            <td data-label="റോൾ">${esc(ROLE_LABEL[c.role] || c.role)}</td>
+            <td data-label="ആർക്ക്" class="adm-wrap">${esc(c.note || '—')}</td>
+            <td data-label="ഉണ്ടാക്കിയത്" class="adm-wrap">${esc(c.createdBy || '')}<small class="adm-sub">${esc(fmtTime(c.createdAt))}</small></td>
+            <td data-label="കാലാവധി">${esc(fmtTime(c.expiresAt))}</td>
+            <td data-label="നില"><span class="adm-stack"><span class="adm-pill ${pill[st]}">${label[st]}</span>${used}</span></td>
+            <td class="adm-act">${st === 'active' ? `<div class="adm-acts">${codeActions(c)}
+              <button class="btn sm danger" data-revoke-code="${esc(c.code)}"><svg><use href="#i-trash"/></svg><span>റദ്ദാക്കുക</span></button></div>` : ''}</td></tr>`;
+        }).join('')}
+        </tbody></table>` : '<div class="adm-empty">കോഡുകൾ ഒന്നുമില്ല</div>';
+    };
+    load();
+    $('#codeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = $('#codeCreate');
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const role = $('#codeRole').value;
+      const hours = +$('#codeExpiry').value;
+      try {
+        const c = await Cloud.createAccessCode(role, hours, $('#codeNote').value);
+        if (!still('codes')) return;
+        $('#codeNote').value = '';
+        const exp = (EXPIRY.find((x) => x[0] === hours) || [0, ''])[1];
+        $('#codeNew').innerHTML = `<div class="adm-card adm-newcode" role="status">
+            <div class="adm-newcode-head"><strong>പുതിയ കോഡ്</strong> · ${esc(ROLE_LABEL[c.role])} · ${esc(exp)}${c.note ? ' · ' + esc(c.note) : ''}</div>
+            <div class="adm-code-big" id="newCode">${esc(Cloud.fmtCode(c.code))}</div>
+            <div class="adm-newcode-actions">${codeActions(c)}</div>
+            <p class="hint">ഈ കോഡ് ഒരാൾക്ക് ഒരു തവണ മാത്രം; ${esc(fmtTime(c.expiresAt))} വരെ സാധുത. ലിങ്ക്: <code>${esc(codeLink(c.code))}</code></p>
+          </div>`;
+        toast('കോഡ് ഉണ്ടാക്കി: ' + Cloud.fmtCode(c.code), 4000);
+      } catch (err) { cloudError(err); }
+      btn.disabled = false;
+      load();
+    });
+    body.onclick = async (e) => {
+      const cp = e.target.closest('[data-copy]');
+      if (cp) { toast((await copyText(Cloud.fmtCode(cp.dataset.copy))) ? 'കോഡ് പകർത്തി: ' + Cloud.fmtCode(cp.dataset.copy) : 'പകർത്താൻ കഴിഞ്ഞില്ല'); return; }
+      const rv = e.target.closest('[data-revoke-code]');
+      if (!rv) return;
+      const code = rv.dataset.revokeCode;
+      if (!(await confirmBox('കോഡ് റദ്ദാക്കുക', `${Cloud.fmtCode(code)} റദ്ദാക്കണോ? ഇനി ആർക്കും അത് ഉപയോഗിക്കാനാവില്ല.`, 'റദ്ദാക്കുക'))) return;
+      try {
+        await Cloud.revokeAccessCode(code);
+        toast('കോഡ് റദ്ദാക്കി');
+        const box = $('#newCode');
+        if (box && Cloud.normCode(box.textContent) === code) $('#codeNew').innerHTML = '';
+      } catch (err) { cloudError(err); }
+      load();
+    };
+  };
+
+  // -- settings: open PDF upload / chapter editing to everyone who is signed in --
+  RENDER.settings = (body) => {
+    if (!Cloud.settingsReady) { body.innerHTML = spinner; return; }   // redrawn by the 'settings' event
+    const s = Cloud.settings;
+    const row = (id, on, title, text) => `<label class="adm-switch">
+        <input type="checkbox" id="${id}" ${on ? 'checked' : ''}>
+        <span><strong>${title}</strong><small>${text}</small></span>
+      </label>`;
+    body.innerHTML = `<div class="adm-card adm-settings">
+        ${row('setUpload', s.openUpload, 'എല്ലാവർക്കും PDF അപ്‌ലോഡ്', 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (തടഞ്ഞവർ ഒഴികെ) ☰ → “PDF അപ്‌ലോഡ് ചെയ്യുക” ഉപയോഗിച്ച് അധ്യായങ്ങൾ ചേർക്കാനും നിലവിലുള്ളവ മാറ്റിസ്ഥാപിക്കാനും കഴിയും.')}
+        ${row('setEdit', s.openEdit, 'എല്ലാവർക്കും അധ്യായം തിരുത്തൽ', 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (തടഞ്ഞവർ ഒഴികെ) ☰ → “ഈ അധ്യായം തിരുത്തുക”, വാക്യം തിരുത്തൽ എന്നിവ ഉപയോഗിക്കാം.')}
+      </div>
+      <p class="hint">ടിക്ക് ചെയ്യുമ്പോൾ ഉടൻ സേവ് ആകും, തുറന്നിരിക്കുന്ന എല്ലാ പേജുകളിലും ഉടൻ ബാധകമാകും. ലോഗിൻ ചെയ്യാത്തവർക്ക് എപ്പോഴും വായന മാത്രം; തടഞ്ഞവർക്കും ഇത് ബാധകമല്ല. അധ്യായം നീക്കൽ, എല്ലാ തിരുത്തലുകളും മായ്ക്കൽ, ഉപയോക്താക്കൾ, ഈ പോർട്ടൽ എന്നിവ അഡ്മിന് മാത്രം; data.js / ബാക്കപ്പ് / HTML ഡൗൺലോഡ്, യഥാർത്ഥ പാഠം പുനഃസ്ഥാപിക്കൽ എന്നിവ എഡിറ്റർമാർക്കും അഡ്മിൻമാർക്കും മാത്രം. എല്ലാ മാറ്റങ്ങളും പ്രവർത്തന ചരിത്രത്തിൽ കാണാം, “ഉള്ളടക്കം” വിഭാഗത്തിൽ നിന്ന് തിരിച്ചാക്കാം.</p>
+      <p class="hint" id="setMeta">${s.updatedBy ? `അവസാനം മാറ്റിയത്: ${esc(s.updatedBy)} · ${esc(fmtTime(s.updatedAt))}` : ''}</p>`;
+    const names = { openUpload: 'എല്ലാവർക്കും PDF അപ്‌ലോഡ്', openEdit: 'എല്ലാവർക്കും അധ്യായം തിരുത്തൽ' };
+    [['setUpload', 'openUpload'], ['setEdit', 'openEdit']].forEach(([id, key]) => {
+      $('#' + id).addEventListener('change', async (e) => {
+        const box = e.target;
+        const on = box.checked;
+        $$('.adm-settings input').forEach((x) => { x.disabled = true; });
+        settingsSaving = true;
+        try {
+          await Cloud.saveSettings({ [key]: on });
+          toast(`${names[key]}: ${on ? 'ഓൺ' : 'ഓഫ്'} — സേവ് ചെയ്തു`);
+        } catch (err) { box.checked = !on; cloudError(err); }
+        settingsSaving = false;
+        if (still('settings')) RENDER.settings(body);
+      });
+    });
+  };
+  let settingsSaving = false;
+
   // -- role × permission matrix, generated from Cloud.PERMS --
   RENDER.roles = (body) => {
     const rank = Cloud.ROLE_RANK;
     const cols = [['guest', 'ലോഗിൻ ഇല്ലാതെ', -1], ['none', ROLE_LABEL.none, 0], ['reader', ROLE_LABEL.reader, 1], ['editor', ROLE_LABEL.editor, 2], ['admin', ROLE_LABEL.admin, 3]];
-    const tick = (v) => (v ? '<span class="yes" aria-label="അനുവദനീയം">✓</span>' : '<span class="no" aria-label="ഇല്ല">—</span>');
+    const tick = (v) => (v === 'open' ? '<span class="yes open" aria-label="എല്ലാവർക്കും തുറന്നിരിക്കുന്നു" title="ക്രമീകരണങ്ങളിൽ എല്ലാവർക്കും തുറന്നിരിക്കുന്നു">✓*</span>'
+      : v ? '<span class="yes" aria-label="അനുവദനീയം">✓</span>' : '<span class="no" aria-label="ഇല്ല">—</span>');
+    // opened to everyone in ക്രമീകരണങ്ങൾ: readers get it too (not visitors, not blocked users)
+    const openTo = (p) => (r) => (r >= rank[Cloud.PERMS[p]] ? true : Cloud.isOpen(p) && r >= rank.reader ? 'open' : false);
     const rows = [
       ['വായിക്കുക, തിരയുക', () => true],
       ['സ്വന്തം ഹൈലൈറ്റ് / കുറിപ്പ് എല്ലാ ഉപകരണങ്ങളിലും (സിങ്ക്)', (r) => r >= rank.reader],
-      ...Object.keys(Cloud.PERMS).map((p) => [PERM_LABEL[p] || p, (r) => r >= rank[Cloud.PERMS[p]], Cloud.PERMS[p]]),
+      ...Object.keys(Cloud.PERMS).map((p) => [PERM_LABEL[p] || p, openTo(p), Cloud.PERMS[p]]),
     ];
+    const anyOpen = Object.keys(Cloud.OPEN_PERMS).some((p) => Cloud.isOpen(p));
     body.innerHTML = `<div class="adm-scroll"><table class="adm-matrix"><thead><tr><th>അനുമതി</th>${cols.map((c) => `<th>${c[1]}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r) => `<tr><td>${r[0]}${r[2] ? ` <small class="hint">(${esc(r[2])}+)</small>` : ''}</td>${cols.map((c) => `<td>${tick(r[1](c[2]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      ${anyOpen ? '<p class="hint">✓* = <a href="#settings">ക്രമീകരണങ്ങളിൽ</a> ലോഗിൻ ചെയ്ത എല്ലാവർക്കും തുറന്നിരിക്കുന്നു.</p>' : ''}
       <p class="hint">ഈ നിയമങ്ങൾ Firebase സെർവറിൽ (firestore.rules) നടപ്പാക്കുന്നു — പേജിന്റെ കോഡ് മാറ്റി മറികടക്കാനാവില്ല. ഉടമയുടെ ഇമെയിൽ (APP_OWNERS) എപ്പോഴും അഡ്മിൻ ആണ്. Firebase ഇല്ലാത്ത ലോക്കൽ മോഡിൽ: ഡിസ്കിൽ നിന്നോ localhost-ൽ നിന്നോ തുറക്കുമ്പോൾ ഉടമയുടെ പാസ്‌കോഡ് നൽകിയാൽ എല്ലാം; പൊതു വെബ്സൈറ്റിൽ എല്ലാവർക്കും വായന മാത്രം.</p>`;
   };
 
@@ -531,6 +699,10 @@
       else if (type === 'role') {
         evaluate();
         if (!$('#admShell').hidden) toast('നിങ്ങളുടെ റോൾ: ' + (ROLE_LABEL[Cloud.role] || Cloud.role));
+      } else if (type === 'settings') {
+        // changed here or by another admin: redraw the pages that show it
+        if ($('#admShell').hidden || settingsSaving) return;
+        if (current === 'settings' || (data && data.changed && current === 'roles')) RENDER[current]($('#secBody'));
       } else if (type === 'error') console.warn('cloud:', data && (data.code || data.message));
     });
     showOnly('boot');

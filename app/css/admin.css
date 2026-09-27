@@ -122,6 +122,38 @@ body.adm { min-height: 100vh; min-height: 100dvh; }
 .adm-invite-row input { flex: 1; min-width: 220px; min-height: 44px; }
 .adm-invite-row select, .adm-invite-row .btn { min-height: 44px; }
 
+/* access codes */
+.adm-invite-row #codeNote { flex: 1; min-width: 200px; min-height: 44px; }
+.adm-newcode { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.adm-newcode-head { color: var(--muted); font-size: 14px; }
+.adm-newcode-head strong { color: var(--text); }
+.adm-code-big {
+  font-family: ui-monospace, Consolas, monospace; font-size: 34px; font-weight: 800; letter-spacing: .14em;
+  margin: 8px 0 10px; user-select: all; overflow-wrap: anywhere;
+}
+.adm-newcode-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-newcode-actions .btn { min-height: 44px; text-decoration: none; }
+.adm-newcode .hint { margin: 10px 0 0; }
+.adm-code { font-size: 15px; font-weight: 700; letter-spacing: .06em; white-space: nowrap; user-select: all; }
+.adm-sub { display: block; color: var(--muted); font-size: 12.5px; }
+.adm-stack { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.adm-acts { display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; white-space: normal; }
+.adm-acts .btn { text-decoration: none; }
+.adm-codes tr.code-used td, .adm-codes tr.code-expired td, .adm-codes tr.code-revoked td { color: var(--muted); }
+.adm-codes tr.code-revoked .adm-code, .adm-codes tr.code-expired .adm-code { text-decoration: line-through; }
+.adm-wa svg { color: #16a34a; }
+.adm-denied-code { font-size: 14px; }
+.adm-stat strong .adm-stat-text { font-size: 20px; font-weight: 700; }
+.adm-matrix .yes.open { color: var(--accent); }
+
+/* settings: tick boxes */
+.adm-settings { display: flex; flex-direction: column; gap: 4px; padding: 6px 16px; }
+.adm-switch { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; cursor: pointer; }
+.adm-switch + .adm-switch { border-top: 1px solid var(--line); }
+.adm-switch input { width: 22px; height: 22px; margin: 3px 0 0; flex: none; accent-color: var(--accent); cursor: pointer; }
+.adm-switch strong { display: block; font-size: 16px; }
+.adm-switch small { display: block; color: var(--muted); font-size: 13.5px; line-height: 1.6; margin-top: 2px; }
+
 /* ---------- phones: the side menu becomes a top bar with a drop-down ---------- */
 @media (max-width: 800px) {
   .adm-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
@@ -155,7 +187,10 @@ body.adm { min-height: 100vh; min-height: 100dvh; }
   .adm-table .adm-act { justify-content: flex-end; padding-top: 8px; }
   .adm-table .adm-act .btn { min-height: 44px; }
   .adm-table select { min-height: 44px; max-width: 60%; }
-  .adm-invite-row input { min-width: 0; flex: 1 0 100%; }
+  .adm-invite-row input, .adm-invite-row #codeNote { min-width: 0; flex: 1 0 100%; }
+  .adm-code-big { font-size: 28px; }
+  .adm-acts .btn { min-height: 44px; }
+  .adm-newcode-actions .btn { flex: 1; justify-content: center; }
   .adm-invite-row select, .adm-invite-row .btn { flex: 1; justify-content: center; }
   .adm-search { min-width: 0; flex: 1 0 100%; }
   .adm-toolbar select { flex: 1; min-width: 0; }

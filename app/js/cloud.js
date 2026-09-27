@@ -12,6 +12,23 @@
   const ROLE_RANK = { none: 0, reader: 1, editor: 2, admin: 3 };
   // minimum role for each permission (see firestore.rules)
   const PERMS = { edit: 'editor', upload: 'editor', restore: 'editor', export: 'editor', delete: 'admin', reset: 'admin', users: 'admin' };
+  // permissions an admin can open to every signed-in, non-blocked user (settings/permissions)
+  const OPEN_PERMS = { upload: 'openUpload', edit: 'openEdit' };
+  // access codes: 8 characters without the look-alikes 0 O 1 I L (31^8 ≈ 2^39.6), shown as XXXX-XXXX
+  const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8,16}$/;
+  const normCode = (s) => String(s || '').toUpperCase().replace(/[\s\-–—_.]/g, '');
+  const fmtCode = (c) => (c.length === 8 ? c.slice(0, 4) + '-' + c.slice(4) : c);
+  function newCode() {
+    let out = '';
+    while (out.length < 8) {
+      for (const b of crypto.getRandomValues(new Uint8Array(16))) {
+        // 248 = 8 × 31: drop the top bytes so every character is equally likely
+        if (b < 248 && out.length < 8) out += CODE_ALPHABET[b % 31];
+      }
+    }
+    return out;
+  }
   // values of users/{uid}.provider (the sign-in method last used)
   const PROVIDER_IDS = ['google.com', 'github.com', 'microsoft.com', 'emailLink', 'password', 'passkey'];
   const PROVIDERS = Object.assign({ google: true, github: true, microsoft: true, emailLink: true, password: true, passkey: true }, window.AUTH_PROVIDERS || {});
@@ -217,8 +234,14 @@
     ready: false,
     user: null,      // { uid, email, name, verified, provider }
     role: 'none',
+    // admin switches (settings/permissions, readable by everyone; live)
+    settings: { openUpload: false, openEdit: false, updatedBy: '', updatedAt: null },
     PERMS,
+    OPEN_PERMS,
     ROLE_RANK,
+    normCode,
+    fmtCode,
+    CODE_RE,
     PROVIDERS,
     PROVIDER_IDS,
     LocalOwner,
@@ -230,7 +253,14 @@
     on(fn) { this._listeners.push(fn); },
     _emit(type, data) { this._listeners.forEach((fn) => { try { fn(type, data); } catch (e) { console.error(e); } }); },
 
-    can(perm) { return !!this.user && ROLE_RANK[this.role] >= ROLE_RANK[PERMS[perm] || 'admin']; },
+    can(perm) {
+      if (!this.user) return false;
+      if (ROLE_RANK[this.role] >= ROLE_RANK[PERMS[perm] || 'admin']) return true;
+      // opened to everyone by an admin: any signed-in user who isn't blocked
+      return this.role !== 'none' && !!OPEN_PERMS[perm] && this.settings[OPEN_PERMS[perm]] === true;
+    },
+    // true when perm is open to everyone (not because of the user's role)
+    isOpen(perm) { return !!OPEN_PERMS[perm] && this.settings[OPEN_PERMS[perm]] === true; },
     get blocked() { return !!this.user && this.role === 'none'; },
     // local mode: 'owner' (disk / localhost: passcode unlock available) or 'readonly' (public site without Firebase)
     get localKind() { return LocalOwner.allowed ? 'owner' : 'readonly'; },
@@ -268,6 +298,15 @@
           (e) => this._emit('error', e)
         );
       }
+      // the admin switches that open upload / editing to everyone apply immediately
+      db.collection('settings').doc('permissions').onSnapshot((snap) => {
+        const d = snap.exists ? snap.data() : {};
+        const next = { openUpload: d.openUpload === true, openEdit: d.openEdit === true, updatedBy: d.updatedBy || '', updatedAt: d.updatedAt || null };
+        const changed = next.openUpload !== this.settings.openUpload || next.openEdit !== this.settings.openEdit;
+        this.settings = next;
+        this.settingsReady = true;
+        this._emit('settings', Object.assign({ changed }, next));
+      }, () => {});
       auth.onAuthStateChanged((u) => this._onAuth(u));
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this._checkVerified(); });
       window.addEventListener('focus', () => this._checkVerified());
@@ -653,8 +692,10 @@
       });
     },
     removeChapter(book, chapter) { return db.collection('chapters').doc(`${book}_${chapter}`).delete(); },
-    log(action, book, chapter) {
-      return db.collection('changes').add({ action, book, chapter, by: this.user.email, at: ts() }).catch(() => {});
+    log(action, book, chapter, detail) {
+      const doc = { action, book, chapter, by: this.user.email, at: ts() };
+      if (detail) doc.detail = String(detail).slice(0, 200);
+      return db.collection('changes').add(doc).catch(() => {});
     },
     async resetAll() {
       const snap = await db.collection('chapters').get();
@@ -731,6 +772,90 @@
       await this.log('revert', book, chapter);
     },
     isOwnerEmail(email) { return OWNERS.includes((email || '').toLowerCase()); },
+
+    // ---- admin switches: open PDF upload / chapter editing to everyone who is signed in ----
+    async saveSettings(patch) {
+      const s = Object.assign({ openUpload: this.settings.openUpload, openEdit: this.settings.openEdit }, patch || {});
+      const doc = { openUpload: !!s.openUpload, openEdit: !!s.openEdit, updatedBy: this.user.email, updatedAt: ts() };
+      await db.collection('settings').doc('permissions').set(doc);
+      await this.log('settings', '-', 0, `openUpload=${doc.openUpload} · openEdit=${doc.openEdit}`);
+    },
+
+    // ---- access codes (one-time; grant editor / admin; see firestore.rules → accessCodes) ----
+    async createAccessCode(role, hours, note) {
+      const expiresAt = fb.firestore.Timestamp.fromMillis(Date.now() + hours * 3600e3);
+      for (let attempt = 0; ; attempt++) {
+        const code = newCode();
+        const data = {
+          role, note: String(note || '').trim().slice(0, 100), createdBy: this.user.email, createdAt: ts(), expiresAt,
+          used: false, usedBy: null, usedAt: null, revoked: false,
+        };
+        try {
+          await db.collection('accessCodes').doc(code).set(data);
+        } catch (e) {
+          // the (astronomically unlikely) same code already exists: writing it would be an update, which the rules refuse
+          if (attempt < 2 && /permission-denied/.test(e.code || '') && (await db.collection('accessCodes').doc(code).get().then((s) => s.exists, () => false))) continue;
+          throw e;
+        }
+        await this.log('code-create', '-', 0, `${role} · …${code.slice(-4)}${data.note ? ' · ' + data.note : ''}`);
+        return Object.assign({ code, expiresAt }, data);
+      }
+    },
+    async listAccessCodes() {
+      return docs(await db.collection('accessCodes').get(), 'code').sort((a, b) => tms(b.createdAt) - tms(a.createdAt));
+    },
+    async revokeAccessCode(code) {
+      await db.collection('accessCodes').doc(code).update({ revoked: true });
+      await this.log('code-revoke', '-', 0, '…' + code.slice(-4));
+    },
+    // Redeem a code: one batched write gives this user the code's role and marks the code used
+    // (the rules check both halves against each other). No e-mail verification needed.
+    // Errors (err.code): code/not-signed-in, code/blocked, code/invalid, code/used, code/expired,
+    // code/revoked, code/has-role, code/failed
+    async redeemCode(input) {
+      if (!this.user) throw err('code/not-signed-in');
+      if (this.blocked) throw err('code/blocked');
+      const code = normCode(input);
+      if (!CODE_RE.test(code)) throw err('code/invalid');
+      const ref = db.collection('accessCodes').doc(code);
+      const read = async (opts) => {
+        try {
+          const s = await ref.get(opts);
+          return s.exists ? s.data() : null;
+        } catch (e) {
+          if (/permission-denied/.test(e.code || '')) throw err('code/invalid');
+          throw e;
+        }
+      };
+      const judge = (c) => {
+        if (!c) throw err('code/invalid');
+        if (c.revoked) throw err('code/revoked');
+        if (c.used) throw Object.assign(err('code/used'), { usedByMe: c.usedBy === this.user.uid });
+        if (tms(c.expiresAt) <= Date.now()) throw err('code/expired');
+        if (ROLE_RANK[this.role] >= ROLE_RANK[c.role]) throw err('code/has-role');
+      };
+      const c = await read();
+      judge(c);
+      const uid = this.user.uid;
+      const batch = db.batch();
+      batch.update(db.collection('users').doc(uid), { role: c.role, redeemedCode: code });
+      batch.update(ref, { used: true, usedBy: uid, usedAt: ts() });
+      try {
+        await batch.commit();
+      } catch (e) {
+        if (!/permission-denied/.test(e.code || '')) throw e;
+        // someone else was quicker, or it expired / was revoked meanwhile: say which
+        if (this.blocked) throw err('code/blocked');
+        judge(await read({ source: 'server' }));
+        throw err('code/failed');
+      }
+      if (this.user && this.user.uid === uid && this.role !== c.role && !(this.user.verified && OWNERS.includes(this.user.email))) {
+        this.role = c.role;
+        this._emit('role', c.role);
+      }
+      await this.log('redeem', '-', 0, `${c.role} · …${code.slice(-4)}`);
+      return c.role;
+    },
   };
 
   window.Cloud = Cloud;
