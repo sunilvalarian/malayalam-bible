@@ -8,3 +8,9 @@
 # the service worker must always be re-checked so app updates reach installed phones
 /sw.js
   Cache-Control: no-cache
+
+# the administrator portal (Pages serves admin.html at /admin) — keep it out of search engines
+/admin
+  X-Robots-Tag: noindex
+/admin.html
+  X-Robots-Tag: noindex

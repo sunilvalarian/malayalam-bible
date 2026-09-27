@@ -25,18 +25,24 @@
 
   const base = window.BIBLE_DATA || { books: [] };
   // Cloud mode (Firebase configured, served over http/https): login + roles, shared edits.
-  // Local mode (no config, or opened from disk): no login, everything allowed, edits in this browser.
+  // Local mode (no config, or opened from disk): edits stay in this browser. Editing and the data
+  // tools need the local-owner passcode, which is offered only from disk / localhost; on a public
+  // web address without Firebase everyone is read-only.
   const Cloud = window.Cloud || { available: false };
+  const LocalOwner = window.LocalOwner || { allowed: false, isSet: () => false, isUnlocked: () => false, lock() {}, on() {} };
+  const AuthUI = window.AuthUI || null;
   const cloudMode = !!Cloud.available;
   let cloudStatus = cloudMode ? 'connecting' : 'local';   // connecting | ready | offline | local
   let cloudDocs = new Set();                              // chapter override docs that exist in Firestore
   let overlay = cloudMode ? LS.get('cloudOverlay', { books: {} }) : LS.get('overlay', { books: {} });
-  const can = (perm) => !cloudMode || Cloud.can(perm);
+  const can = (perm) => (cloudMode ? Cloud.can(perm) : LocalOwner.isUnlocked());
   const user = Object.assign({ hl: {}, bm: {}, notes: {} }, LS.get('user', {}));
   const settings = Object.assign({
-    fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'para',
+    fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'verse',
     numbers: true, headings: true, last: null, recent: [], history: [], whole: false, scope: 'all',
   }, LS.get('settings', {}));
+  // one verse per line is now the default — switch readers who still have the old saved default
+  if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
   const pushUserData = debounce(() => flushUserData(), 800);
   const saveUser = () => { const ok = LS.set('user', user); pushUserData(); return ok; };
   const saveSettings = () => LS.set('settings', settings);
@@ -293,7 +299,7 @@
     reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${badge}</header>` +
       renderItems(items, { book: cur.book, chapter: cur.chapter }) + foot;
     $('#refLabel').textContent = `${b.name} ${cur.chapter}`;
-    document.title = `${b.name} ${cur.chapter} · മലയാളം ബൈബിൾ`;
+    document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
     $('#btnPrev').disabled = !nb.prev;
     $('#btnNext').disabled = !nb.next;
     const h = `#/${cur.book}/${cur.chapter}` + (opts.verse ? '/' + opts.verse : '');
@@ -463,6 +469,7 @@
       const existing = vs.map((v) => noteFor(cur.book, cur.chapter, v)).find(Boolean);
       openNote(existing || vkey(cur.book, cur.chapter, vs[0]), vs);
     } else if (act === 'edit') {
+      if (!can('edit')) { needPermission('edit'); return; }
       openVerseEdit([...selection][0]);
     }
   });
@@ -589,12 +596,27 @@
     const vs = [...P.verseMap(b.chapters.get(chapter)).keys()].sort((x, y) => x - y);
     $('#cbVerse').innerHTML = '<option value="">—</option>' + vs.map((n) => `<option value="${n}" ${n === v ? 'selected' : ''}>${n}</option>`).join('');
   }
-  $('#cbBook').addEventListener('change', (e) => fillCombo(e.target.value, null, null));
-  $('#cbChapter').addEventListener('change', (e) => fillCombo($('#cbBook').value, +e.target.value, null));
+  // navigation happens only once a verse is chosen: book → chapter → verse
+  function pickVerse(bookId, ch, v) {
+    if (!v) { toast('വാക്യം തിരഞ്ഞെടുക്കുക'); return; }
+    if (go(bookId, ch, { verse: v })) $('#dlgPicker').close();
+  }
+  $('#cbBook').addEventListener('change', (e) => {
+    fillCombo(e.target.value, null, null);
+    picker.book = $('#cbBook').value; picker.chapter = +$('#cbChapter').value;
+    renderPicker('chapters');
+  });
+  $('#cbChapter').addEventListener('change', (e) => {
+    fillCombo($('#cbBook').value, +e.target.value, null);
+    picker.chapter = +$('#cbChapter').value;
+    renderPicker('verses');
+  });
+  $('#cbVerse').addEventListener('change', (e) => {
+    if (e.target.value) pickVerse($('#cbBook').value, +$('#cbChapter').value, +e.target.value);
+  });
   $('#comboForm').addEventListener('submit', (e) => {
     e.preventDefault();
-    const b = $('#cbBook').value, c = +$('#cbChapter').value, v = +$('#cbVerse').value || null;
-    if (go(b, c, v ? { verse: v } : undefined)) $('#dlgPicker').close();
+    pickVerse($('#cbBook').value, +$('#cbChapter').value, +$('#cbVerse').value || null);
   });
 
   function openPicker(tab) {
@@ -643,9 +665,9 @@
     const bk = e.target.closest('[data-book]');
     if (bk) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; fillCombo(picker.book, picker.chapter, null); renderPicker('chapters'); return; }
     const ch = e.target.closest('[data-ch]');
-    if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; go(picker.book, picker.chapter); $('#dlgPicker').close(); return; }
+    if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; fillCombo(picker.book, picker.chapter, null); renderPicker('verses'); return; }
     const vs = e.target.closest('[data-verse]');
-    if (vs && !vs.disabled) { go(picker.book, picker.chapter, { verse: +vs.dataset.verse }); $('#dlgPicker').close(); }
+    if (vs && !vs.disabled) pickVerse(picker.book, picker.chapter, +vs.dataset.verse);
   });
   $('#gotoForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -936,6 +958,7 @@
   }
   $('#dlgVerseEdit').addEventListener('close', () => {
     if ($('#dlgVerseEdit').returnValue !== 'save' || !verseEditCtx) return;
+    if (!can('edit')) { needPermission('edit'); return; }
     const { book, chapter, v } = verseEditCtx;
     const items = bookMap.get(book).chapters.get(chapter).map((x) => ({ ...x }));
     const lines = $('#verseEditText').value.split(/\r?\n/).map(P.normalize).filter(Boolean);
@@ -950,7 +973,7 @@
     if (!persist([[book, chapter]], 'edit-verse')) { revertOverlay(); return; }
     buildLibrary(); rerenderKeep(); toast('വാക്യം സേവ് ചെയ്തു');
   });
-  $('#verseEditFull').addEventListener('click', () => { $('#dlgVerseEdit').close('full'); openEditor(cur.book, cur.chapter); });
+  $('#verseEditFull').addEventListener('click', () => { $('#dlgVerseEdit').close('full'); if (can('edit')) openEditor(cur.book, cur.chapter); });
 
   // ---------- chapter editor ----------
   const editor = { book: null, chapter: null, original: '', dirty: false };
@@ -1019,6 +1042,7 @@
     insertAtCursor(ta, (before && !before.endsWith('\n') ? '\n' : '') + '## ');
   });
   $('#edSave').addEventListener('click', () => {
+    if (!can('edit')) { needPermission('edit'); return; }
     const items = updateEditorPreview();
     if (!items.some((it) => it.v)) { toast('വാക്യങ്ങൾ ഒന്നുമില്ല — സേവ് ചെയ്തില്ല'); return; }
     setChapter(editor.book, editor.chapter, items);
@@ -1030,6 +1054,7 @@
     toast('അധ്യായം സേവ് ചെയ്തു');
   });
   $('#edRestore').addEventListener('click', async () => {
+    if (!can('restore')) { needPermission('restore'); return; }
     if (!(await confirmBox('യഥാർത്ഥ പാഠം', 'ഈ അധ്യായത്തിലെ എല്ലാ തിരുത്തലുകളും മായ്ച്ച് PDF-ൽ നിന്നുള്ള പാഠം തിരികെ കൊണ്ടുവരണോ?', 'പുനഃസ്ഥാപിക്കുക'))) return;
     restoreChapter(editor.book, editor.chapter);
     if (!persist([[editor.book, editor.chapter]], 'restore')) { revertOverlay(); return; }
@@ -1040,6 +1065,7 @@
     toast('യഥാർത്ഥ പാഠം പുനഃസ്ഥാപിച്ചു');
   });
   $('#edDelete').addEventListener('click', async () => {
+    if (!can('delete')) { needPermission('delete'); return; }
     const name = `${bookName(editor.book)} ${editor.chapter}`;
     if (!(await confirmBox('അധ്യായം നീക്കുക', `${name} ലൈബ്രറിയിൽ നിന്ന് നീക്കണോ?`, 'നീക്കുക'))) return;
     const nb = neighbours();
@@ -1178,6 +1204,7 @@
   ['dragleave', 'drop'].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('over'); }));
   dz.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
   $('#upSave').addEventListener('click', () => {
+    if (!can('upload')) { needPermission('upload'); return; }
     const chosen = [];
     uploads.forEach((u) => u.status === 'ok' && u.results.forEach((r) => { if (r.include && r.chapter) chosen.push(r); }));
     if (!chosen.length) return;
@@ -1222,6 +1249,7 @@
     const f = e.target.files[0];
     e.target.value = '';
     if (!f) return;
+    if (!can('restore')) { needPermission('restore'); return; }
     try {
       const data = JSON.parse(await f.text());
       if (data.app !== 'ml-bible') throw new Error('bad file');
@@ -1258,14 +1286,17 @@ p{margin:0 0 .9em}
   }
 
   // ---------- menu ----------
-  const MENU_PERM = { upload: 'upload', edit: 'edit', exportData: 'export', reset: 'reset', admin: 'users' };
+  // every item of the ഉള്ളടക്കം and ഡാറ്റ sections (same keys as data-perm in index.html)
+  const MENU_PERM = { upload: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
   async function menuAction(a) {
     const m = $('#dlgMenu');
     if (m.open) m.close();
     if (MENU_PERM[a] && !can(MENU_PERM[a])) { needPermission(MENU_PERM[a]); return; }
     if (a === 'login') { openLogin('signin'); return; }
     if (a === 'logout') { await Cloud.signOut(); toast('ലോഗൗട്ട് ചെയ്തു'); return; }
-    if (a === 'admin') { openAdmin('users'); return; }
+    if (a === 'lock') { LocalOwner.lock(); toast('ലോക്ക് ചെയ്തു'); return; }
+    if (a === 'addPasskey') { addPasskey(); return; }
+    if (a === 'admin') { openAdminPortal(); return; }
     if (a === 'verifyResend') { try { await Cloud.resendVerification(); toast('സ്ഥിരീകരണ ലിങ്ക് അയച്ചു — ഇമെയിൽ നോക്കുക', 5000); } catch (err) { toast(authMessage(err)); } return; }
     if (a === 'verifyCheck') {
       await Cloud.refreshUser().catch(() => {});
@@ -1299,7 +1330,7 @@ p{margin:0 0 .9em}
 
   // ---------- top-level controls ----------
   $('#btnMenu').addEventListener('click', () => { updateCounts(); openDialog($('#dlgMenu')); });
-  $('#btnRef').addEventListener('click', () => openPicker('chapters'));
+  $('#btnRef').addEventListener('click', () => openPicker('books'));
   $('#btnSearch').addEventListener('click', openSearch);
   $('#btnSettings').addEventListener('click', () => { const d = $('#dlgSettings'); if (d.open) d.close(); else openDialog(d); });
   const step = (dir) => { const nb = neighbours(); const t = dir < 0 ? nb.prev : nb.next; if (t) go(t.b, t.c); };
@@ -1313,7 +1344,8 @@ p{margin:0 0 .9em}
     if (e.key === 'ArrowLeft' && !e.ctrlKey) { step(-1); e.preventDefault(); }
     else if (e.key === 'ArrowRight' && !e.ctrlKey) { step(1); e.preventDefault(); }
     else if (e.key === '/' || (e.ctrlKey && e.key.toLowerCase() === 'f')) { openSearch(); e.preventDefault(); }
-    else if (e.key.toLowerCase() === 'g' && !e.ctrlKey) { openPicker('chapters'); e.preventDefault(); }
+    else if (e.key.toLowerCase() === 'g' && !e.ctrlKey) { openPicker('books'); e.preventDefault(); }
+    else if (e.key.toLowerCase() === 'e' && !e.ctrlKey && can('edit') && cur.book) { openEditor(cur.book, cur.chapter); e.preventDefault(); }
     else if (e.key === 'Escape' && selection.size) clearSelection();
   });
 
@@ -1353,227 +1385,138 @@ p{margin:0 0 .9em}
   }
 
   // ---------- login, roles, permissions ----------
-  const ROLE_LABEL = { admin: 'അഡ്മിൻ', editor: 'എഡിറ്റർ', reader: 'വായനക്കാരൻ', none: '' };
-  const ACTION_LABEL = { edit: 'അധ്യായം തിരുത്തി', 'edit-verse': 'വാക്യം തിരുത്തി', restore: 'യഥാർത്ഥം പുനഃസ്ഥാപിച്ചു', delete: 'അധ്യായം നീക്കി', upload: 'PDF അപ്‌ലോഡ് ചെയ്തു', 'reset-all': 'എല്ലാ തിരുത്തലുകളും മായ്ച്ചു' };
+  const ROLE_LABEL = { admin: 'അഡ്മിൻ', editor: 'എഡിറ്റർ', reader: 'വായനക്കാരൻ', none: 'തടഞ്ഞു' };
 
   function revertOverlay() { overlay = LS.get(cloudMode ? 'cloudOverlay' : 'overlay', { books: {} }); buildLibrary(); }
+  const authMessage = (err) => (AuthUI ? AuthUI.message(err) : 'പിശക്' + (err && err.code ? ` (${err.code})` : ''));
 
   function needPermission(perm) {
     if (cloudMode && !Cloud.user) {
       toast('ഇതിന് ലോഗിൻ ചെയ്യണം');
       openLogin('signin');
+    } else if (!cloudMode && LocalOwner.allowed) {
+      toast('ഇതിന് ഉടമയുടെ പാസ്‌കോഡ് വേണം');
+      openLogin('signin');
+    } else if (!cloudMode) {
+      toast('ഈ സൈറ്റ് വായനയ്ക്ക് മാത്രം — തിരുത്താനുള്ള ലോഗിൻ സജ്ജമാക്കിയിട്ടില്ല', 4500);
+    } else if (Cloud.blocked) {
+      toast('നിങ്ങളുടെ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു', 4500);
     } else {
-      const min = ROLE_LABEL[(Cloud.PERMS || {})[perm]] || '';
-      toast(`അനുമതിയില്ല — ${min ? min + ' റോൾ ആവശ്യമാണ്. ' : ''}അഡ്മിനെ ബന്ധപ്പെടുക`, 4500);
+      const min = (Cloud.PERMS || {})[perm];
+      toast(`അനുമതിയില്ല — ${min ? ROLE_LABEL[min] + ' റോൾ ആവശ്യമാണ്. ' : ''}അഡ്മിനെ ബന്ധപ്പെടുക`, 4500);
     }
   }
 
   function applyPermissions() {
     $$('[data-perm]').forEach((el) => { el.hidden = !can(el.dataset.perm); });
-    document.body.dataset.role = cloudMode ? Cloud.role : 'local';
+    // a menu heading disappears when nothing under it is left
+    $$('#dlgMenu .menu-label').forEach((label) => {
+      let el = label.nextElementSibling, any = false, gated = false;
+      for (; el && !el.classList.contains('menu-label'); el = el.nextElementSibling) {
+        if (el.dataset.perm) gated = true;
+        if (!el.hidden) any = true;
+      }
+      label.hidden = gated && !any;
+    });
+    document.body.dataset.role = cloudMode ? Cloud.role : LocalOwner.isUnlocked() ? 'local-owner' : 'local';
+  }
+
+  // an open editor / upload loses its permission: close it
+  function enforcePermissions() {
+    if ($('#dlgEditor').open && !can('edit')) { editor.dirty = false; $('#dlgEditor').close(); }
+    if ($('#dlgUpload').open && !can('upload')) $('#dlgUpload').close();
+    if ($('#dlgVerseEdit').open && !can('edit')) $('#dlgVerseEdit').close();
   }
 
   function renderAccount() {
     const el = $('#accountCard');
+    const loginBtn = (hint) => `<button class="btn primary block" data-menu="login"><svg><use href="#i-user"/></svg><span>ലോഗിൻ</span></button>
+        <small class="acct-hint">${hint}</small>`;
     if (!cloudMode) {
-      el.innerHTML = `<div class="acct-note"><svg><use href="#i-lock"/></svg><div><strong>ലോക്കൽ മോഡ്</strong><small>ലോഗിൻ ഇല്ല — മാറ്റങ്ങൾ ഈ ബ്രൗസറിൽ മാത്രം</small></div></div>`;
+      if (LocalOwner.isUnlocked()) {
+        el.innerHTML = `<div class="acct">
+            <span class="avatar"><svg><use href="#i-lock"/></svg></span>
+            <div class="acct-info"><strong>ഈ കമ്പ്യൂട്ടറിലെ ഉടമ</strong><small>ലോക്കൽ മോഡ് — മാറ്റങ്ങൾ ഈ ബ്രൗസറിൽ മാത്രം</small></div>
+            <span class="role-badge role-local">ഉടമ</span>
+          </div>
+          <div class="acct-actions"><button class="btn ghost sm" data-menu="lock"><svg><use href="#i-lock"/></svg><span>ലോക്ക് ചെയ്യുക</span></button></div>`;
+      } else if (LocalOwner.allowed) {
+        el.innerHTML = loginBtn('ലോക്കൽ മോഡ്: തിരുത്താനും ഡാറ്റ കൈകാര്യം ചെയ്യാനും ഉടമയുടെ പാസ്‌കോഡ് നൽകുക.');
+      } else {
+        el.innerHTML = loginBtn('വായനയ്ക്ക് മാത്രം. ലോഗിൻ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല.');
+      }
       return;
     }
     if (cloudStatus === 'connecting') { el.innerHTML = '<div class="acct-note"><span class="spin"></span><small>ബന്ധിപ്പിക്കുന്നു…</small></div>'; return; }
     if (cloudStatus === 'offline') { el.innerHTML = '<div class="acct-note"><svg><use href="#i-lock"/></svg><div><strong>ഓഫ്‌ലൈൻ</strong><small>വായിക്കാം; ലോഗിനും തിരുത്തലിനും ഇന്റർനെറ്റ് വേണം</small></div></div>'; return; }
     const u = Cloud.user;
     if (!u) {
-      el.innerHTML = `<button class="btn primary block" data-menu="login"><svg><use href="#i-user"/></svg><span>ലോഗിൻ / രജിസ്റ്റർ</span></button>
-        <small class="acct-hint">ഹൈലൈറ്റുകൾ എല്ലാ ഉപകരണങ്ങളിലും ലഭിക്കാനും, അനുമതിയുണ്ടെങ്കിൽ തിരുത്താനും.</small>`;
+      el.innerHTML = loginBtn('ഹൈലൈറ്റുകൾ എല്ലാ ഉപകരണങ്ങളിലും ലഭിക്കാനും, അനുമതിയുണ്ടെങ്കിൽ തിരുത്താനും.');
       return;
     }
     const initial = esc(((u.name || u.email || '?').trim()[0] || '?').toUpperCase());
     const unverified = !u.verified && u.provider === 'password';
+    const passkey = Cloud.PROVIDERS && Cloud.PROVIDERS.passkey && !Cloud.blocked && Cloud.passkeySupported && Cloud.passkeySupported();
     el.innerHTML = `<div class="acct">
         <span class="avatar">${initial}</span>
-        <div class="acct-info"><strong>${esc(u.name || u.email.split('@')[0])}</strong><small>${esc(u.email)}</small></div>
+        <div class="acct-info"><strong>${esc(u.name || (u.email || '').split('@')[0] || 'ഉപയോക്താവ്')}</strong><small>${esc(u.email || '')}</small></div>
         <span class="role-badge role-${esc(Cloud.role)}">${ROLE_LABEL[Cloud.role] || ''}</span>
       </div>
+      ${Cloud.blocked ? '<div class="acct-blocked">ഈ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു — വായിക്കാം, പക്ഷേ തിരുത്താനോ സിങ്ക് ചെയ്യാനോ കഴിയില്ല.</div>' : ''}
       ${unverified ? `<div class="acct-verify">ഇമെയിൽ സ്ഥിരീകരിച്ചിട്ടില്ല. ക്ഷണിച്ച റോൾ ലഭിക്കാൻ ഇമെയിലിലെ ലിങ്ക് തുറക്കുക.
         <div><button class="btn sm" data-menu="verifyResend">ലിങ്ക് വീണ്ടും അയയ്ക്കുക</button> <button class="btn sm" data-menu="verifyCheck">സ്ഥിരീകരിച്ചു</button></div></div>` : ''}
-      <button class="btn ghost block sm acct-logout" data-menu="logout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>`;
+      <div class="acct-actions">
+        <button class="btn ghost sm acct-logout" data-menu="logout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>
+        ${passkey ? '<button class="btn ghost sm" data-menu="addPasskey"><svg><use href="#i-key"/></svg><span>പാസ്‌കീ ചേർക്കുക</span></button>' : ''}
+      </div>`;
   }
 
-  // ---- login dialog ----
-  let loginMode = 'signin';
+  // ---- login screen (js/auth-ui.js, shared with the admin portal) ----
+  if (AuthUI) AuthUI.configure({ show: (d) => openDialog(d), notify: (msg) => toast(msg, 4500) });
   function openLogin(mode) {
-    if (!cloudMode) return;
-    if (cloudStatus !== 'ready') { toast('ബന്ധിപ്പിക്കുന്നു… അൽപ്പം കഴിഞ്ഞ് ശ്രമിക്കുക'); return; }
-    setLoginMode(mode || 'signin');
-    $('#loginError').hidden = true;
-    $('#loginPassword').value = '';
-    openDialog($('#dlgLogin'));
-    setTimeout(() => $(loginMode === 'signup' ? '#loginName' : '#loginEmail').focus(), 60);
+    if (!AuthUI) return;
+    AuthUI.open({ mode: mode || 'signin' });
   }
-  function setLoginMode(mode) {
-    loginMode = mode;
-    const up = mode === 'signup';
-    $('#loginTitle').textContent = up ? 'പുതിയ അക്കൗണ്ട്' : 'ലോഗിൻ';
-    $('#loginSubmit').textContent = up ? 'അക്കൗണ്ട് ഉണ്ടാക്കുക' : 'ലോഗിൻ';
-    $('#fieldName').hidden = !up;
-    $('#btnForgot').hidden = up;
-    $('#loginPassword').autocomplete = up ? 'new-password' : 'current-password';
-    $$('[data-login-tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.loginTab === mode)));
-    $('#loginError').hidden = true;
-  }
-  function authMessage(e) {
-    const c = (e && e.code) || '';
-    const map = {
-      'auth/invalid-credential': 'ഇമെയിൽ അല്ലെങ്കിൽ പാസ്‌വേഡ് തെറ്റാണ്',
-      'auth/wrong-password': 'ഇമെയിൽ അല്ലെങ്കിൽ പാസ്‌വേഡ് തെറ്റാണ്',
-      'auth/user-not-found': 'ഈ ഇമെയിലിൽ അക്കൗണ്ട് ഇല്ല — "പുതിയ അക്കൗണ്ട്" തിരഞ്ഞെടുക്കുക',
-      'auth/email-already-in-use': 'ഈ ഇമെയിലിൽ ഇതിനകം അക്കൗണ്ട് ഉണ്ട് — ലോഗിൻ ചെയ്യുക',
-      'auth/weak-password': 'പാസ്‌വേഡിന് കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ വേണം',
-      'auth/invalid-email': 'ശരിയായ ഇമെയിൽ വിലാസം നൽകുക',
-      'auth/missing-password': 'പാസ്‌വേഡ് നൽകുക',
-      'auth/too-many-requests': 'വളരെയധികം ശ്രമങ്ങൾ — കുറച്ച് കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക',
-      'auth/network-request-failed': 'നെറ്റ്‌വർക്ക് പ്രശ്നം — ഇന്റർനെറ്റ് പരിശോധിക്കുക',
-      'auth/unauthorized-domain': 'ഈ വെബ്സൈറ്റ് Firebase-ൽ അനുവദിച്ചിട്ടില്ല (Authorized domains)',
-      'auth/operation-not-allowed': 'ഈ ലോഗിൻ രീതി Firebase-ൽ ഓൺ ചെയ്തിട്ടില്ല',
-    };
-    return map[c] || ('ലോഗിൻ പരാജയപ്പെട്ടു' + (c ? ` (${c})` : ''));
-  }
-  function showLoginError(msg) { const el = $('#loginError'); el.textContent = msg; el.hidden = false; }
-  async function loginBusy(fn) {
-    const btn = $('#loginSubmit');
-    btn.disabled = true;
-    $('#btnGoogle').disabled = true;
-    try { await fn(); } finally { btn.disabled = false; $('#btnGoogle').disabled = false; }
-  }
-  $$('[data-login-tab]').forEach((t) => t.addEventListener('click', () => setLoginMode(t.dataset.loginTab)));
-  $('#loginForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = $('#loginName').value.trim();
-    const email = $('#loginEmail').value.trim();
-    const pw = $('#loginPassword').value;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showLoginError('ശരിയായ ഇമെയിൽ വിലാസം നൽകുക'); return; }
-    if (pw.length < 6) { showLoginError('പാസ്‌വേഡിന് കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ വേണം'); return; }
-    loginBusy(async () => {
-      try {
-        if (loginMode === 'signup') {
-          await Cloud.signUp(name, email, pw);
-          toast('അക്കൗണ്ട് ഉണ്ടാക്കി — സ്ഥിരീകരണ ലിങ്ക് ഇമെയിലിൽ അയച്ചു', 5000);
-        } else {
-          await Cloud.signIn(email, pw);
-          toast('ലോഗിൻ ചെയ്തു');
-        }
-        $('#dlgLogin').close();
-      } catch (err) { showLoginError(authMessage(err)); }
-    });
-  });
-  $('#btnGoogle').addEventListener('click', () => loginBusy(async () => {
-    try {
-      await Cloud.signInGoogle();
-      if (Cloud.user || firebaseSignedIn()) { $('#dlgLogin').close(); toast('ലോഗിൻ ചെയ്തു'); }
-    } catch (err) {
-      if (err && /popup-closed|cancelled-popup/.test(err.code || '')) return;
-      showLoginError(authMessage(err));
-    }
-  }));
-  const firebaseSignedIn = () => !!(window.firebase && window.firebase.auth && window.firebase.auth().currentUser);
-  $('#btnForgot').addEventListener('click', async () => {
-    const email = $('#loginEmail').value.trim();
-    if (!email) { showLoginError('ആദ്യം ഇമെയിൽ നൽകുക'); return; }
-    try { await Cloud.resetPassword(email); toast('പാസ്‌വേഡ് മാറ്റാനുള്ള ലിങ്ക് ഇമെയിലിൽ അയച്ചു', 5000); } catch (err) { showLoginError(authMessage(err)); }
-  });
 
-  // ---- admin: users, invites, activity, role matrix ----
-  let adminTab = 'users';
-  function openAdmin(tab) {
-    if (!can('users')) { needPermission('users'); return; }
-    openDialog($('#dlgAdmin'));
-    renderAdmin(tab || 'users');
-  }
-  const fmtTime = (t) => {
-    const d = t && t.toDate ? t.toDate() : t ? new Date(t) : null;
-    return d ? d.toLocaleString('ml-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-  };
-  const roleOptions = (sel, list) => (list || ['reader', 'editor', 'admin']).map((r) => `<option value="${r}" ${r === sel ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('');
-  async function renderAdmin(tab) {
-    adminTab = tab;
-    $$('#dlgAdmin [data-admin]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.admin === tab)));
-    const body = $('#adminBody');
-    body.innerHTML = '<div class="empty-state"><span class="spin"></span></div>';
+  async function addPasskey() {
+    if (!cloudMode || !Cloud.user) { openLogin('signin'); return; }
+    const guess = /android/i.test(navigator.userAgent) ? 'Android' : /iphone|ipad/i.test(navigator.userAgent) ? 'iPhone / iPad'
+      : /mac/i.test(navigator.platform) ? 'Mac' : /win/i.test(navigator.platform) ? 'Windows' : 'ഈ ഉപകരണം';
     try {
-      if (tab === 'users') {
-        const list = await Cloud.listUsers();
-        body.innerHTML = `<p class="hint">റോൾ മാറ്റം ഉടൻ ബാധകമാകും — ആ ഉപയോക്താവ് ഇപ്പോൾ ആപ്പ് തുറന്നിരിക്കുകയാണെങ്കിലും.</p>` + list.map((u) => {
-          const self = Cloud.user && u.uid === Cloud.user.uid;
-          const owner = Cloud.isOwnerEmail(u.email);
-          const locked = self || owner;
-          return `<div class="u-row">
-            <span class="avatar sm">${esc(((u.name || u.email || '?')[0] || '?').toUpperCase())}</span>
-            <div class="u-info"><strong>${esc(u.name || u.email)}</strong><small>${esc(u.email)}${u.lastLogin ? ' · ' + esc(fmtTime(u.lastLogin)) : ''}${owner ? ' · ഉടമ' : ''}${self ? ' · നിങ്ങൾ' : ''}</small></div>
-            <select class="u-role" data-uid="${esc(u.uid)}" data-email="${esc(u.email || '')}" aria-label="റോൾ" ${locked ? 'disabled' : ''}>${roleOptions(u.role)}</select>
-          </div>`;
-        }).join('') || '<p class="empty-state">ഉപയോക്താക്കൾ ഇല്ല</p>';
-      } else if (tab === 'invites') {
-        const list = await Cloud.listInvites();
-        body.innerHTML = `<form class="invite-form" id="inviteForm">
-            <p class="hint">ഒരു ഇമെയിലിന് മുൻകൂട്ടി റോൾ നൽകുക. അവർ ആ ഇമെയിലിൽ ലോഗിൻ ചെയ്ത് (ഇമെയിൽ സ്ഥിരീകരിച്ച്) കഴിയുമ്പോൾ റോൾ ലഭിക്കും.</p>
-            <div class="invite-row">
-              <input type="email" id="inviteEmail" placeholder="ഇമെയിൽ" required aria-label="ഇമെയിൽ">
-              <select id="inviteRole" aria-label="റോൾ">${roleOptions('editor', ['editor', 'admin'])}</select>
-              <button class="btn primary" type="submit">ക്ഷണിക്കുക</button>
-            </div>
-          </form>` + (list.map((i) => `<div class="u-row">
-            <div class="u-info"><strong>${esc(i.email)}</strong><small>${ROLE_LABEL[i.role] || i.role}${i.by ? ' · ' + esc(i.by) : ''}</small></div>
-            <button class="icon-btn sm" data-uninvite="${esc(i.email)}" aria-label="ക്ഷണം നീക്കുക"><svg><use href="#i-trash"/></svg></button>
-          </div>`).join('') || '<p class="hint">ക്ഷണങ്ങൾ ഒന്നുമില്ല.</p>');
-      } else if (tab === 'activity') {
-        const list = await Cloud.listChanges(80);
-        body.innerHTML = list.map((c) => `<div class="u-row"><div class="u-info">
-            <strong>${esc(ACTION_LABEL[c.action] || c.action)}${c.book && c.book !== '-' ? ' · ' + esc(bookName(c.book)) + ' ' + c.chapter : ''}</strong>
-            <small>${esc(c.by || '')} · ${esc(fmtTime(c.at))}</small></div></div>`).join('') || '<p class="empty-state">മാറ്റങ്ങൾ ഒന്നുമില്ല</p>';
-      } else {
-        const rows = [
-          ['വായിക്കുക, തിരയുക', 1, 1, 1, 1],
-          ['സ്വന്തം ഹൈലൈറ്റ് / കുറിപ്പ് (എല്ലാ ഉപകരണങ്ങളിലും)', 0, 1, 1, 1],
-          ['വാക്യം / അധ്യായം തിരുത്തുക', 0, 0, 1, 1],
-          ['PDF അപ്‌ലോഡ്', 0, 0, 1, 1],
-          ['യഥാർത്ഥ പാഠം പുനഃസ്ഥാപിക്കുക', 0, 0, 1, 1],
-          ['data.js എക്സ്പോർട്ട്', 0, 0, 1, 1],
-          ['അധ്യായം നീക്കുക', 0, 0, 0, 1],
-          ['എല്ലാ തിരുത്തലുകളും മായ്ക്കുക', 0, 0, 0, 1],
-          ['ഉപയോക്താക്കൾ, റോളുകൾ, ക്ഷണങ്ങൾ, ചരിത്രം', 0, 0, 0, 1],
-        ];
-        const tick = (v) => (v ? '<span class="yes">✓</span>' : '<span class="no">—</span>');
-        const th = (full, short) => `<th><span class="full">${full}</span><span class="short">${short}</span></th>`;
-        body.innerHTML = `<table class="perm-table"><colgroup><col class="c-what"><col><col><col><col></colgroup>
-          <thead><tr><th></th>${th('ലോഗിൻ ഇല്ലാതെ', 'അതിഥി')}${th(ROLE_LABEL.reader, 'വായന')}${th(ROLE_LABEL.editor, 'എഡിറ്റർ')}${th(ROLE_LABEL.admin, 'അഡ്മിൻ')}</tr></thead>
-          <tbody>${rows.map((r) => `<tr><td>${r[0]}</td>${r.slice(1).map((v) => `<td>${tick(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>
-          <p class="hint">ഈ നിയമങ്ങൾ Firebase സെർവറിൽ (firestore.rules) നടപ്പാക്കുന്നു — ആപ്പിന്റെ കോഡ് മാറ്റി മറികടക്കാനാവില്ല.</p>`;
-      }
+      await Cloud.registerPasskey(guess);
+      toast('പാസ്‌കീ ചേർത്തു — അടുത്ത തവണ "പാസ്‌കീ ഉപയോഗിച്ച് ലോഗിൻ" ഉപയോഗിക്കാം', 5000);
     } catch (err) {
-      body.innerHTML = `<p class="empty-state">ലോഡ് ചെയ്യാനായില്ല (${esc(err.code || err.message || '')})</p>`;
+      if (err && err.code === 'passkey/cancelled') return;
+      toast(authMessage(err), 5000);
     }
   }
-  $('#dlgAdmin').addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-admin]');
-    if (t) { renderAdmin(t.dataset.admin); return; }
-    const un = e.target.closest('[data-uninvite]');
-    if (un) {
-      try { await Cloud.deleteInvite(un.dataset.uninvite); toast('ക്ഷണം നീക്കി'); } catch (err) { cloudError(err); }
-      renderAdmin('invites');
-    }
-  });
-  $('#dlgAdmin').addEventListener('change', async (e) => {
-    const sel = e.target.closest('.u-role');
-    if (!sel) return;
-    try { await Cloud.setRole(sel.dataset.uid, sel.value, sel.dataset.email); toast('റോൾ മാറ്റി: ' + ROLE_LABEL[sel.value]); } catch (err) { cloudError(err); renderAdmin('users'); }
-  });
-  $('#dlgAdmin').addEventListener('submit', async (e) => {
-    if (e.target.id !== 'inviteForm') return;
-    e.preventDefault();
-    const email = $('#inviteEmail').value.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('ശരിയായ ഇമെയിൽ നൽകുക'); return; }
-    try { await Cloud.setInvite(email, $('#inviteRole').value); toast('ക്ഷണിച്ചു: ' + email); } catch (err) { cloudError(err); }
-    renderAdmin('invites');
+
+  // the administrator portal is a separate page (admin.html) with the same login
+  function openAdminPortal() {
+    const go = () => { location.href = 'admin.html' + (Cloud.emulator ? '?emulator' : ''); };
+    // opened from the drawer: its history entry is removed with history.back(), which would cancel a navigation started now
+    if (historyBusy()) hist.queue.push(go); else go();
+  }
+
+  // deep links: ?open=upload | edit | login | admin (checked against the same permissions)
+  let pendingOpen = new URLSearchParams(location.search).get('open');
+  function runPendingOpen() {
+    if (!pendingOpen) return;
+    const a = pendingOpen;
+    pendingOpen = null;
+    const search = location.search.replace(/([?&])open=[^&]*&?/, '$1').replace(/[?&]$/, '');
+    history.replaceState(history.state, '', location.pathname + search + location.hash);
+    if (a === 'login') { if (!(cloudMode && Cloud.user) && !LocalOwner.isUnlocked()) openLogin('signin'); return; }
+    if (['upload', 'edit', 'admin'].includes(a)) menuAction(a);
+  }
+
+  // local owner unlocked / locked (possibly in another tab)
+  LocalOwner.on(() => {
+    if (cloudMode) return;
+    applyPermissions();
+    renderAccount();
+    enforcePermissions();
+    if (cur.book && !selection.size) rerenderKeep(); else if (!cur.book) render();
   });
 
   // ---- personal data sync ----
@@ -1653,11 +1596,20 @@ p{margin:0 0 .9em}
     LS.set('user', user);
   }
 
+  let authSeen = false;
   async function onAuthChanged() {
     if (cloudStatus !== 'ready') cloudStatus = 'ready';
     applyPermissions();
     renderAccount();
+    enforcePermissions();
+    if (!authSeen) { authSeen = true; runPendingOpen(); }
     const u = Cloud.user;
+    if (u && Cloud.blocked) {
+      // blocked: keep what is on this device, but don't sync it
+      syncBase = null; syncUid = null;
+      if (cur.book && !selection.size) rerenderKeep();
+      return;
+    }
     if (!u) {
       // signed out: personal data on this device belonged to that account
       // (another tab may already have handled the logout and reset userOwner, so also
@@ -1696,8 +1648,16 @@ p{margin:0 0 .9em}
     if (changed) { if (!selection.size) rerenderKeep(); updateCounts(); }
   }
 
-  // keep open tabs of this browser in step: another tab changed (or cleared) personal data
+  // keep open tabs of this browser in step: another tab changed (or cleared) personal data,
+  // or (local mode) chapter edits — e.g. a chapter reverted in the admin portal
   window.addEventListener('storage', (e) => {
+    if (e.key === 'mlb.overlay' && !cloudMode) {
+      overlay = LS.get('overlay', { books: {} });
+      buildLibrary();
+      if (cur.book && bookMap.get(cur.book) && bookMap.get(cur.book).chapters.has(cur.chapter)) { if (!selection.size && !$('dialog[open]')) rerenderKeep(); }
+      else if (!$('dialog[open]')) startAtFirst();
+      return;
+    }
     if (e.key !== 'mlb.user') return;
     const fresh = LS.get('user', {});
     DATA_KEYS.forEach((k) => { user[k] = (fresh && fresh[k]) || {}; });
@@ -1708,9 +1668,9 @@ p{margin:0 0 .9em}
   function onRoleChanged() {
     applyPermissions();
     renderAccount();
-    if ($('#dlgEditor').open && !can('edit')) { editor.dirty = false; $('#dlgEditor').close(); }
-    if ($('#dlgUpload').open && !can('upload')) $('#dlgUpload').close();
-    if ($('#dlgAdmin').open && !can('users')) $('#dlgAdmin').close();
+    enforcePermissions();
+    if (Cloud.blocked) { syncBase = null; syncUid = null; }
+    else if (Cloud.user && syncUid !== Cloud.user.uid) onAuthChanged();   // unblocked: start syncing again
     if (cur.book && !selection.size) rerenderKeep();
     toast('നിങ്ങളുടെ റോൾ: ' + (ROLE_LABEL[Cloud.role] || Cloud.role));
   }
@@ -1799,6 +1759,7 @@ p{margin:0 0 .9em}
   }
   applyPermissions();
   renderAccount();
+  if (!cloudMode) runPendingOpen();
   if (cloudMode) {
     Cloud.init()
       .then(() => { cloudStatus = 'ready'; renderAccount(); })

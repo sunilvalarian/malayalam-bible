@@ -5,6 +5,7 @@ rules_version = '2';
 //   reader             : + keep their own highlights / bookmarks / notes in the cloud
 //   editor             : + edit chapters, upload PDFs, restore original text
 //   admin              : + delete chapters, reset all edits, manage users, roles and invites, see activity
+//   none (blocked)     : signed in, but no rights beyond an anonymous visitor (set by an admin)
 // The owner e-mail below is always admin (once its e-mail address is verified).
 // Keep this list in sync with APP_OWNERS in app/js/firebase-config.js.
 
@@ -13,6 +14,8 @@ service cloud.firestore {
 
     function owners() { return ['sunilvalarian@gmail.com']; }
     function roles() { return ['reader', 'editor', 'admin']; }
+    function allRoles() { return ['none', 'reader', 'editor', 'admin']; }       // 'none' = blocked
+    function providers() { return ['google.com', 'github.com', 'microsoft.com', 'emailLink', 'password', 'passkey']; }
 
     function signedIn() { return request.auth != null; }
     function myEmail() { return request.auth.token.email.lower(); }
@@ -22,6 +25,8 @@ service cloud.firestore {
     function myRole() {
       return signedIn() && exists(userPath()) ? get(userPath()).data.role : 'none';
     }
+    // a signed-in user who has a profile and is not blocked
+    function active() { return isOwner() || myRole() in roles(); }
     function isAdmin() { return isOwner() || myRole() == 'admin'; }
     function isEditor() { return isAdmin() || myRole() == 'editor'; }
     function invitePath() { return /databases/$(database)/documents/invites/$(myEmail()); }
@@ -70,29 +75,33 @@ service cloud.firestore {
 
       function profileOk() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['email', 'name', 'role', 'createdAt', 'lastLogin'])
-          && d.email == myEmail() && d.role in roles()
-          && d.name is string && d.name.size() <= 100;
+        return d.keys().hasOnly(['email', 'name', 'role', 'provider', 'createdAt', 'lastLogin'])
+          && d.email == myEmail() && d.role in allRoles()
+          && d.name is string && d.name.size() <= 100
+          && (!('provider' in d) || d.provider in providers());
       }
       // first sign-in: start as reader, or as the role an admin invited this e-mail for
       allow create: if signedIn() && request.auth.uid == uid && profileOk()
+        && request.resource.data.role in roles()
         && request.resource.data.createdAt == request.time
         && request.resource.data.lastLogin == request.time
         && (request.resource.data.role == 'reader'
             || (request.resource.data.role == 'admin' && isOwner())
             || invitedAs(request.resource.data.role));
 
-      // the user may update their own name / last login, and take up an invite
+      // the user may update their own name / last login / sign-in method, and take up an invite
+      // (a blocked user stays 'none' unless an admin sends them a new invite)
       allow update: if signedIn() && request.auth.uid == uid && profileOk()
         && request.resource.data.createdAt == resource.data.createdAt
         && (request.resource.data.lastLogin == request.time || request.resource.data.lastLogin == resource.data.lastLogin)
         && (request.resource.data.role == resource.data.role
-            || invitedAs(request.resource.data.role)
+            || (request.resource.data.role in roles() && invitedAs(request.resource.data.role))
             || (request.resource.data.role == 'admin' && isOwner()));
 
-      // admins change roles; an owner can never be demoted
+      // admins change roles or block a user (role 'none'); an owner can never be demoted,
+      // and an admin can't change their own role
       allow update: if isAdmin() && request.auth.uid != uid
-        && request.resource.data.role in roles()
+        && request.resource.data.role in allRoles()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
         && !(resource.data.email in owners());
       allow delete: if isAdmin() && request.auth.uid != uid && !(resource.data.email in owners());
@@ -110,9 +119,37 @@ service cloud.firestore {
       allow delete: if isAdmin() || (verified() && email == myEmail());
     }
 
-    // ---- personal highlights / bookmarks / notes ----
+    // ---- personal highlights / bookmarks / notes (not for blocked users) ----
     match /userdata/{uid} {
-      allow read, write: if signedIn() && request.auth.uid == uid;
+      allow read, write: if signedIn() && request.auth.uid == uid && active();
+    }
+
+    // ---- passkeys (id = WebAuthn credential id, base64url) ----
+    // A signed-in user registers a public key for their own account. Signing in with it is
+    // verified by the Cloudflare Pages Function (functions/api/passkey/verify.js), which uses a
+    // service account (not bound by these rules) to update counter / lastUsedAt.
+    match /passkeys/{id} {
+      allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if signedIn() && active()
+        && id.size() >= 16 && id.size() <= 700 && id.matches('^[A-Za-z0-9_-]+$')
+        && request.resource.data.keys().hasOnly(['uid', 'publicKey', 'alg', 'counter', 'name', 'transports', 'createdAt', 'lastUsedAt'])
+        && request.resource.data.keys().hasAll(['uid', 'publicKey', 'alg', 'counter', 'name', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.publicKey is string
+        && request.resource.data.publicKey.size() > 40 && request.resource.data.publicKey.size() <= 2000
+        && request.resource.data.alg in [-7, -257]
+        && request.resource.data.counter == 0
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && (!('transports' in request.resource.data)
+            || (request.resource.data.transports is list && request.resource.data.transports.size() <= 10))
+        && request.resource.data.createdAt == request.time
+        && (!('lastUsedAt' in request.resource.data) || request.resource.data.lastUsedAt == null);
+      allow update: if false;
+    }
+
+    // used passkey challenges (replay protection) — written by the server function only
+    match /passkeyChallenges/{id} {
+      allow read, write: if false;
     }
 
     // ---- activity log ----

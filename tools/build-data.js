@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const PdfExtract = require('../app/js/pdf-extract.js');
 const P = require('../app/js/parser.js');
+const FIXES = require('./text-fixes.js');
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : def; };
@@ -41,12 +42,25 @@ const outFile = path.join(__dirname, '..', 'app', 'js', 'data.js');
       const n = ch.chapter || hint;
       if (!n) { report.push(`${f}: chapter number not found — skipped`); continue; }
       if (hint && n !== hint) report.push(`${f}: header says chapter ${n}, filename says ${hint} — using ${n}`);
-      chapters[n] = ch.items;
-      const vs = P.verseMap(ch.items);
-      const heads = ch.items.filter((x) => x.h).map((x) => x.h);
+      const fixes = (FIXES[bookId] || {})[n] || [];
+      let items = ch.items;
+      if (fixes.length) {
+        let text = P.toEditorText(items);
+        for (const [find, repl] of fixes) {
+          const count = text.split(find).length - 1;
+          if (count !== 1) { report.push(`ch ${String(n).padStart(2)}: fix not applied (found ${count}×): ${find}`); continue; }
+          text = text.replace(find, () => repl);
+        }
+        items = P.parseEditorText(text);
+      }
+      chapters[n] = items;
+      const vs = P.verseMap(items);
+      const heads = items.filter((x) => x.h).map((x) => x.h);
+      const warnings = P.validate(items);
       report.push(`ch ${String(n).padStart(2)}: ${String(vs.size).padStart(2)} verses (max ${Math.max(0, ...vs.keys())})` +
+        (fixes.length ? ` | ${fixes.length} fixes` : '') +
         (heads.length ? ` | headings: ${heads.join(' / ')}` : '') +
-        (ch.warnings.length ? ` | ${ch.warnings.join('; ')}` : ''));
+        (warnings.length ? ` | ${warnings.join('; ')}` : ''));
     }
   }
   const sorted = {};

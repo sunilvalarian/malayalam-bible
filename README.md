@@ -1,6 +1,6 @@
 # Malayalam Bible reader
 
-Open **`app/index.html`** in Chrome or Edge (double-click works, no server needed).
+Open **`app/index.html`** in Chrome or Edge (double-click works, no server needed). Editing, uploads and the data tools need a login (or, without Firebase, the local owner passcode — see [Login and permissions](#login-and-permissions)).
 
 ## Features
 - **Reading**: chapter title, section headings, superscript verse numbers. Swipe or use ← → (or the round buttons) to change chapter. The app remembers where you stopped.
@@ -27,42 +27,83 @@ One-time Cloudflare setup:
 
 `app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
 
+The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`). Pages deploys them automatically; they need the secrets described under *Passkey* below and return "not configured" until then.
+
 ## Login and permissions
-The published site can use Firebase for login. Permissions are enforced on Firebase's servers by [`firestore.rules`](firestore.rules), so they can't be bypassed from the page source.
+The published site can use Firebase for login. Permissions are enforced on Firebase's servers by [`firestore.rules`](firestore.rules), so they can't be bypassed from the page source. In the ☰ menu, the whole **ഉള്ളടക്കം** and **ഡാറ്റ** sections are shown only to people who have the permission; the same check guards the buttons, keyboard shortcuts (`e` = edit chapter) and links such as `?open=upload`.
 
-| | Not logged in | Reader | Editor | Admin |
-|---|:-:|:-:|:-:|:-:|
-| Read, search | ✓ | ✓ | ✓ | ✓ |
-| Own highlights / bookmarks / notes synced across devices | | ✓ | ✓ | ✓ |
-| Edit verses and chapters, upload PDFs, restore original, export data.js | | | ✓ | ✓ |
-| Delete chapters, reset all edits | | | | ✓ |
-| Manage users and roles, invites, activity log | | | | ✓ |
+| | Not logged in | Blocked | Reader | Editor | Admin |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Read, search, highlights / notes in this browser | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Own highlights / bookmarks / notes synced across devices | | | ✓ | ✓ | ✓ |
+| Edit verses and chapters, upload PDFs, restore original text | | | | ✓ | ✓ |
+| Download data.js, backup (.json), book as HTML; restore a backup | | | | ✓ | ✓ |
+| Delete chapters, reset all edits | | | | | ✓ |
+| Administrator portal: users, roles, invites, activity, content, passkeys | | | | | ✓ |
 
-- New accounts start as **Reader**. An admin gives roles in ☰ → *ഉപയോക്താക്കളും അനുമതികളും*: change a user's role directly, or **invite** an email as Editor/Admin before they sign up. The invite applies once they log in with that email and verify it.
-- `sunilvalarian@gmail.com` is always **Admin** once its email is verified. Change this in both `firestore.rules` and `app/js/firebase-config.js`.
+- New accounts start as **Reader**. **Blocked** (role `none`, set by an admin) = signed in, but nothing more than a visitor.
+- `sunilvalarian@gmail.com` is always **Admin** once its e-mail is verified (with any sign-in method). Change this in both `firestore.rules` and `app/js/firebase-config.js`.
 - Edits by editors are saved to Firestore and show up live for everyone.
-- Opening `app/index.html` from disk (or with no Firebase config) is **local mode**: no login, everything allowed, changes stay in that browser.
+
+### Single sign-on login screen
+☰ → **ലോഗിൻ** opens one login screen, shared by the reader and the administrator portal (`admin.html`). Both pages use the same Firebase session: signing in or out on one signs you in or out on the other. Sign-in methods:
+- **Google**, **GitHub**, **Microsoft** (popup; a full-page redirect in the installed app or when popups are blocked).
+- **E-mail link** (the blue ലോഗിൻ button): passwordless, Firebase e-mails a one-time link back to the page. Such accounts count as verified.
+- **E-mail + password** (പാസ്‌വേഡ് ഉപയോഗിക്കുക), with പാസ്‌വേഡ് മറന്നോ? reset.
+- **Passkey** (fingerprint / face / phone screen lock). Add one from ☰ → account card → *പാസ്‌കീ ചേർക്കുക* (or in the portal), then use *പാസ്‌കീ ഉപയോഗിച്ച് ലോഗിൻ*.
+
+If an e-mail already has an account with another method (e.g. Google, then GitHub with the same address), the screen says which method to use; after signing in with it, the new method is linked to the same account automatically.
+
+Hide a method by setting it to `false` in `window.AUTH_PROVIDERS` in `app/js/firebase-config.js`.
+
+### Administrator portal
+☰ → **അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ** (or open `/admin`). Admins only; others see an access-denied page. Sections: dashboard (counts + last activity), users (search, change role, block), invites, the role × permission table, activity log (filter by user / action), content (chapters edited online — revert one to the original text), passkeys (revoke), and login methods (what is switched on, and whether the passkey server answers).
+
+An admin can invite an e-mail as Editor/Admin before the person signs up; the role applies once they sign in with that e-mail (verified). An admin can't change their own role or the owner's.
+
+### Local mode (no Firebase)
+Without a Firebase config the app runs in **local mode**, and edits stay in that browser:
+- **Opened from disk or from `localhost`**: the owner can unlock editing and the data tools. ☰ → ലോഗിൻ → *ഈ കമ്പ്യൂട്ടറിൽ ഉടമയായി തുടരുക*: the first time, choose a passcode (at least 4 characters); later, enter it to unlock. It stays unlocked until the browser tab is closed, or until ☰ → *ലോക്ക് ചെയ്യുക*. The passcode is stored only as a PBKDF2-SHA256 hash in this browser. This keeps other people who use the computer out of the editing tools; it is **not** server security (anyone who can edit the browser's storage can get around it). Forgot it? Remove the `mlb.localOwner` entry from the site's localStorage (DevTools → Application) and set a new one. The admin portal in local mode shows only the chapters edited in this browser.
+- **On a public web address**: read-only for everyone, and the login screen says that login hasn't been set up yet.
 
 ### One-time Firebase setup
 1. Go to https://console.firebase.google.com and create a project (Google Analytics can be off).
-2. **Build → Authentication → Get started → Sign-in method**: enable **Email/Password** and **Google**.
-3. **Authentication → Settings → Authorized domains**: add the site domain, e.g. `malayalam-bible.pages.dev`.
+2. **Build → Authentication → Get started**.
+3. **Authentication → Settings → Authorized domains**: add the site domain, e.g. `malayalam-bible.pages.dev` (also needed for e-mail links).
 4. **Build → Firestore Database → Create database**: *production mode*, location `asia-south1 (Mumbai)`.
 5. **Firestore → Rules**: replace the contents with [`firestore.rules`](firestore.rules) and click **Publish**. Do this again whenever that file changes.
 6. **Project settings (⚙) → General → Your apps → Web (`</>`)**: register an app, then copy the `firebaseConfig` object into `app/js/firebase-config.js` as `window.FIREBASE_CONFIG = { … }`. These values are not secret.
-7. Commit and push. Then open the site, sign up with the owner email, and verify it. You're Admin.
+7. Turn on the sign-in methods (below), commit and push. Then open the site and sign in with the owner e-mail. You're Admin.
+
+### Turning on each sign-in method
+All in **Firebase → Authentication → Sign-in method → Add new provider**. The OAuth callback for GitHub and Microsoft is `https://<project-id>.firebaseapp.com/__/auth/handler` (Firebase shows it on the provider's page).
+- **Google**: enable, choose a support e-mail, save.
+- **E-mail link**: enable **Email/Password**, and inside it also enable **Email link (passwordless sign-in)**. (Email/Password alone gives the password option.)
+- **GitHub**: at https://github.com/settings/developers → **OAuth Apps → New OAuth App**. Homepage URL = the site address; Authorization callback URL = the handler URL above. Register, then **Generate a new client secret**. In Firebase enable **GitHub** and paste the Client ID and Client secret.
+- **Microsoft**: in the Azure portal (https://portal.azure.com) → **Microsoft Entra ID → App registrations → New registration**. Supported account types: *Accounts in any organizational directory and personal Microsoft accounts* (for `MICROSOFT_TENANT = 'common'`). Redirect URI: platform *Web*, the handler URL above. Then **Certificates & secrets → New client secret**. In Firebase enable **Microsoft** and paste the *Application (client) ID* and the secret **Value**. To allow only one organisation, set `window.MICROSOFT_TENANT` to its tenant ID (or `'organizations'` / `'consumers'`).
+- **Passkey**: Firebase has no built-in passkeys, so a small Cloudflare Pages Function in [`functions/api/passkey/`](functions/api/passkey) checks them and signs the user in with a Firebase custom token.
+  1. Firebase → **Project settings → Service accounts → Generate new private key** (downloads a JSON file; keep it secret, never commit it).
+  2. Cloudflare → your Pages project → **Settings → Variables and Secrets → Add** (Production, type *Secret*):
+     - `FIREBASE_SERVICE_ACCOUNT` = the whole contents of that JSON file;
+     - `PASSKEY_SECRET` = a long random string (e.g. from a password generator).
+  3. Redeploy (push, or *Deployments → Retry*). The portal's **ലോഗിൻ രീതികൾ** page shows whether `/api/passkey/challenge` works.
+  4. Optional: in Firestore → **TTL policies**, add collection group `passkeyChallenges`, field `expireAt`, so used challenges are cleaned up automatically.
+
+  Passkeys belong to the site's domain: a passkey made on `malayalam-bible.pages.dev` works only there.
 
 ### Testing locally with the Firebase emulator
 ```
 firebase emulators:start --only auth,firestore --project demo-bible   # uses firebase.json + firestore.rules
-# serve the folder over http (login does not work from file://), then open:
-#   http://127.0.0.1:5500/app/?emulator
+# in a second terminal: serve app/ like Cloudflare Pages, including the passkey functions
+FIREBASE_EMULATOR_HOST_FIRESTORE=127.0.0.1:8080 FIREBASE_PROJECT_ID=demo-bible node tools/dev-server.mjs
+#   reader: http://localhost:8788/?emulator      portal: http://localhost:8788/admin.html?emulator
 ```
+(On Windows PowerShell set the variables first: `$env:FIREBASE_EMULATOR_HOST_FIRESTORE='127.0.0.1:8080'; $env:FIREBASE_PROJECT_ID='demo-bible'`.) Use `localhost`, not `127.0.0.1`, for passkeys. Sign-in e-mails (links, verification) appear in the emulator log and at `http://127.0.0.1:9099/emulator/v1/projects/demo-bible/oobCodes`.
 
 ## Where changes are stored
 In local mode, edits, uploads, highlights and notes are saved in the browser's localStorage, on this computer and in this browser only. In login mode, chapter edits live in Firestore and personal data syncs to the user's account. To keep a copy in the repository:
-- ☰ → **data.js എക്സ്പോർട്ട്** downloads a new `data.js`. Replace `app/js/data.js` with it, and the edits become part of the app for everyone who opens it.
-- ☰ → **ബാക്കപ്പ്** downloads a `.json` backup of everything (restore it from the same menu).
+- ☰ → **data.js എക്സ്പോർട്ട്** (editors / local owner) downloads a new `data.js`. Replace `app/js/data.js` with it, and the edits become part of the app for everyone who opens it.
+- ☰ → **ബാക്കപ്പ്** (editors / local owner) downloads a `.json` backup of everything (restore it from the same menu).
 
 ## Rebuilding the bundled text from the PDFs
 ```
