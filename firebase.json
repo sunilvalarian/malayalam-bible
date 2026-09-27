@@ -2,6 +2,15 @@
   "firestore": {
     "rules": "firestore.rules"
   },
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Malayalam Bible",
+        "supportEmail": "sunilvalarian@gmail.com"
+      }
+    }
+  },
   "emulators": {
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
