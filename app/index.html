@@ -12,7 +12,7 @@
 <script>
   // browsers can't load a manifest from file://, so add it only when served over the web
   if (/^https?:/.test(location.protocol)) {
-    var m = document.createElement('link'); m.rel = 'manifest'; m.href = 'manifest.webmanifest';
+    var m = document.createElement('link'); m.rel = 'manifest'; m.href = 'app.webmanifest';
     document.head.appendChild(m);
   }
 </script>

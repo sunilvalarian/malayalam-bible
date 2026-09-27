@@ -289,6 +289,8 @@
       if (r === null) showInfo('ലോഗിൻ പേജിലേക്ക് പോകുന്നു…');
     } catch (e) {
       if (e && e.code === 'auth/popup-closed-by-user' && !Cloud.pendingLink) return;   // the user closed it
+      // account exists with another method: fill in the address for an e-mail / password sign-in
+      if (e && e.pendingLink && e.pendingLink.email && !$('#loginEmail').value) $('#loginEmail').value = e.pendingLink.email;
       showError(message(e));
     }
   })));

@@ -2,14 +2,14 @@
  * Same-origin files use stale-while-revalidate, so after a `git push` the new
  * version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes. */
-const VERSION = 'v7';
+const VERSION = 'v8';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const SHELL = [
   './', './index.html', './css/style.css',
   './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/firebase-config.js', './js/cloud.js', './js/auth-ui.js', './js/app.js',
   './admin.html', './css/admin.css', './js/admin.js',
-  './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png',
+  './app.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (e) => {
@@ -52,7 +52,7 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return;
 
   // the manifest (app name / icons) goes to the network first, so an installed app sees a rename
-  if (url.pathname.endsWith('/manifest.webmanifest')) {
+  if (url.pathname.endsWith('.webmanifest')) {
     e.respondWith(caches.open(CACHE).then((c) => fetch(req)
       .then((res) => { if (res.ok) c.put(req, res.clone()); return res; })
       .catch(() => c.match(req, { ignoreSearch: true }))));

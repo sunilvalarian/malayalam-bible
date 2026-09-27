@@ -63,6 +63,7 @@ body.adm { min-height: 100vh; min-height: 100dvh; }
 .adm-h2 { font-size: 17px; margin: 28px 0 10px; }
 .adm-empty { text-align: center; color: var(--muted); padding: 36px 10px; border: 1px dashed var(--line); border-radius: 12px; }
 .adm-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 14px 0; font-size: 15px; }
+.adm-card code { overflow-wrap: anywhere; }   /* long URLs / names must wrap on phones */
 .adm-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
 .adm-toolbar select { min-height: 44px; max-width: 100%; }
 .adm-search { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 220px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
