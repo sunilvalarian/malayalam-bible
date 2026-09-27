@@ -2,7 +2,7 @@
  * Same-origin files use stale-while-revalidate, so after a `git push` the new
  * version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes. */
-const VERSION = 'v6';
+const VERSION = 'v7';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const SHELL = [
@@ -50,6 +50,14 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
   // server functions (passkey sign-in) are never cached
   if (url.pathname.startsWith('/api/')) return;
+
+  // the manifest (app name / icons) goes to the network first, so an installed app sees a rename
+  if (url.pathname.endsWith('/manifest.webmanifest')) {
+    e.respondWith(caches.open(CACHE).then((c) => fetch(req)
+      .then((res) => { if (res.ok) c.put(req, res.clone()); return res; })
+      .catch(() => c.match(req, { ignoreSearch: true }))));
+    return;
+  }
 
   // app files: serve from cache immediately, refresh the cache in the background
   e.respondWith(caches.open(CACHE).then(async (c) => {

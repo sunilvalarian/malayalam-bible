@@ -286,7 +286,7 @@
     const items = b && b.chapters.get(cur.chapter);
     if (!items) {
       reader.innerHTML = `<div class="empty"><p>ഉള്ളടക്കം ഒന്നുമില്ല.</p>${can('upload') ? '<p><button class="btn primary" data-menu-open="upload">PDF അപ്‌ലോഡ് ചെയ്യുക</button></p>' : ''}</div>`;
-      $('#refLabel').textContent = 'ബൈബിൾ';
+      $('#refLabel').textContent = 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ';
       $('#btnPrev').disabled = $('#btnNext').disabled = true;
       return;
     }
@@ -1636,7 +1636,7 @@ p{margin:0 0 .9em}
       if (syncUid !== u.uid) return;
       applyRemote(remote || {});
       await flushUserData();                                  // upload entries made on this device
-    } catch (err) { console.warn(err); }
+    } catch (err) { if (syncUid === u.uid) console.warn(err); }   // (not after a sign-out that raced this load)
     updateCounts();
     if (cur.book) rerenderKeep();
   }
