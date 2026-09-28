@@ -48,6 +48,8 @@
   // free plan: several highlights / bookmarks in a row go up as one write (and at once when hidden)
   const pushUserData = debounce(() => flushUserData(), 3000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushUserData(); });
+  // a highlight / note made in the last 3 seconds goes up before signing out (afterwards it would be lost)
+  if (cloudMode) Cloud.beforeSignOut(() => flushUserData());
   const saveUser = () => { const ok = LS.set('user', user); pushUserData(); return ok; };
   const saveSettings = () => LS.set('settings', settings);
 
@@ -1477,7 +1479,8 @@ p{margin:0 0 .9em}
       return;
     }
     const initial = esc(((u.name || u.email || '?').trim()[0] || '?').toUpperCase());
-    const unverified = !u.verified && u.provider === 'password';
+    // also GitHub / Microsoft accounts, which Firebase often reports as unverified
+    const unverified = !u.verified && !!u.email;
     const passkey = Cloud.PROVIDERS && Cloud.PROVIDERS.passkey && !Cloud.blocked && Cloud.passkeySupported && Cloud.passkeySupported();
     // an access code from an admin can make a reader / editor an editor / admin (admins need none)
     const redeem = !!AuthUI && (Cloud.role === 'reader' || Cloud.role === 'editor');

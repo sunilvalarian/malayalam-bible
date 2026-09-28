@@ -61,6 +61,8 @@ export async function onRequestPost({ request, env }) {
     check(ad.length >= 37, 'bad-request', 400);
     check(equalBytes(ad.subarray(0, 32), await sha256(url.hostname)), 'bad-rp');
     check((ad[32] & 0x01) === 0x01, 'user-not-present');
+    // the passkey is the only factor: the device must have checked the fingerprint / face / PIN
+    check((ad[32] & 0x04) === 0x04, 'user-not-verified');
     const counter = new DataView(ad.buffer, ad.byteOffset + 33, 4).getUint32(0);
 
     // 4. the stored passkey
@@ -92,8 +94,8 @@ export async function onRequestPost({ request, env }) {
     });
     check(fresh, 'replay');
 
-    // 8. blocked accounts can't sign in with a passkey
-    const profile = await fsGet(cfg, 'users/' + pk.uid).catch(() => null);
+    // 8. blocked accounts can't sign in with a passkey (a Firestore error fails closed: 500, not "no profile")
+    const profile = await fsGet(cfg, 'users/' + pk.uid);
     check(!profile || profile.role !== 'none', 'blocked', 403);
 
     await fsUpdate(cfg, 'passkeys/' + id, {

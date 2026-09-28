@@ -157,4 +157,17 @@ describe('accessCodes: redeeming (one batched write)', () => {
   it('a code id that doesn\'t exist is refused', async () => {
     await assertFails(redeem(t.as.reader(), 'reader1', 'ZZZZZZZZ', 'editor'));
   });
+  it('an unverified account with the owner\'s e-mail can\'t redeem (it would become an admin nobody can remove)', async () => {
+    await seedCode(CODE, { role: 'admin' });
+    const squat = t.user('squat', OWNER, false);
+    await assertSucceeds(squat.collection('users').doc('squat').set({ email: OWNER, name: '', role: 'reader', provider: 'password', createdAt: ts(), lastLogin: ts() }));
+    await assertFails(redeem(squat, 'squat', CODE, 'admin'));
+  });
+  it('an owner-e-mail profile that got admin from a code is not protected like the owner\'s', async () => {
+    await t.seed((db) => db.collection('users').doc('squat').set({
+      email: OWNER, name: '', role: 'admin', provider: 'password', redeemedCode: CODE,
+      createdAt: Timestamp.now(), lastLogin: Timestamp.now(),
+    }));
+    await assertSucceeds(t.as.admin().collection('users').doc('squat').update({ role: 'none' }));
+  });
 });

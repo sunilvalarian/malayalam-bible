@@ -59,8 +59,9 @@ export function watch(page) {
     },
   };
 }
-// always harmless: the emulator warning banner, favicon lookups
-export const ALWAYS_OK = [/favicon/i, /running in emulator mode/i];
+// always harmless: the emulator warning banner, favicon lookups, and the 400 the Firestore library's
+// long-poll channel sometimes gets when it restarts (it reconnects by itself)
+export const ALWAYS_OK = [/favicon/i, /running in emulator mode/i, /Firestore\/(Listen|Write)\/channel/];
 // expected while the network is off: failed loads (fonts, Firestore channel, /api/where …)
 export const OFFLINE_OK = [/ERR_INTERNET_DISCONNECTED/, /net::ERR_/, /Failed to load resource/, /Could not reach Cloud Firestore backend/i,
   /client is offline/i, /WebChannelConnection/i, /unavailable/i, /Failed to fetch/i, /network-request-failed/i];

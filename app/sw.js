@@ -3,7 +3,7 @@
  * copy of the data, see cloud.js). Same-origin files use stale-while-revalidate, so after a
  * `git push` the new version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v15';
+const VERSION = 'v16';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)

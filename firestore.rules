@@ -23,7 +23,8 @@ service cloud.firestore {
     function providers() { return ['google.com', 'github.com', 'microsoft.com', 'emailLink', 'password', 'passkey']; }
 
     function signedIn() { return request.auth != null; }
-    function myEmail() { return request.auth.token.email.lower(); }
+    // '' for an account without an e-mail (e.g. GitHub / Microsoft with a hidden address), so its profile can still be made
+    function myEmail() { return request.auth.token.get('email', '').lower(); }
     function verified() { return signedIn() && request.auth.token.email_verified == true; }
     function isOwner() { return verified() && myEmail() in owners(); }
     function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
@@ -60,6 +61,8 @@ service cloud.firestore {
         && get(codePath(c)).data.expiresAt > request.time
         && get(codePath(c)).data.role == newRole
         && oldRole in ['reader', 'editor'] && rank(newRole) > rank(oldRole)
+        // an unverified account that uses the owner's address must not get a role that ownerProfile() protects
+        && !(myEmail() in owners() && !verified())
         && getAfter(codePath(c)).data.used == true
         && getAfter(codePath(c)).data.usedBy == request.auth.uid;
     }
@@ -142,7 +145,9 @@ service cloud.firestore {
         && !('redeemedCode' in request.resource.data)
         && (request.resource.data.role == 'reader'
             || (request.resource.data.role == 'admin' && isOwner())
-            || (request.resource.data.role == 'editor' && verified() && myEmail() in presetEditors())
+            // presetApplied marks the preset as used, so a later demotion by an admin sticks
+            || (request.resource.data.role == 'editor' && verified() && myEmail() in presetEditors()
+                && request.resource.data.get('presetApplied', false) == true)
             || invitedAs(request.resource.data.role));
 
       // the user may update their own name / last login / sign-in method, and take up an invite
@@ -167,7 +172,9 @@ service cloud.firestore {
       // and an admin can't change their own role. The owner's profile is protected once it is
       // admin (the app makes it admin after the e-mail is verified), so an unverified account that
       // merely claims the owner's address stays a reader that admins can block or remove.
-      function ownerProfile() { return resource.data.email in owners() && resource.data.role == 'admin'; }
+      function ownerProfile() {
+        return resource.data.email in owners() && resource.data.role == 'admin' && !('redeemedCode' in resource.data);
+      }
       allow update: if isAdmin() && request.auth.uid != uid
         && request.resource.data.role in allRoles()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
@@ -250,7 +257,9 @@ service cloud.firestore {
     // service account (not bound by these rules) to update counter / lastUsedAt.
     match /passkeys/{id} {
       allow read, delete: if signedIn() && (resource.data.uid == request.auth.uid || isAdmin());
-      allow create: if signedIn() && active()
+      // only with a verified e-mail: a passkey added by someone who merely registered the address first
+      // would outlive the real owner taking the account over (same uid)
+      allow create: if verified() && active()
         && id.size() >= 16 && id.size() <= 700 && id.matches('^[A-Za-z0-9_-]+$')
         && request.resource.data.keys().hasOnly(['uid', 'publicKey', 'alg', 'counter', 'name', 'transports', 'createdAt', 'lastUsedAt'])
         && request.resource.data.keys().hasAll(['uid', 'publicKey', 'alg', 'counter', 'name', 'createdAt'])

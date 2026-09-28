@@ -62,6 +62,9 @@ describe('passkeys', () => {
     await assertFails(col(t.as.blocked()).doc(ID).set(pk('blocked1')));
     await assertFails(col(t.anon()).doc(ID).set(pk('reader1')));
   });
+  it('an unverified e-mail can\'t register a passkey (it would outlive a takeover by the real owner)', async () => {
+    await assertFails(col(t.user('reader1', 'reader@example.com', false)).doc(ID).set(pk('reader1')));
+  });
   it('read / list / delete: own passkeys, admins all; nobody updates', async () => {
     await seedPk(ID, 'reader1');
     await seedPk('Other0000000000000001', 'reader2');

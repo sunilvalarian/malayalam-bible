@@ -48,6 +48,13 @@ describe('users: first sign-in (create)', () => {
     await assertFails(users(t.user('pe', PRESET_EDITOR, false)).doc('pe').set(profile(PRESET_EDITOR, 'editor', { presetApplied: true })));
     await assertSucceeds(users(t.user('pe', PRESET_EDITOR)).doc('pe').set(profile(PRESET_EDITOR, 'editor', { presetApplied: true })));
   });
+  it('the preset editor can\'t start as editor without presetApplied (a demotion would not stick)', async () => {
+    await assertFails(users(t.user('pe', PRESET_EDITOR)).doc('pe').set(profile(PRESET_EDITOR, 'editor')));
+  });
+  it('an account without an e-mail (hidden GitHub / Microsoft address) creates a reader profile', async () => {
+    const db = t.db('ne', { firebase: { sign_in_provider: 'github.com' } });
+    await assertSucceeds(users(db).doc('ne').set(profile('', 'reader', { provider: 'github.com' })));
+  });
   it('an invited e-mail starts with the invited role (verified only)', async () => {
     await t.seed((db) => db.collection('invites').doc('inv@example.com').set({ role: 'editor', by: OWNER, at: Timestamp.now() }));
     await assertFails(users(t.user('iv', 'inv@example.com', false)).doc('iv').set(profile('inv@example.com', 'editor')));

@@ -608,7 +608,9 @@
         ${list.map((u) => {
           const self = u.uid === Cloud.user.uid;
           const owner = Cloud.isOwnerEmail(u.email);
-          const locked = self || owner;
+          // like ownerProfile() in firestore.rules: only the owner's admin profile is protected; an
+          // unverified account that merely uses the owner's address can still be blocked
+          const locked = self || (owner && u.role === 'admin' && !u.redeemedCode);
           const tag = owner ? ' <span class="adm-tag">ഉടമ</span>' : self ? ' <span class="adm-tag">നിങ്ങൾ</span>' : '';
           return `<tr class="${u.role === 'none' ? 'blocked' : ''}">
             <td data-label="പേര്"><strong>${esc(u.name || '—')}</strong>${tag}</td>

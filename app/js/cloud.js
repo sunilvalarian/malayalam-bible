@@ -53,6 +53,8 @@
     set(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
   };
   const err = (code, message) => Object.assign(new Error(message || code), { code });
+  // names: firestore.rules allow at most 100 characters
+  const clip = (s) => String(s || '').trim().slice(0, 100);
 
   // ---------- base64 / base64url ----------
   const bytes = (b) => (b instanceof Uint8Array ? b : new Uint8Array(b.buffer ? b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) : b));
@@ -112,6 +114,7 @@
         const hash = await derive(pass, salt, ITER);
         const r = { v: 1, salt, hash, iter: ITER, created: Date.now() };
         ls.set(KEY, r);
+        if (!record()) throw err('local/storage');     // storage blocked or full: nothing was saved
         ss.set(UNLOCK, token(r));
         emit();
         return true;
@@ -207,7 +210,6 @@
   const ts = () => fb.firestore.FieldValue.serverTimestamp();
   const tms = (t) => (t && t.toMillis ? t.toMillis() : t ? +new Date(t) : 0);
   const docs = (snap, idKey) => snap.docs.map((d) => Object.assign({ [idKey || 'id']: d.id }, d.data()));
-  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const cleanUrl = () => {
     const u = new URL(location.href);
     LINK_PARAMS.forEach((p) => u.searchParams.delete(p));
@@ -267,7 +269,10 @@
     get localKind() { return LocalOwner.allowed ? 'owner' : 'readonly'; },
 
     init(opts) {
-      if (!initPromise) initPromise = this._init(opts || {});
+      if (!initPromise) {
+        // the Firebase library couldn't load (first visit offline, blocked): the login screen says so
+        initPromise = this._init(opts || {}).catch((e) => { this.initFailed = true; this._emit('initError', e); throw e; });
+      }
       return initPromise;
     },
     async _init(opts) {
@@ -294,7 +299,12 @@
       else {
         try {
           const r = await auth.getRedirectResult();
-          if (!r || !r.user) this._method = '';
+          if (!r || !r.user) {
+            // a sign-in redirect was started but came back without a user (cancelled, or the browser
+            // blocked the storage Firebase needs for it): say so instead of silently staying signed out
+            if (this._method && !auth.currentUser) this._emit('authError', err('auth/redirect-incomplete'));
+            this._method = '';
+          }
         } catch (e) {
           this._method = '';
           this._emit('authError', await this._authError(e));
@@ -335,15 +345,22 @@
       // opened from a sign-in link in an e-mail
       if (PROVIDERS.emailLink && auth.isSignInWithEmailLink(location.href)) {
         const saved = ls.get('mlb.emailForSignIn');
-        if (saved && saved.email) this.completeEmailLink(saved.email).catch((e) => this._emit('authError', e));
-        else {
+        const ask = () => {
           // keep the link in memory and take it out of the address bar now: the login screen that
           // asks for the address adds a history entry of its own, and closing it (history.back())
           // would bring the used link back into the address bar
-          this._emailLink = location.href;
+          this._emailLink = this._emailLink || location.href;
           history.replaceState(history.state, '', cleanUrl());
           this._emit('emailLinkNeedsEmail');
-        }
+        };
+        if (saved && saved.email && Date.now() - (saved.t || 0) < 24 * 3600e3) {
+          this.completeEmailLink(saved.email).catch((e) => {
+            // the address saved here isn't the one this link was sent to (a link for another address was
+            // asked for in this browser since): ask for it
+            if (/invalid-email|user-mismatch/.test((e && e.code) || '')) { ls.set('mlb.emailForSignIn', null); ask(); }
+            else this._emit('authError', e);
+          });
+        } else ask();
       }
       return true;
     },
@@ -361,10 +378,17 @@
       }
       const fresh = !!this._method;           // a sign-in made on this page (not a restored session)
       await this._linkPending(u);
-      const provider = await this._providerOf(u);
+      let tok = null;
+      try { tok = await u.getIdTokenResult(); } catch (e) { /* offline */ }
+      // the e-mail was verified after this ID token was made (link opened in another tab or device):
+      // the rules read the token, so fetch a fresh one before the invite / owner / preset checks
+      if (tok && u.emailVerified && tok.claims.email_verified !== true && this.online) {
+        try { await u.getIdToken(true); tok = await u.getIdTokenResult(); } catch (e) { /* next time */ }
+      }
+      const provider = this._providerOf(u, tok);
       this._method = '';
       const user = {
-        uid: u.uid, email: (u.email || '').toLowerCase(), name: u.displayName || this._pendingName || '',
+        uid: u.uid, email: (u.email || '').toLowerCase(), name: clip(u.displayName || this._pendingName),
         verified: !!u.emailVerified, provider,
       };
       let role;
@@ -375,6 +399,7 @@
         role = await this._cachedRole(u.uid);
         if (!role) { role = 'reader'; this._emit('error', e); }
       }
+      this._pendingName = '';
       if (seq !== authSeq) return;
       this.user = user;
       this.role = role;
@@ -384,8 +409,11 @@
       const ownerNow = user.verified && OWNERS.includes(user.email);
       // role changes by an admin apply immediately
       unsubProfile = db.collection('users').doc(u.uid).onSnapshot((snap) => {
-        if (seq !== authSeq || !snap.exists) return;
-        const r = ownerNow ? 'admin' : snap.data().role;
+        // a write of this page that the server hasn't confirmed yet (e.g. redeeming a code): the new role
+        // applies once it has, or the portal would load with a role the rules don't know yet
+        if (seq !== authSeq || snap.metadata.hasPendingWrites) return;
+        // an admin removed the profile: the rules now treat this account as blocked
+        const r = ownerNow ? 'admin' : snap.exists ? snap.data().role : snap.metadata.fromCache ? null : 'none';
         if (r && r !== this.role) {
           const wasActive = this.role !== 'none';
           this.role = r;
@@ -404,10 +432,13 @@
       }, () => {});
     },
 
-    async _providerOf(u) {
-      let p = this._method || '';
-      if (!p) { try { p = (await u.getIdTokenResult()).signInProvider || ''; } catch (e) { /* offline */ } }
+    _providerOf(u, tok) {
+      let p = this._method || (tok && tok.signInProvider) || '';
       if (p === 'custom') p = 'passkey';
+      // Firebase reports an e-mail-link sign-in as 'password': remember which one it was for this account
+      const last = ls.get('mlb.lastMethod');
+      if (this._method) ls.set('mlb.lastMethod', { uid: u.uid, p });
+      else if (p === 'password' && last && last.uid === u.uid && last.p === 'emailLink') p = 'emailLink';
       if (!PROVIDER_IDS.includes(p)) p = ((u.providerData || [])[0] || {}).providerId || 'password';
       return PROVIDER_IDS.includes(p) ? p : 'password';
     },
@@ -437,8 +468,9 @@
         if (inv && inv.exists) invited = inv.data().role;
         if (inv) ss.set('mlb.inviteChecked', u.uid);
       }
-      // an invite is used up once claimed, so a later demotion by an admin sticks
-      const consumeInvite = () => db.collection('invites').doc(email).delete().catch(() => {});
+      // an invite is used up once claimed, so a later demotion by an admin sticks (not awaited: with the
+      // offline cache a write only settles once the server has it)
+      const consumeInvite = () => { db.collection('invites').doc(email).delete().catch(() => {}); };
       // Create the profile in a transaction: when two tabs sign in at once, the second one
       // sees the first one's profile (instead of a second create that the rules reject).
       // a preset editor starts as editor on first sign-in, unless invited for a higher role
@@ -449,11 +481,11 @@
       const existing = await db.runTransaction(async (tx) => {
         const s = await tx.get(ref);
         if (s.exists) return s.data();
-        tx.set(ref, Object.assign({ email, name: u.displayName || this._pendingName || '', role: newRole, provider, createdAt: ts(), lastLogin: ts() }, preset ? { presetApplied: true } : {}));
+        tx.set(ref, Object.assign({ email, name: clip(u.displayName || this._pendingName), role: newRole, provider, createdAt: ts(), lastLogin: ts() }, preset ? { presetApplied: true } : {}));
         return null;
       });
       if (!existing) {
-        if (invited) await consumeInvite();
+        if (invited) consumeInvite();
         return newRole;
       }
       const data = existing;
@@ -461,19 +493,27 @@
       let claimed = false;
       if (isOwner && role !== 'admin') role = 'admin';
       else if (invited && ROLE_RANK[invited] > ROLE_RANK[role]) { role = invited; claimed = true; }
-      else if (invited) await consumeInvite();   // invite no longer needed
+      else if (invited) consumeInvite();   // invite no longer needed
       // a preset editor whose profile was made before the e-mail was verified becomes editor now,
       // once (presetApplied), so a later demotion by an admin sticks
       const presetNow = preset && !data.presetApplied;
       if (presetNow && role === 'reader') role = 'editor';
-      const upd = { role, name: u.displayName || data.name || '', lastLogin: ts() };
+      const upd = { role, name: clip(u.displayName || data.name), lastLogin: ts() };
       if (presetNow) upd.presetApplied = true;
       if (fresh || !data.provider) upd.provider = provider;
       // free plan: a restored session writes the profile only when something changed, or to
       // refresh lastLogin at most every 12 hours
       const changed = role !== data.role || presetNow || upd.name !== (data.name || '') || ('provider' in upd && upd.provider !== data.provider);
-      if (fresh || changed || tms(data.lastLogin) < Date.now() - 12 * 3600 * 1000) await ref.update(upd).catch(() => {});
-      if (claimed) await consumeInvite();
+      if (fresh || changed || tms(data.lastLogin) < Date.now() - 12 * 3600 * 1000) {
+        // true = saved, false = refused by the rules, null = still queued (the connection dropped)
+        const saved = await Promise.race([
+          ref.update(upd).then(() => true, (e) => { console.warn('profile update', e && e.code); return false; }),
+          new Promise((r) => setTimeout(() => r(null), 8000)),
+        ]);
+        // refused: the role didn't change, and the invite stays for the next try
+        if (saved === false) { role = data.role; claimed = false; }
+      }
+      if (claimed) consumeInvite();
       return role;
     },
 
@@ -488,16 +528,17 @@
       // onAuthStateChanged creates the profile as soon as the account exists — before
       // updateProfile() has set the display name — so hand the name over to it here
       // instead of writing users/{uid} a second time
-      this._pendingName = (name || '').trim();
+      const pendingName = clip(name);
+      this._pendingName = pendingName;
       this._setMethod('password');
       let cred;
       try { cred = await auth.createUserWithEmailAndPassword(email.trim(), password); } catch (e) { this._method = ''; throw e; }
-      if (this._pendingName) await cred.user.updateProfile({ displayName: this._pendingName }).catch(() => {});
+      if (pendingName) await cred.user.updateProfile({ displayName: pendingName }).catch(() => {});
       // the account exists either way; remember a failed verification e-mail so the login screen can say so
       this.verificationError = null;
       await withReturn((a) => cred.user.sendEmailVerification(a)).catch((e) => { this.verificationError = e; });
-      if (this.user && this.user.uid === cred.user.uid && !this.user.name && this._pendingName) {
-        this.user.name = this._pendingName;
+      if (this.user && this.user.uid === cred.user.uid && !this.user.name && pendingName) {
+        this.user.name = pendingName;
         this._emit('role', this.role);
       }
       return cred.user;
@@ -511,15 +552,16 @@
     },
     async completeEmailLink(email) {
       const saved = ls.get('mlb.emailForSignIn') || {};
-      this._pendingName = saved.email && saved.email.toLowerCase() === email.trim().toLowerCase() ? saved.name || '' : '';
+      const pendingName = saved.email && saved.email.toLowerCase() === email.trim().toLowerCase() ? clip(saved.name) : '';
+      this._pendingName = pendingName;
       this._setMethod('emailLink');
       try {
         const cred = await auth.signInWithEmailLink(email.trim(), this._emailLink || location.href);
         this._emailLink = null;
         ls.set('mlb.emailForSignIn', null);
         history.replaceState(history.state, '', cleanUrl());
-        if (this._pendingName && cred.user && !cred.user.displayName) {
-          await cred.user.updateProfile({ displayName: this._pendingName }).catch(() => {});
+        if (pendingName && cred.user && !cred.user.displayName) {
+          await cred.user.updateProfile({ displayName: pendingName }).catch(() => {});
         }
         return cred;
       } catch (e) {
@@ -554,7 +596,10 @@
       const method = provider.providerId;
       const redirect = () => { ss.set('mlb.authMethod', method); return auth.signInWithRedirect(provider).then(() => null); };
       this._setMethod(method);
-      if (standalone()) return redirect();
+      // a home-screen app on iPhone / iPad can't use popups. Everywhere else (also the installed app on
+      // Android / desktop) the popup comes first: a redirect back from firebaseapp.com loses its result
+      // in browsers that partition third-party storage
+      if (navigator.standalone === true) return redirect();
       try {
         return await auth.signInWithPopup(provider);
       } catch (e) {
@@ -608,13 +653,14 @@
       const p = this.pendingLink;
       if (!cred || !p) return;
       // link only into the account of the same e-mail address
-      if (p.email && (u.email || '').toLowerCase() !== p.email) return;
+      if (!p.email || (u.email || '').toLowerCase() !== p.email) return;
       if ((u.providerData || []).some((d) => d.providerId === cred.providerId)) { this.cancelPendingLink(); return; }
       try {
         await u.linkWithCredential(cred);
         this._emit('linked', cred.providerId);
       } catch (e) {
-        this._emit('authError', e);
+        // already signed in: shown as a message, not on the login screen (which closes now)
+        this._emit('linkError', e);
       }
       this.cancelPendingLink();
     },
@@ -626,7 +672,9 @@
     // pressing anything
     async _checkVerified() {
       const u = auth && auth.currentUser;
-      if (!u || u.emailVerified || !u.email || this._verifyCheck || Date.now() - (this._verifyCheckAt || 0) < 5000) return;
+      // compared with what this page knows (this.user), not u.emailVerified: Firebase copies a verification
+      // seen in another tab of this browser into u without telling this page
+      if (!u || !u.email || !this.user || this.user.uid !== u.uid || this.user.verified || this._verifyCheck || Date.now() - (this._verifyCheckAt || 0) < 5000) return;
       this._verifyCheck = true;
       this._verifyCheckAt = Date.now();
       try {
@@ -651,17 +699,22 @@
     beforeSignOut(fn) { this._beforeSignOut.push(fn); },
     async signOut() {
       this._pendingName = '';
+      this.cancelPendingLink();
       const wait = (p) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
       await Promise.all(this._beforeSignOut.map((fn) => wait(fn())));
       return auth.signOut();
     },
     get online() { return navigator.onLine !== false; },
+    // opened from an e-mail sign-in link that still waits for the address to be typed in
+    get emailLinkPending() { return !!this._emailLink; },
     get signedIn() { return !!(auth && auth.currentUser); },
 
     // ---- passkeys (WebAuthn; verified by the Cloudflare Pages Function in functions/api/passkey) ----
     passkeySupported() { return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext); },
     async registerPasskey(name) {
       if (!this.user || this.blocked) throw err('passkey/not-signed-in');
+      // a passkey added before the e-mail is verified would outlive the real owner of the address taking the account over
+      if (!this.user.verified) throw err('passkey/unverified');
       if (!this.passkeySupported()) throw err('passkey/unsupported');
       const uid = this.user.uid;
       const mine = await this.listMyPasskeys().catch(() => []);
@@ -673,7 +726,7 @@
             user: { id: new TextEncoder().encode(uid), name: this.user.email || uid, displayName: this.user.name || this.user.email || uid },
             challenge: crypto.getRandomValues(new Uint8Array(32)),
             pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
-            authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'preferred' },
+            authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'required' },
             excludeCredentials: mine.map((p) => ({ type: 'public-key', id: unb64u(p.id) })),
             attestation: 'none',
             timeout: 120000,
@@ -701,11 +754,13 @@
       try { res = await fetch('/api/passkey/challenge', { cache: 'no-store' }); } catch (e) { throw err('passkey/server'); }
       if (res.status === 503) throw err('passkey/not-configured');
       if (!res.ok || !/json/.test(res.headers.get('content-type') || '')) throw err('passkey/server');
-      const { challenge, token } = await res.json();
+      const { challenge, token } = await res.json().catch(() => ({}));
+      if (typeof challenge !== 'string' || !token) throw err('passkey/server');
       let cred;
       try {
+        // the passkey is the only factor: the device must check the fingerprint / face / PIN
         cred = await navigator.credentials.get({
-          publicKey: { challenge: unb64u(challenge), rpId: location.hostname, userVerification: 'preferred', timeout: 120000 },
+          publicKey: { challenge: unb64u(challenge), rpId: location.hostname, userVerification: 'required', timeout: 120000 },
         });
       } catch (e) { throw this._webauthnError(e); }
       if (!cred) throw err('passkey/cancelled');
@@ -720,6 +775,7 @@
         v = await fetch('/api/passkey/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' });
       } catch (e) { throw err('passkey/server'); }
       const j = await v.json().catch(() => ({}));
+      if (v.status === 503) throw err('passkey/not-configured');
       if (!v.ok || !j.token) throw err('passkey/' + (j.error || 'failed'));
       this._pendingName = '';
       this._setMethod('passkey');
@@ -909,6 +965,10 @@
     async redeemCode(input) {
       if (!this.user) throw err('code/not-signed-in');
       if (this.blocked) throw err('code/blocked');
+      // offline the batch would only wait in the queue
+      if (!this.online) throw err('code/offline');
+      // an unverified account with the owner's address must not become an admin nobody can remove
+      if (!this.user.verified && OWNERS.includes(this.user.email)) throw err('code/verify-first');
       const code = normCode(input);
       if (!CODE_RE.test(code)) throw err('code/invalid');
       const ref = db.collection('accessCodes').doc(code);

@@ -55,6 +55,8 @@
       // Firebase's free plan caps the e-mails it sends per day (e-mail sign-in links: only 5 a day)
       'auth/quota-exceeded': 'ഇന്ന് അയയ്ക്കാവുന്ന ഇമെയിലുകളുടെ പരിധി കഴിഞ്ഞു — Google ഉപയോഗിച്ച് ലോഗിൻ ചെയ്യുക, അല്ലെങ്കിൽ നാളെ വീണ്ടും ശ്രമിക്കുക',
       'auth/network-request-failed': 'നെറ്റ്‌വർക്ക് പ്രശ്നം — ഇന്റർനെറ്റ് പരിശോധിക്കുക',
+      'auth/offline': 'ഇന്റർനെറ്റ് ഇല്ല — ലോഗിൻ ചെയ്യാൻ ഇന്റർനെറ്റ് വേണം',
+      'auth/redirect-incomplete': 'ലോഗിൻ പൂർത്തിയായില്ല — വീണ്ടും ശ്രമിക്കുക. വീണ്ടും ഇങ്ങനെ സംഭവിച്ചാൽ ഇമെയിൽ + പാസ്‌വേഡ് ഉപയോഗിക്കുക',
       'auth/unauthorized-domain': 'ഈ വെബ്സൈറ്റ് Firebase-ൽ അനുവദിച്ചിട്ടില്ല (Authorized domains)',
       'auth/unauthorized-continue-uri': 'ഈ വെബ്സൈറ്റ് Firebase-ൽ അനുവദിച്ചിട്ടില്ല (Authorized domains)',
       'auth/operation-not-allowed': 'ഈ ലോഗിൻ രീതി Firebase-ൽ ഓൺ ചെയ്തിട്ടില്ല — അഡ്മിനെ അറിയിക്കുക',
@@ -81,6 +83,8 @@
       'passkey/blocked': 'ഈ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു',
       'passkey/expired': 'സമയം കഴിഞ്ഞു — വീണ്ടും ശ്രമിക്കുക',
       'passkey/not-signed-in': 'ആദ്യം ലോഗിൻ ചെയ്യുക',
+      'passkey/unverified': 'പാസ്‌കീ ചേർക്കാൻ ആദ്യം ഇമെയിൽ സ്ഥിരീകരിക്കുക (ഇമെയിലിലെ ലിങ്ക് തുറക്കുക)',
+      'passkey/user-not-verified': 'ഈ ഉപകരണം വിരലടയാളം / മുഖം / PIN പരിശോധിച്ചില്ല — വീണ്ടും ശ്രമിക്കുക',
       // access codes (Cloud.redeemCode)
       'code/not-signed-in': 'കോഡ് ഉപയോഗിക്കാൻ ആദ്യം ലോഗിൻ ചെയ്യുക',
       'code/blocked': 'നിങ്ങളുടെ അക്കൗണ്ട് അഡ്മിൻ തടഞ്ഞിരിക്കുന്നു — കോഡ് ഉപയോഗിക്കാനാവില്ല',
@@ -89,6 +93,8 @@
       'code/expired': 'ഈ കോഡിന്റെ കാലാവധി കഴിഞ്ഞു — പുതിയ കോഡിന് അഡ്മിനെ ബന്ധപ്പെടുക',
       'code/revoked': 'ഈ കോഡ് അഡ്മിൻ റദ്ദാക്കി — പുതിയ കോഡിന് അഡ്മിനെ ബന്ധപ്പെടുക',
       'code/has-role': 'നിങ്ങൾക്ക് ഇതിനകം ഈ റോൾ / ഉയർന്ന റോൾ ഉണ്ട് — കോഡ് ഉപയോഗിച്ചിട്ടില്ല',
+      'code/offline': 'ഇന്റർനെറ്റ് ഇല്ല — കോഡ് ഉപയോഗിക്കാൻ ഇന്റർനെറ്റ് വേണം',
+      'code/verify-first': 'ഈ ഇമെയിലിന് കോഡ് ഉപയോഗിക്കാൻ ആദ്യം ഇമെയിൽ സ്ഥിരീകരിക്കുക',
       'code/failed': 'കോഡ് ഉപയോഗിക്കാനായില്ല — വീണ്ടും ശ്രമിക്കുക',
     };
     if (c === 'code/used' && e.usedByMe) return 'നിങ്ങൾ ഈ കോഡ് ഇതിനകം ഉപയോഗിച്ചു — ഓരോ കോഡും ഒരു തവണ മാത്രം';
@@ -236,7 +242,7 @@
     $('#loginPassword').autocomplete = up ? 'new-password' : 'current-password';
     $('#fieldName').hidden = !up;
     $('#loginSubmit').hidden = !emailOn;
-    $('#loginSubmit').textContent = state.confirmLink ? 'ലോഗിൻ പൂർത്തിയാക്കുക' : up ? (pw ? 'അക്കൗണ്ട് ഉണ്ടാക്കുക' : 'ലിങ്ക് അയയ്ക്കുക') : 'ലോഗിൻ';
+    $('#loginSubmit').textContent = state.confirmLink ? 'ലോഗിൻ പൂർത്തിയാക്കുക' : !pw ? 'ലിങ്ക് അയയ്ക്കുക' : up ? 'അക്കൗണ്ട് ഉണ്ടാക്കുക' : 'ലോഗിൻ';
     const passkeyOn = !!P.passkey && !up && !state.confirmLink && (!cloud || Cloud.passkeySupported());
     $('#authPasskey').hidden = !passkeyOn;
     $('#authUsePassword').hidden = !(P.emailLink && P.password) || state.confirmLink;
@@ -265,7 +271,7 @@
         : 'ഓൺലൈൻ ലോഗിൻ (Google, GitHub, Microsoft, ഇമെയിൽ, പാസ്‌കീ) Firebase ക്രമീകരിച്ചാൽ മാത്രം — README കാണുക.';
     }
     else if (k === 'readonly') note = 'ലോഗിൻ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല. ഇപ്പോൾ എല്ലാവർക്കും വായിക്കാൻ മാത്രം. അഡ്മിൻ Firebase ക്രമീകരണം (app/js/firebase-config.js) ചേർക്കണം — README കാണുക.';
-    else if (!ready) note = 'ബന്ധിപ്പിക്കുന്നു…';
+    else if (!ready) note = Cloud.initFailed ? 'ലോഗിൻ സെർവറുമായി ബന്ധിപ്പിക്കാനായില്ല — ഇന്റർനെറ്റ് പരിശോധിച്ച് പേജ് വീണ്ടും തുറക്കുക.' : 'ബന്ധിപ്പിക്കുന്നു…';
     else if (state.confirmLink) note = 'ഇമെയിലിലെ ലിങ്ക് തുറന്നു. സുരക്ഷയ്ക്കായി, ലിങ്ക് അയച്ച ഇമെയിൽ വിലാസം വീണ്ടും നൽകുക.';
     notice.textContent = note;
     notice.hidden = !note;
@@ -274,7 +280,7 @@
     // the online sign-in controls work only when Firebase is connected
     const disabled = !ready || state.busy;
     $$('#loginForm button, #loginForm input').forEach((el) => {
-      if (el.id === 'authUsePassword' || el.id === 'btnForgot') el.disabled = state.busy || !cloud;
+      if (el.id === 'authUsePassword') el.disabled = state.busy || !cloud;
       else el.disabled = disabled;
     });
     $('#loginForm').classList.toggle('off', !cloud);
@@ -285,6 +291,22 @@
   async function busy(fn) {
     state.busy = true; render();
     try { await fn(); } finally { state.busy = false; render(); }
+  }
+  // Firebase has signed in, but the profile / role are still loading: stay busy until Cloud reports the
+  // user (at most 20 s), so the buttons can't be pressed a second time. Call before the sign-in starts.
+  function afterSignIn() {
+    let done;
+    const p = new Promise((r) => { done = r; });
+    const t = setTimeout(() => done(), 20000);
+    authWaiters.push(() => { clearTimeout(t); done(); });
+    return () => p.then(() => { if (Cloud.user && dlg.open) AuthUI.close(); });
+  }
+  const authWaiters = [];
+  // sign-in needs the server; say so at once instead of after a timeout
+  function offline() {
+    if (Cloud.online) return false;
+    showError(message({ code: 'auth/offline' }));
+    return true;
   }
 
   const AuthUI = {
@@ -316,7 +338,7 @@
         if (el && !el.disabled && matchMedia('(hover: hover)').matches) el.focus();
       }, 80);
     },
-    close() { if (dlg.open) dlg.close(); },
+    close() { if (dlg.open) { closing = true; dlg.close(); } },
     render,
     // the "enter an access code" dialog (reader drawer, portal access-denied page, ?code= links)
     openRedeem(prefill) {
@@ -326,7 +348,11 @@
       $('#redeemCode').value = prefill ? Cloud.fmtCode(Cloud.normCode(prefill)) : '';
       redeemBusy(false);
       if (!rdlg.open) hooks.show(rdlg);
-      setTimeout(() => { const el = $('#redeemCode'); if (el && !el.value) el.focus(); else $('#redeemSubmit').focus(); }, 80);
+      setTimeout(() => {
+        if (rdlg.contains(document.activeElement) && document.activeElement !== rdlg) return;   // already typing
+        const el = $('#redeemCode');
+        if (el && !el.value) el.focus(); else $('#redeemSubmit').focus();
+      }, 80);
     },
     get redeemOpen() { return rdlg.open; },
   };
@@ -334,6 +360,14 @@
   // ---- events ----
   $('#authClose').addEventListener('click', () => AuthUI.close());
   dlg.addEventListener('cancel', (e) => { if (!state.dismissible) e.preventDefault(); });
+  // the browser may close a modal dialog without a cancelable 'cancel' (Android back, a second Esc): a
+  // screen that must stay (the admin portal while signed out) opens again
+  let closing = false;
+  dlg.addEventListener('close', () => {
+    const wanted = closing;
+    closing = false;
+    if (!wanted && !state.dismissible) setTimeout(() => { if (!dlg.open && !(Cloud && Cloud.user)) hooks.show(dlg); }, 0);
+  });
   $('#authSwitch').addEventListener('click', () => {
     state.mode = state.mode === 'signup' ? 'signin' : 'signup';
     showError(''); showInfo('');
@@ -348,9 +382,12 @@
 
   $$('[data-provider]').forEach((b) => b.addEventListener('click', () => busy(async () => {
     showError(''); showInfo('');
+    if (offline()) return;
+    const wait = afterSignIn();
     try {
       const r = await Cloud.signInWith(b.dataset.provider);
       if (r === null) showInfo('ലോഗിൻ പേജിലേക്ക് പോകുന്നു…');
+      else await wait();
     } catch (e) {
       if (e && e.code === 'auth/popup-closed-by-user' && !Cloud.pendingLink) return;   // the user closed it
       // account exists with another method: fill in the address for an e-mail / password sign-in
@@ -368,19 +405,24 @@
     const usePw = !$('#fieldPassword').hidden;
     if (!EMAIL_RE.test(email)) { showError('ശരിയായ ഇമെയിൽ വിലാസം നൽകുക'); $('#loginEmail').focus(); return; }
     if (usePw && pw.length < 6) { showError('പാസ്‌വേഡിന് കുറഞ്ഞത് 6 അക്ഷരങ്ങൾ വേണം'); $('#loginPassword').focus(); return; }
+    if (offline()) return;
     busy(async () => {
+      const wait = afterSignIn();
       try {
         if (state.confirmLink) {
           await Cloud.completeEmailLink(email);
           state.confirmLink = false;
+          await wait();
         } else if (usePw && state.mode === 'signup') {
           await Cloud.signUp(name, email, pw);
           const ve = Cloud.verificationError;
           hooks.notify(ve
             ? `അക്കൗണ്ട് ഉണ്ടാക്കി, പക്ഷേ സ്ഥിരീകരണ ഇമെയിൽ അയയ്ക്കാനായില്ല (${message(ve)}). ☰ → അക്കൗണ്ട് → "ലിങ്ക് വീണ്ടും അയയ്ക്കുക" പിന്നീട് ശ്രമിക്കുക.`
             : `അക്കൗണ്ട് ഉണ്ടാക്കി — സ്ഥിരീകരണ ലിങ്ക് ${email}-ലേക്ക് അയച്ചു. ${mailHint()}`, 12000);
+          await wait();
         } else if (usePw) {
           await Cloud.signIn(email, pw);
+          await wait();
         } else {
           await Cloud.sendEmailLink(email, state.mode === 'signup' ? name : '');
           showInfo(`ലിങ്ക് അയച്ചു, ഇമെയിൽ പരിശോധിക്കുക (${email}). ആ ലിങ്ക് ഈ ബ്രൗസറിൽ തുറന്നാൽ ലോഗിൻ ആകും.`, mailHint());
@@ -395,6 +437,9 @@
           if (pwOk) setTimeout(() => { render(); $('#loginPassword').focus(); }, 0);
           return;
         }
+        // the link in the address bar is dead: back to the normal login form
+        if (state.confirmLink && /invalid-action-code|expired-action-code/.test((err && err.code) || '')) state.confirmLink = false;
+        if (state.confirmLink && err && err.code === 'auth/invalid-email') { showError('ഈ ലിങ്ക് അയച്ചത് മറ്റൊരു ഇമെയിലിലേക്കാണ് — ലിങ്ക് ചോദിച്ച അതേ ഇമെയിൽ വിലാസം നൽകുക'); return; }
         showError(message(err));
       }
     });
@@ -403,6 +448,7 @@
   $('#btnForgot').addEventListener('click', () => {
     const email = $('#loginEmail').value.trim();
     if (!EMAIL_RE.test(email)) { showError('ആദ്യം ഇമെയിൽ നൽകുക'); $('#loginEmail').focus(); return; }
+    if (state.busy || !(Cloud && Cloud.ready) || offline()) return;
     busy(async () => {
       try {
         await Cloud.resetPassword(email);
@@ -414,7 +460,9 @@
 
   $('#authPasskey').addEventListener('click', () => busy(async () => {
     showError(''); showInfo('');
-    try { await Cloud.signInPasskey(); } catch (err) { showError(message(err)); }
+    if (offline()) return;
+    const wait = afterSignIn();
+    try { await Cloud.signInPasskey(); await wait(); } catch (err) { showError(message(err)); }
   }));
 
   $('#localForm').addEventListener('submit', (e) => {
@@ -498,15 +546,25 @@
   }
 
   if (Cloud) {
+    let lastUid = null;
     Cloud.on((type, data) => {
-      if (type === 'ready') render();
+      if (type === 'ready' || type === 'initError') render();
       else if (type === 'auth' && data) {
-        state.confirmLink = false;
-        if (dlg.open) AuthUI.close();
+        lastUid = data.uid;
+        authWaiters.splice(0).forEach((fn) => fn());
+        // an e-mail sign-in link waits for its address: a session restored meanwhile doesn't close that screen
+        if (!(state.confirmLink && dlg.open && Cloud.emailLinkPending)) {
+          state.confirmLink = false;
+          if (dlg.open) AuthUI.close();
+        }
         takePendingCode();
       } else if (type === 'auth') {
+        // signed out: don't leave the previous person's address in the form (shared devices)
+        if (lastUid) { lastUid = null; $('#loginEmail').value = ''; $('#loginPassword').value = ''; $('#loginName').value = ''; }
         if (rdlg.open) rdlg.close();
         takePendingCode();
+      } else if (type === 'linkError') {
+        hooks.notify(message(data), 8000);
       } else if (type === 'authError') {
         if (data && data.code === 'auth/popup-closed-by-user') return;
         AuthUI.open({ error: data, dismissible: dlg.open ? state.dismissible : undefined });
