@@ -34,6 +34,7 @@ register('data:text/javascript,' + encodeURIComponent(`
 const ROUTES = {
   '/api/passkey/challenge': 'functions/api/passkey/challenge.js',
   '/api/passkey/verify': 'functions/api/passkey/verify.js',
+  '/api/where': 'functions/api/where.js',
 };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -47,7 +48,9 @@ async function runFunction(file, req, body) {
   const handler = mod[name] || mod.onRequest;
   if (!handler) return new Response('Method Not Allowed', { status: 405 });
   const url = `http://${req.headers.host || 'localhost:' + port}${req.url}`;
-  const request = new Request(url, { method, headers: req.headers, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
+  // the client address, like Cloudflare's CF-Connecting-IP (for /api/where)
+  const headers = Object.assign({}, req.headers, { 'x-real-ip': req.socket.remoteAddress || '' });
+  const request = new Request(url, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
   return handler({ request, env: process.env, params: {}, waitUntil() {}, next() {} });
 }
 

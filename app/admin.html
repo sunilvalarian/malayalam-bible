@@ -50,6 +50,9 @@
     <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v3.5a1.5 1.5 0 0 0 0 3V17H3v-3.5a1.5 1.5 0 0 0 0-3z"/><path d="M15 7v10" stroke-dasharray="2 2"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6M20 16V6"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 5-2.7M14.5 10.4A10 10 0 0 1 19 13M2 9.5a15 15 0 0 1 4.5-2.8M10.5 5.1A15 15 0 0 1 22 9.5"/><circle cx="12" cy="20" r="1"/></symbol>
     <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 19.1z"/><path d="M9.5 9.5c.4 2 2.5 4.3 5 5"/></symbol>
   </defs>
 </svg>
@@ -70,6 +73,7 @@
   </aside>
   <main class="adm-main" id="admMain">
     <div class="adm-banner" id="admBanner" hidden></div>
+    <div class="adm-banner adm-offline" id="admOffline" role="status" hidden><svg><use href="#i-wifi-off"/></svg><span><strong>ഓഫ്‌ലൈൻ.</strong> ഈ ഉപകരണത്തിൽ സൂക്ഷിച്ച പകർപ്പാണ് കാണിക്കുന്നത്. മാറ്റങ്ങൾ ഇന്റർനെറ്റ് കിട്ടുമ്പോൾ അയയ്ക്കും.</span></div>
     <header class="adm-head"><h1 id="secTitle"></h1><div class="adm-head-actions" id="secActions"></div></header>
     <div class="adm-body" id="secBody"></div>
   </main>
@@ -92,6 +96,7 @@
 <script src="js/books.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/cloud.js"></script>
+<script src="js/usage.js"></script>
 <script src="js/auth-ui.js"></script>
 <script src="js/admin.js"></script>
 </body>

@@ -10,6 +10,8 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
 - **Aa**: font size, line spacing, 4 Malayalam fonts, Light / Sepia / Dark / Auto themes, paragraph or verse-per-line layout.
 - **Editing**: ☰ → *ഈ അധ്യായം തിരുത്തുക* opens a side-by-side editor with live preview. Format: `[5]` starts verse 5, `## text` is a heading, each line is a paragraph. The editor warns about missing or out-of-order verse numbers. *യഥാർത്ഥം* restores the original PDF text.
 - **Access codes and open editing**: an admin can hand out one-time codes that make someone an editor or admin, and can open PDF upload / chapter editing to everyone who is signed in (see [Login and permissions](#login-and-permissions)).
+- **Works without internet**: after one visit online, the reader and the administrator portal open offline too (see [Offline](#offline)). An **ഓഫ്‌ലൈൻ** badge shows in the top bar while there's no connection.
+- **Usage log**: everything people do in the app is recorded, also offline, and shown in the portal → **ഉപയോഗം** (see [Usage log](#usage-log)).
 - **PDF upload**: ☰ → *PDF അപ്‌ലോഡ്*. Drop one or more PDFs. The book and chapter number are detected (from the file name or an `അധ്യായം N` header) and can be changed. Preview, then save. The chapter becomes part of the reader, and ☰ → *HTML ആയി ഡൗൺലോഡ്* exports a whole book as a single HTML file.
 
 ## Hosting
@@ -43,7 +45,7 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 | Download data.js, backup (.json), book as HTML; restore a backup | | | | ✓ | ✓ |
 | Delete chapters, reset all edits | | | | | ✓ |
 | Enter an access code (become Editor / Admin) | | | ✓ | ✓ | |
-| Administrator portal: users, roles, invites, access codes, settings, activity, content, passkeys | | | | | ✓ |
+| Administrator portal: usage log, users, roles, invites, access codes, settings, activity, content, passkeys | | | | | ✓ |
 
 \* only while an admin has ticked it in the portal → **ക്രമീകരണങ്ങൾ** (see [Open to everyone](#open-to-everyone-settings)).
 
@@ -64,7 +66,7 @@ If an e-mail already has an account with another method (e.g. Google, then GitHu
 Hide a method by setting it to `false` in `window.AUTH_PROVIDERS` in `app/js/firebase-config.js`.
 
 ### Administrator portal
-☰ → **അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ** (or open `/admin`). Admins only; others see an access-denied page (where they can also enter an access code). Sections: dashboard (counts + last activity), users (search, change role, block), invites, access codes, the role × permission table, settings (open upload / editing to everyone), activity log (filter by user / action), content (chapters edited online — revert one to the original text), passkeys (revoke), and login methods (what is switched on, and whether the passkey server answers).
+☰ → **അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ** (or open `/admin`). Admins only; others see an access-denied page (where they can also enter an access code). Sections: dashboard (counts, today's app use, last activity), usage (everything done in the app, see [Usage log](#usage-log)), users (each with an **ഉപയോഗം** button for that person's full log) (search, change role, block), invites, access codes, the role × permission table, settings (open upload / editing to everyone), activity log (filter by user / action), content (chapters edited online — revert one to the original text), passkeys (revoke), and login methods (what is switched on, and whether the passkey server answers).
 
 An admin can invite an e-mail as Editor/Admin before the person signs up; the role applies once they sign in with that e-mail (verified). An admin can't change their own role or the owner's.
 
@@ -88,6 +90,62 @@ Portal → **ക്രമീകരണങ്ങൾ** has two tick boxes, saved im
 Visitors who aren't signed in stay read-only, and blocked users stay blocked. Restore original text, backups / data.js / HTML download stay Editor+; deleting / hiding chapters, reset all, users and the portal stay Admin. The change applies live in every open tab: the drawer items, the verse action bar's edit button, the `e` shortcut and `?open=upload|edit` follow it, and an editor / upload dialog that a reader has open closes when the tick is removed. Readers' edits are logged in the activity log like editors' and can be reverted from the portal's content page. `settings/permissions` (`openUpload, openEdit, updatedBy, updatedAt`) is readable by everyone and writable only by admins; each change is logged as "ക്രമീകരണം മാറ്റി".
 
 In `firestore.rules` a chapter write by a non-editor is allowed only for an active (signed-in, not blocked) user with the usual chapter checks (`updatedBy` = their e-mail, server time, `hasBase` matches the bundled books, content not empty), never with `deleted: true`, and never on a chapter an admin has hidden. Firestore can't tell an upload from an edit, so: `openUpload` allows creating or overwriting any chapter; `openEdit` allows changing any existing visible chapter and creating the edited copy of a bundled chapter (but not a new, non-bundled one). Deleting a chapter document (remove an upload, or "restore original") stays Editor / Admin. When a reader edits a bundled chapter back to exactly its original text, the app stores that text instead of deleting the edit. Each such write costs one extra document read in the rules (the settings document).
+
+### Offline
+- The service worker (`app/sw.js`) caches the app, the Bible text, the fonts and the Firebase library on the first visit.
+- Firestore's offline cache is switched on (`enablePersistence` in `cloud.js`). Chapters edited online, the admin switches, the user's profile, their synced highlights / notes and whatever the portal has loaded stay available offline.
+- The saved sign-in is used offline, with the role this device last saw for that account.
+- Offline, reading, search, highlights, bookmarks and notes work as usual. Chapter edits and uploads are queued by Firestore and sent when the connection is back (the rules check them then), and so are the activity-log entries.
+- *Reset all* and anything that needs the server (sign-in, sending e-mails, access codes) still need a connection.
+- The portal shows a banner while offline and reloads the page it's on when the connection is back.
+
+### Usage log
+`app/js/usage.js` records what is done in the app on each device. Every event is first saved in the browser (localStorage, at most 1500 waiting), so nothing is lost offline. When there is a connection, events go up to Firestore `usage/{batchId}`: one document per batch of at most 200 events. To stay inside the free plan, a batch goes up only when its oldest event is 15 minutes old, or 100 events have gathered (25 when the app is hidden), and always before signing out. A short visit therefore goes up at the start of the next one, so the portal shows new use a little late.
+
+- **Recorded**:
+  - app opened (reader / portal, installed app or browser, where the visitor came from)
+  - each chapter read, with the seconds it was on screen
+  - searches (words, number of results, scope)
+  - copy, share, highlight, bookmark and note (which verses)
+  - reading settings, menu items, chapter edits / uploads
+  - login (method), logout, role changes
+  - going online / offline, app installed, JavaScript errors, portal pages viewed
+  - every event is marked online or offline
+- **With each batch**:
+  - the account (checked by the rules), or none for a visitor who isn't signed in
+  - a random device id
+  - the device: OS and version, browser, model, screen, language, time zone, installed app or not
+  - the approximate place (city, region, country, IP, ISP). It comes from the Cloudflare Pages Function `/api/where` (`functions/api/where.js`, no secrets needed) and is refreshed once a day. It's empty on hosts without the function.
+- **Portal → ഉപയോഗം**:
+  - period: today, 7, 30 or 90 days
+  - filters: everyone, signed-in, visitors, one person or device; event type; free-text search
+  - totals: people, sessions, chapters read and reading time, searches, what was done offline, errors
+  - a table per person / device (device, place, sessions, reading, searches, offline use, last seen)
+  - day by day, the most-read chapters, the words searched for (0 results are marked)
+  - the full timeline
+  - click a person for their details (all devices, IP, browser string, first / last seen)
+  - **CSV** downloads what is shown
+  - old batches can be deleted (older than 30 / 90 / 180 / 365 days); this is recorded in the activity log
+- **Rules**: anyone, also someone not signed in, may *create* a batch in the checked format; nobody can change one; only admins can read or delete them.
+- **Free plan**: each batch is 1 write, and the portal reads 1 document per batch (500 per page, then *കൂടുതൽ ലോഡ് ചെയ്യുക*). The free plan allows 20 000 writes and 50 000 reads a day.
+- **Telling users**: the reading settings (**Aa**) have a line saying that usage is recorded.
+- **Updating the app**: bump `APP_VERSION` in `usage.js` together with `VERSION` in `sw.js`.
+
+### Free plan, battery and memory
+The project runs on Firebase's free Spark plan (per day: 50 000 reads, 20 000 writes, 20 000 deletes; 1 GiB stored). What keeps it inside those limits:
+- **Usage log**: events are gathered into batches (above), 1 write per batch.
+- **Profile**: a restored session reads the invite list once per browser session, not on every page load. It writes the profile only when something changed, or every 12 hours to refresh the last-login time.
+- **Personal sync**: several highlights / bookmarks / notes in a row go up as one write (3 seconds after the last one, or at once when the app is hidden).
+- **Portal**: the user list is reused for 2 minutes across pages, and the usage batches for 5 minutes. A shorter period, or the dashboard's "today", is worked out from what is already loaded, without new reads. **പുതുക്കുക** reads afresh.
+- **Offline cache**: Firestore's offline cache also saves reads, because listeners resume from it.
+- **Old usage logs**: delete them from the portal to keep the storage small.
+
+Battery and memory:
+- No timers run in the background. The usage log sets one timer, only while the app is visible, for when the next batch is due.
+- A page hidden for 2 minutes closes its live Firestore connection, and reconnects when shown again. This saves the phone's radio.
+- The waiting usage events are kept parsed in memory: storage is only written, never re-read, for each event.
+- Scrolling only touches the top bar when it crosses the line, and saves the reading position once scrolling stops.
+- The search index and the word list are built only when first needed.
 
 ### Local mode (no Firebase)
 Without a Firebase config the app runs in **local mode**, and edits stay in that browser:
@@ -129,6 +187,17 @@ FIREBASE_EMULATOR_HOST_FIRESTORE=127.0.0.1:8080 FIREBASE_PROJECT_ID=demo-bible n
 #   reader: http://localhost:8788/?emulator      portal: http://localhost:8788/admin.html?emulator
 ```
 (On Windows PowerShell set the variables first: `$env:FIREBASE_EMULATOR_HOST_FIRESTORE='127.0.0.1:8080'; $env:FIREBASE_PROJECT_ID='demo-bible'`.) Use `localhost`, not `127.0.0.1`, for passkeys. Sign-in e-mails (links, verification) appear in the emulator log and at `http://127.0.0.1:9099/emulator/v1/projects/demo-bible/oobCodes`.
+
+### Automated tests
+The tests live in [`tests/`](tests) with their own `package.json`, so the site and the Cloudflare deploy don't depend on npm. They need Node 20+, and Java for the Firebase emulator (`JAVA_HOME` or `java` on the PATH). The end-to-end tests also need Google Chrome.
+```
+cd tests
+npm install
+npm test              # everything
+npm run test:unit     # usage log, /api/where, parser (no emulator)
+npm run test:rules    # firestore.rules against the Firestore emulator (own ports: 8180 …)
+npm run test:e2e      # Chrome + emulators + dev server: offline start, usage upload, portal
+```
 
 ## Where changes are stored
 In local mode, edits, uploads, highlights and notes are saved in the browser's localStorage, on this computer and in this browser only. In login mode, chapter edits live in Firestore and personal data syncs to the user's account. To keep a copy in the repository:

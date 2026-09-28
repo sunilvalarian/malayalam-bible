@@ -232,6 +232,7 @@
     configured,
     emulator,
     ready: false,
+    authKnown: false,  // the first sign-in state (signed in or not) is known
     user: null,      // { uid, email, name, verified, provider }
     role: 'none',
     // admin switches (settings/permissions, readable by everyone; live)
@@ -281,16 +282,23 @@
         auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
         db.useEmulator('127.0.0.1', 8080);
       }
+      // offline: Firestore keeps what it has read (chapters, profile, settings, personal data, portal
+      // lists) in IndexedDB and queues writes until the connection is back; shared by all open tabs
+      await db.enablePersistence({ synchronizeTabs: true }).catch((e) => console.warn('offline cache off:', e && e.code));
       auth.useDeviceLanguage();
       this._method = ss.get('mlb.authMethod') || '';
       ss.set('mlb.authMethod', null);
       this._restorePending();
-      try {
-        const r = await auth.getRedirectResult();
-        if (!r || !r.user) this._method = '';
-      } catch (e) {
-        this._method = '';
-        this._emit('authError', await this._authError(e));
+      // a sign-in redirect only comes back with a connection; offline this call would only fail
+      if (!this.online) this._method = '';
+      else {
+        try {
+          const r = await auth.getRedirectResult();
+          if (!r || !r.user) this._method = '';
+        } catch (e) {
+          this._method = '';
+          this._emit('authError', await this._authError(e));
+        }
       }
       if (opts.chapters !== false) {
         db.collection('chapters').onSnapshot(
@@ -309,6 +317,18 @@
       }, () => {});
       auth.onAuthStateChanged((u) => this._onAuth(u));
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this._checkVerified(); });
+      // battery / mobile data: a page hidden for 2 minutes closes its live connection (the
+      // listeners then answer from the offline cache); it reconnects and catches up when shown
+      let idleTimer = null, paused = false;
+      document.addEventListener('visibilitychange', () => {
+        clearTimeout(idleTimer);
+        if (document.visibilityState === 'hidden') {
+          idleTimer = setTimeout(() => { paused = true; db.disableNetwork().catch(() => { paused = false; }); }, 2 * 60 * 1000);
+        } else if (paused) {
+          paused = false;
+          db.enableNetwork().catch(() => {});
+        }
+      });
       window.addEventListener('focus', () => this._checkVerified());
       this.ready = true;
       this._emit('ready');
@@ -335,6 +355,7 @@
       if (!u) {
         this.user = null;
         this.role = 'none';
+        this.authKnown = true;
         this._emit('auth', null);
         return;
       }
@@ -347,10 +368,18 @@
         verified: !!u.emailVerified, provider,
       };
       let role;
-      try { role = await this._ensureProfile(u, provider, fresh); } catch (e) { role = 'reader'; this._emit('error', e); }
+      try {
+        role = await this._ensureProfile(u, provider, fresh);
+      } catch (e) {
+        // offline (or the server didn't answer): keep the role this device last saw for this account
+        role = await this._cachedRole(u.uid);
+        if (!role) { role = 'reader'; this._emit('error', e); }
+      }
       if (seq !== authSeq) return;
       this.user = user;
       this.role = role;
+      this.authKnown = true;
+      ls.set('mlb.lastRole', { uid: u.uid, role });
       this._emit('auth', this.user);
       const ownerNow = user.verified && OWNERS.includes(user.email);
       // role changes by an admin apply immediately
@@ -360,6 +389,7 @@
         if (r && r !== this.role) {
           const wasActive = this.role !== 'none';
           this.role = r;
+          ls.set('mlb.lastRole', { uid: u.uid, role: r });
           if (!wasActive && r !== 'none') this._watchUserData(u.uid, seq);
           this._emit('role', r);
         }
@@ -382,15 +412,30 @@
       return PROVIDER_IDS.includes(p) ? p : 'password';
     },
 
+    // the role from Firestore's offline cache, else the one remembered in this browser
+    async _cachedRole(uid) {
+      const snap = await db.collection('users').doc(uid).get({ source: 'cache' }).catch(() => null);
+      const r = snap && snap.exists ? snap.data().role : null;
+      if (r) return r;
+      const last = ls.get('mlb.lastRole');
+      return last && last.uid === uid ? last.role : null;
+    },
+
     // Creates the profile on first sign-in, applies invites and the owner rule. Returns the role.
     async _ensureProfile(u, provider, fresh) {
+      // a transaction needs the server: offline, _onAuth falls back to the cached role
+      if (!this.online) throw err('offline');
       const email = (u.email || '').toLowerCase();
       const isOwner = !!u.emailVerified && OWNERS.includes(email);
       const ref = db.collection('users').doc(u.uid);
       let invited = null;
-      if (u.emailVerified && !isOwner && email) {
+      // free plan: look for an invite once per browser session (and on every new sign-in), not on
+      // every page load; an invite made meanwhile applies the next time the app is opened
+      const checked = !fresh && ss.get('mlb.inviteChecked') === u.uid;
+      if (u.emailVerified && !isOwner && email && !checked) {
         const inv = await db.collection('invites').doc(email).get().catch(() => null);
         if (inv && inv.exists) invited = inv.data().role;
+        if (inv) ss.set('mlb.inviteChecked', u.uid);
       }
       // an invite is used up once claimed, so a later demotion by an admin sticks
       const consumeInvite = () => db.collection('invites').doc(email).delete().catch(() => {});
@@ -424,7 +469,10 @@
       const upd = { role, name: u.displayName || data.name || '', lastLogin: ts() };
       if (presetNow) upd.presetApplied = true;
       if (fresh || !data.provider) upd.provider = provider;
-      await ref.update(upd).catch(() => {});
+      // free plan: a restored session writes the profile only when something changed, or to
+      // refresh lastLogin at most every 12 hours
+      const changed = role !== data.role || presetNow || upd.name !== (data.name || '') || ('provider' in upd && upd.provider !== data.provider);
+      if (fresh || changed || tms(data.lastLogin) < Date.now() - 12 * 3600 * 1000) await ref.update(upd).catch(() => {});
       if (claimed) await consumeInvite();
       return role;
     },
@@ -598,7 +646,16 @@
       await auth.currentUser.getIdToken(true);
       await this._onAuth(auth.currentUser);
     },
-    signOut() { this._pendingName = ''; return auth.signOut(); },
+    // hooks that run (at most 2 s) before signing out, e.g. uploading this account's usage log
+    _beforeSignOut: [],
+    beforeSignOut(fn) { this._beforeSignOut.push(fn); },
+    async signOut() {
+      this._pendingName = '';
+      const wait = (p) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, 2000))]);
+      await Promise.all(this._beforeSignOut.map((fn) => wait(fn())));
+      return auth.signOut();
+    },
+    get online() { return navigator.onLine !== false; },
     get signedIn() { return !!(auth && auth.currentUser); },
 
     // ---- passkeys (WebAuthn; verified by the Cloudflare Pages Function in functions/api/passkey) ----
@@ -766,6 +823,43 @@
         cursor: snap.docs.length > limit ? { after: page[page.length - 1] } : null,
       };
     },
+    // ---- usage log (js/usage.js): one document per uploaded batch of events ----
+    // create-only; the device picks the id, so a batch that is sent twice is stored once
+    saveUsage(id, doc) {
+      return db.collection('usage').doc(id).set(Object.assign({}, doc, { at: ts() }));
+    },
+    // batches uploaded since `since` (ms), newest first. opts: { since, limit, cursor }
+    //   → { items, cursor (for the next, older page) | null }. The portal filters by person here.
+    async listUsage(opts) {
+      opts = opts || {};
+      const limit = opts.limit || 500;
+      let q = db.collection('usage');
+      if (opts.since) q = q.where('at', '>=', new Date(opts.since));
+      q = q.orderBy('at', 'desc');
+      if (opts.cursor && opts.cursor.after) q = q.startAfter(opts.cursor.after);
+      const snap = await q.limit(limit + 1).get();
+      const page = snap.docs.slice(0, limit);
+      return {
+        items: page.map((d) => Object.assign({ id: d.id }, d.data())),
+        cursor: snap.docs.length > limit ? { after: page[page.length - 1] } : null,
+      };
+    },
+    // delete the batches uploaded before `before` (ms); returns how many were deleted
+    async purgeUsage(before) {
+      let n = 0;
+      for (;;) {
+        const snap = await db.collection('usage').where('at', '<', new Date(before)).limit(400).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+        n += snap.size;
+        if (snap.size < 400) break;
+      }
+      if (n) await this.log('usage-purge', '-', 0, String(n));
+      return n;
+    },
+
     async listChapters() { return docs(await db.collection('chapters').get()); },
     async revertChapter(book, chapter) {
       await this.removeChapter(book, chapter);

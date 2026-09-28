@@ -96,7 +96,13 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; backgrou
   border-bottom: 1px solid transparent; transition: border-color .2s, transform .25s;
 }
 .topbar.scrolled { border-bottom-color: var(--line); }
-.topbar-right { margin-left: auto; display: flex; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; }
+/* shown while there is no internet (the app keeps working from its offline copy) */
+.net-pill {
+  font-size: 12px; font-weight: 600; line-height: 1; padding: 5px 9px; margin-right: 2px; border-radius: 999px;
+  color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); white-space: nowrap;
+}
+.net-pill[hidden] { display: none; }
 .ref-btn {
   position: absolute; left: 50%; transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 4px; padding: 7px 14px 7px 18px;
@@ -250,6 +256,7 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 .popover::backdrop { background: transparent; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 15px; }
 .set-row.col { flex-direction: column; align-items: stretch; gap: 8px; }
+.set-note { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.6; }
 .set-row input[type="range"] { flex: 1; max-width: 180px; accent-color: var(--accent); }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper output { min-width: 28px; text-align: center; font-weight: 700; }

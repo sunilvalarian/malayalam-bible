@@ -31,6 +31,8 @@
   const Cloud = window.Cloud || { available: false };
   const LocalOwner = window.LocalOwner || { allowed: false, isSet: () => false, isUnlocked: () => false, lock() {}, on() {} };
   const AuthUI = window.AuthUI || null;
+  // usage log for the administrator portal (js/usage.js; recorded offline too)
+  const Usage = window.Usage || { track() {}, view() {}, enabled: false };
   const cloudMode = !!Cloud.available;
   let cloudStatus = cloudMode ? 'connecting' : 'local';   // connecting | ready | offline | local
   let cloudDocs = new Set();                              // chapter override docs that exist in Firestore
@@ -43,7 +45,9 @@
   }, LS.get('settings', {}));
   // one verse per line is now the default — switch readers who still have the old saved default
   if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
-  const pushUserData = debounce(() => flushUserData(), 800);
+  // free plan: several highlights / bookmarks in a row go up as one write (and at once when hidden)
+  const pushUserData = debounce(() => flushUserData(), 3000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushUserData(); });
   const saveUser = () => { const ok = LS.set('user', user); pushUserData(); return ok; };
   const saveSettings = () => LS.set('settings', settings);
 
@@ -96,7 +100,10 @@
   // keys = [[bookId, chapter], ...]; action is recorded in the activity log.
   function persist(keys, action) {
     if (!cloudMode) return saveOverlay();
-    if (cloudStatus !== 'ready') { toast('ഓൺലൈൻ അല്ല — മാറ്റങ്ങൾ സേവ് ചെയ്യാൻ ഇന്റർനെറ്റ് ആവശ്യമാണ്', 4000); return false; }
+    if (cloudStatus !== 'ready') { toast('ബന്ധിപ്പിക്കാനായില്ല — മാറ്റങ്ങൾ സേവ് ചെയ്യാൻ ഒരിക്കൽ ഇന്റർനെറ്റോടെ ആപ്പ് തുറക്കുക', 4000); return false; }
+    // offline: Firestore keeps the writes and sends them when the connection is back
+    const offline = !Cloud.online;
+    if (offline) toast('ഓഫ്‌ലൈൻ — ഇന്റർനെറ്റ് കിട്ടുമ്പോൾ മാറ്റങ്ങൾ സിങ്ക് ചെയ്യും', 4000);
     saveOverlay();
     for (const [id, n] of keys) {
       const ob = overlay.books[id];
@@ -112,7 +119,10 @@
       } else {
         p = Cloud.saveChapter(id, n, val, ob.name, !!baseChapter(id, n));
       }
-      p.then(() => Cloud.log(action, id, n)).catch(cloudError);
+      Usage.track(action, { b: id, c: n });
+      // online: log once the server has taken it; offline: queue the log entry with it now, since
+      // this page may be closed before the connection comes back
+      if (offline) { Cloud.log(action, id, n); p.catch(cloudError); } else p.then(() => Cloud.log(action, id, n)).catch(cloudError);
     }
     return true;
   }
@@ -347,6 +357,7 @@
       scrollToVerse(opts.verse, opts.verseEnd, true);
     }
     settings.last = { b, c };
+    Usage.view(b, c);
     if (changed) {
       settings.history = [{ b, c, t: Date.now() }, ...(settings.history || []).filter((h) => !(h.b === b && h.c === c))].slice(0, 60);
     }
@@ -434,6 +445,9 @@
 
   $('#btnSelClose').addEventListener('click', clearSelection);
 
+  // the selected verses, for the usage log
+  const selRef = (extra) => Object.assign({ b: cur.book, c: cur.chapter, v: [...selection].sort((a, b) => a - b).join(',') }, extra);
+
   $('#actionbar').addEventListener('click', async (e) => {
     const sw = e.target.closest('.swatch');
     if (sw) {
@@ -442,6 +456,7 @@
         const k = vkey(cur.book, cur.chapter, v);
         if (color) user.hl[k] = { c: color, t: Date.now() }; else delete user.hl[k];
       }
+      Usage.track(color ? 'highlight' : 'unhighlight', selRef(color ? { col: color } : null));
       saveUser();
       rerenderKeep();
       return;
@@ -449,6 +464,7 @@
     const btn = e.target.closest('[data-act]');
     if (!btn || btn.disabled) return;
     const act = btn.dataset.act;
+    if (act === 'copy' || act === 'share') Usage.track(act, selRef());
     if (act === 'copy') {
       toast((await copyText(selectedText())) ? 'പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
       clearSelection();
@@ -464,6 +480,7 @@
       const keys = [...selection].map((v) => vkey(cur.book, cur.chapter, v));
       const all = keys.every((k) => user.bm[k]);
       keys.forEach((k) => { if (all) delete user.bm[k]; else user.bm[k] = Date.now(); });
+      Usage.track(all ? 'unbookmark' : 'bookmark', selRef());
       saveUser();
       toast(all ? 'ബുക്ക്മാർക്ക് നീക്കി' : 'ബുക്ക്മാർക്ക് ചെയ്തു');
       rerenderKeep();
@@ -498,12 +515,18 @@
     const text = $('#noteText').value.trim();
     if (text) user.notes[noteCtx.key] = { text, vs: noteCtx.vs, t: Date.now() };
     else delete user.notes[noteCtx.key];
+    const nr = splitKey(noteCtx.key);
+    Usage.track(text ? 'note' : 'note-delete', { b: nr.b, c: nr.c, v: noteCtx.vs.join(','), len: text.length });
     saveUser();
     toast(text ? 'കുറിപ്പ് സേവ് ചെയ്തു' : 'കുറിപ്പ് നീക്കി');
     rerenderKeep();
   });
   $('#noteDelete').addEventListener('click', () => {
-    if (noteCtx) delete user.notes[noteCtx.key];
+    if (noteCtx) {
+      const nr = splitKey(noteCtx.key);
+      Usage.track('note-delete', { b: nr.b, c: nr.c, v: noteCtx.vs.join(',') });
+      delete user.notes[noteCtx.key];
+    }
     saveUser();
     $('#dlgNote').close('deleted');
     toast('കുറിപ്പ് നീക്കി');
@@ -746,7 +769,16 @@
     body.innerHTML = html;
     if (!isPureRef) showMore();
     saveSettings();
+    logSearch(q, isPureRef ? -1 : search.results.length);
   }
+  // the search that was settled on (not every keystroke), for the usage log; n = -1: a reference
+  let lastLogged = '';
+  const logSearch = debounce((q, n) => {
+    const key = [q, settings.scope, settings.whole].join('|');
+    if (key === lastLogged) return;
+    lastLogged = key;
+    Usage.track('search', { q, n, scope: settings.scope, whole: settings.whole || null });
+  }, 1500);
 
   function showMore() {
     const list = $('#resultList');
@@ -831,7 +863,9 @@
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     $('meta[name="theme-color"]').content = dark ? '#121212' : settings.theme === 'sepia' ? '#f4ecd8' : '#fbfaf7';
   }
-  const changeSetting = (k, v) => { settings[k] = v; saveSettings(); applySettings(); };
+  // the last value of a setting that was changed (a slider gives many steps), for the usage log
+  const logSetting = debounce((k, v) => Usage.track('setting', { key: k, val: String(v) }), 1500);
+  const changeSetting = (k, v) => { settings[k] = v; saveSettings(); applySettings(); logSetting(k, v); };
   $('#dlgSettings').addEventListener('click', (e) => {
     const f = e.target.closest('button[data-font]');
     if (f) changeSetting('fontSize', Math.min(FONT_MAX, Math.max(FONT_MIN, settings.fontSize + +f.dataset.font)));
@@ -1263,6 +1297,7 @@ p{margin:0 0 .9em}
     const m = $('#dlgMenu');
     if (m.open) m.close();
     if (MENU_PERM[a] && !can(MENU_PERM[a])) { needPermission(MENU_PERM[a]); return; }
+    Usage.track('menu', { a });
     if (a === 'login') { openLogin('signin'); return; }
     if (a === 'logout') { await Cloud.signOut(); toast('ലോഗൗട്ട് ചെയ്തു'); return; }
     if (a === 'lock') { LocalOwner.lock(); toast('ലോക്ക് ചെയ്തു'); return; }
@@ -1289,7 +1324,7 @@ p{margin:0 0 .9em}
       const who = cloudMode ? ' ഇത് എല്ലാ ഉപയോക്താക്കൾക്കും ബാധകമാണ്.' : '';
       if (!(await confirmBox('എല്ലാ തിരുത്തലുകളും മായ്ക്കുക', `${n} അധ്യായങ്ങളിലെ തിരുത്തലുകളും അപ്‌ലോഡുകളും നീക്കം ചെയ്യും. ഹൈലൈറ്റുകളും കുറിപ്പുകളും നിലനിൽക്കും.${who}`, 'മായ്ക്കുക'))) return;
       if (cloudMode) {
-        if (cloudStatus !== 'ready') { toast('ഓൺലൈൻ അല്ല'); return; }
+        if (cloudStatus !== 'ready' || !Cloud.online) { toast('ഓൺലൈൻ അല്ല — ഇതിന് ഇന്റർനെറ്റ് വേണം'); return; }
         try { await Cloud.resetAll(); } catch (err) { cloudError(err); return; }
       }
       overlay = { books: {} };
@@ -1345,9 +1380,13 @@ p{margin:0 0 .9em}
   }, { passive: true });
 
   // the top bar stays fixed at the top; it only gains a divider line once the page scrolls
-  const saveScroll = debounce(() => { settings.lastScroll = { b: cur.book, c: cur.chapter, y: window.scrollY }; saveSettings(); }, 400);
+  // (battery: the class changes only when crossing the line, and the position is saved once scrolling stops)
+  const saveScroll = debounce(() => { settings.lastScroll = { b: cur.book, c: cur.chapter, y: window.scrollY }; saveSettings(); }, 1200);
+  const topbar = $('.topbar');
+  let scrolled = false;
   window.addEventListener('scroll', () => {
-    $('.topbar').classList.toggle('scrolled', window.scrollY > 4);
+    const s = window.scrollY > 4;
+    if (s !== scrolled) { scrolled = s; topbar.classList.toggle('scrolled', s); }
     saveScroll();
   }, { passive: true });
 
@@ -1704,6 +1743,14 @@ p{margin:0 0 .9em}
       else if (type === 'error') cloudError(data);
     });
   }
+
+  // ---------- offline indicator ----------
+  // everything the reader does works offline; shared edits and the usage log go up once online
+  const showNet = () => { $('#netPill').hidden = navigator.onLine !== false; };
+  window.addEventListener('online', () => { showNet(); if (cloudMode) toast('വീണ്ടും ഓൺലൈൻ — മാറ്റങ്ങൾ സിങ്ക് ചെയ്യുന്നു'); });
+  window.addEventListener('offline', () => { showNet(); toast('ഇന്റർനെറ്റ് ഇല്ല — ആപ്പ് തുടർന്നും പ്രവർത്തിക്കും', 3500); });
+  showNet();
+  $('#usageNote').hidden = !Usage.enabled;
 
   // ---------- install as app + offline ----------
   let installEvt = null;

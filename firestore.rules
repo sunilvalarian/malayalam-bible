@@ -164,12 +164,15 @@ service cloud.firestore {
             || redeeming());
 
       // admins change roles or block a user (role 'none'); an owner can never be demoted,
-      // and an admin can't change their own role
+      // and an admin can't change their own role. The owner's profile is protected once it is
+      // admin (the app makes it admin after the e-mail is verified), so an unverified account that
+      // merely claims the owner's address stays a reader that admins can block or remove.
+      function ownerProfile() { return resource.data.email in owners() && resource.data.role == 'admin'; }
       allow update: if isAdmin() && request.auth.uid != uid
         && request.resource.data.role in allRoles()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-        && !(resource.data.email in owners());
-      allow delete: if isAdmin() && request.auth.uid != uid && !(resource.data.email in owners());
+        && !ownerProfile();
+      allow delete: if isAdmin() && request.auth.uid != uid && !ownerProfile();
     }
 
     // ---- invitations: admin pre-assigns a role to an e-mail (id = lower-case e-mail) ----
@@ -281,6 +284,33 @@ service cloud.firestore {
             || (request.resource.data.detail is string && request.resource.data.detail.size() <= 200))
         && request.resource.data.by == myEmail()
         && request.resource.data.at == request.time;
+    }
+
+    // ---- usage log (app/js/usage.js) ----
+    // Every device, also visitors who aren't signed in, uploads what was done in the app (chapters
+    // read, searches, copies, logins, …) in batches of at most 200 events, including the ones
+    // recorded offline. A batch names the account that uploads it (checked here), or none for a
+    // visitor. The device picks the id, so create-only: a batch that is sent twice is stored once.
+    // Only admins can read the log or delete old batches.
+    function usageOk(d) {
+      return d.keys().hasOnly(['v', 'device', 'uid', 'email', 'name', 'dev', 'geo', 'events', 'n', 'from', 'to', 'at'])
+        && d.keys().hasAll(['v', 'device', 'uid', 'email', 'events', 'n', 'from', 'to', 'at'])
+        && d.v == 1
+        && d.device is string && d.device.matches('^[A-Za-z0-9]{16,32}$')
+        && (signedIn()
+            ? d.uid == request.auth.uid && d.email == request.auth.token.get('email', '').lower()
+            : d.uid == null && d.email == null)
+        && (!('name' in d) || d.name == null || (d.name is string && d.name.size() <= 100))
+        && (!('dev' in d) || (d.dev is map && d.dev.size() <= 20))
+        && (!('geo' in d) || d.geo == null || (d.geo is map && d.geo.size() <= 8))
+        && d.events is list && d.events.size() >= 1 && d.events.size() <= 200
+        && d.n == d.events.size()
+        && d.from is int && d.to is int && d.from <= d.to
+        && d.at == request.time;
+    }
+    match /usage/{id} {
+      allow read, delete: if isAdmin();
+      allow create: if id.matches('^[A-Za-z0-9]{20}$') && usageOk(request.resource.data);
     }
   }
 }
