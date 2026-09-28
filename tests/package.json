@@ -1,0 +1,18 @@
+{
+  "name": "malayalam-bible-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests for the Malayalam Bible app (unit, Firestore rules, browser end-to-end). Kept out of the repository root so Cloudflare Pages doesn't install anything.",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:rules && npm run test:e2e",
+    "test:unit": "node --test unit/",
+    "test:rules": "node rules/run.mjs",
+    "test:e2e": "node e2e/run.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-tools": "^13.35.1",
+    "puppeteer-core": "^23.11.1"
+  }
+}
