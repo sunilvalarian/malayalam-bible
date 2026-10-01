@@ -104,7 +104,9 @@
     return false;
   }
 
-  function joinLines(a, b, lex) {
+  // whole: the lines never split a word (OCR of a printed page) – only a hyphenated one is glued
+  function joinLines(a, b, lex, whole) {
+    if (whole) return /[ഀ-ൿ]-$/.test(a) && /^[ഀ-ൿ]/.test(b) ? a.slice(0, -1) + b : DEPENDENT.test(b) ? a + b : a + ' ' + b;
     const la = a.split(TOKEN_SPLIT).filter(Boolean).pop();
     const fb = b.split(TOKEN_SPLIT).filter(Boolean)[0];
     const endsInWord = /[ഀ-ൿ]$/.test(a) && /^[ഀ-ൿ]/.test(b);
@@ -114,9 +116,10 @@
   const startsWithVerseNo = (p) => /^\d{1,3}(?!\d)/.test(p);
 
   // Merge PDF paragraphs of one chapter into logical paragraphs + headings.
-  function assembleParagraphs(paras, lex) {
+  // opts.wrapped: the input is known to be hard-wrapped lines (OCR); otherwise guessed
+  function assembleParagraphs(paras, lex, opts) {
     const lengths = paras.map((p) => p.length).sort((a, b) => a - b);
-    const wrapped = lengths.length > 4 && lengths[lengths.length >> 1] < 80; // typed with hard line breaks
+    const wrapped = opts.wrapped != null ? opts.wrapped : lengths.length > 4 && lengths[lengths.length >> 1] < 80; // typed with hard line breaks
     const out = [];
     const isHeadingAt = (i) => {
       const p = paras[i];
@@ -138,7 +141,7 @@
       const last = out[out.length - 1];
       // hard-wrapped text: keep joining lines until a sentence end is followed by a verse number
       if (wrapped && last && !last.h && !(TERMINAL.test(last.text) && startsWithVerseNo(p))) {
-        last.text = joinLines(last.text, p, lex);
+        last.text = joinLines(last.text, p, lex, opts.wholeWords);
         return;
       }
       out.push({ text: p });
@@ -148,7 +151,8 @@
 
   /**
    * pages: [[paragraph | {text}, ...], ...]  (from PdfExtract)
-   * opts:  { chapter?: number (hint from filename), bookNames?: [..], lexicon?: Map }
+   * opts:  { chapter?: number (hint from filename), bookNames?: [..], lexicon?: Map,
+   *          wrapped?: bool (lines, not paragraphs: OCR), wholeWords?: bool (a line break never splits a word) }
    * returns { chapters: [{ chapter, items, warnings }], bookTitle }
    */
   function parsePdfParagraphs(pages, opts) {
@@ -189,7 +193,7 @@
       if (para.pageStart && cur.paras.length) {
         const prev = cur.paras[cur.paras.length - 1];
         if (!TERMINAL.test(prev) && !isHeadingLike(prev) && prev.length >= 80) {
-          cur.paras[cur.paras.length - 1] = joinLines(prev, para.text, lex);
+          cur.paras[cur.paras.length - 1] = joinLines(prev, para.text, lex, opts.wholeWords);
           continue;
         }
       }
@@ -200,7 +204,7 @@
     return {
       bookTitle,
       chapters: chapters.filter((c) => c.paras.length).map((c) => {
-        const items = versify(assembleParagraphs(c.paras, lex), c.chapter);
+        const items = versify(assembleParagraphs(c.paras, lex, opts), c.chapter);
         return { chapter: c.chapter, items, warnings: validate(items) };
       }),
     };

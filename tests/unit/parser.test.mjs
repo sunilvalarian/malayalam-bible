@@ -170,3 +170,43 @@ describe('parser.js: parsePdfParagraphs', () => {
     assert.deepEqual(plain(P.parsePdfParagraphs([['...', '---']])), { bookTitle: null, chapters: [] });
   });
 });
+
+describe('parser.js: OCR lines (wrapped / wholeWords)', () => {
+  // long printed lines (median > 80 characters) that end mid-sentence, as Ocr.recognize gives them
+  const lines = [
+    'ലോകസൃഷ്ടി',
+    '1 ആദിയിൽ ദൈവം ആകാശവും ഭൂമിയും സൃഷ്ടിച്ചു. 2 ഭൂമി പാഴായും ശൂന്യമായും ഇരുന്നു; ആഴത്തിന്മീതെ ഇരുൾ ഉണ്ടായിരുന്നു.',
+    'ദൈവത്തിന്റെ ആത്മാവ് വെള്ളത്തിൻമീതെ പരിവർത്തിച്ചുകൊണ്ടിരുന്നു. 3 വെളിച്ചം ഉണ്ടാകട്ടെ എന്നു ദൈവം കല്പിച്ചു; വെളിച്ചം',
+    'ഉണ്ടായി. 4 വെളിച്ചം നല്ലതു എന്നു ദൈവം കണ്ടു; ദൈ-',
+    'വം വെളിച്ചവും ഇരുളും തമ്മിൽ വേർപിരിച്ചു.',
+  ];
+  test('without the options long (or few) lines are taken as paragraphs', () => {
+    const r = plain(P.parsePdfParagraphs([lines.slice(0, 4)]));
+    assert.ok(r.chapters[0].items.some((x) => x.t === 'ഉണ്ടായി.'), 'line break = new paragraph');
+  });
+  test('wrapped + wholeWords: lines joined with a space, hyphenated words glued, a heading kept', () => {
+    const r = plain(P.parsePdfParagraphs([lines], { wrapped: true, wholeWords: true }));
+    const items = r.chapters[0].items;
+    assert.deepEqual(items[0], { h: 'ലോകസൃഷ്ടി' });
+    assert.deepEqual(items.slice(1).map((x) => x.v), [1, 2, 3, 4]);
+    assert.match(items[2].t, /ഉണ്ടായിരുന്നു\. ദൈവത്തിന്റെ ആത്മാവ്/);
+    assert.equal(items[3].t, 'വെളിച്ചം ഉണ്ടാകട്ടെ എന്നു ദൈവം കല്പിച്ചു; വെളിച്ചം ഉണ്ടായി.');
+    assert.match(items[4].t, /ദൈവം വെളിച്ചവും/);
+  });
+  test('wholeWords: rare words on both sides of a line break are not glued', () => {
+    const two = [['1 അപൂർവവാക്കുഒന്ന്', 'അപൂർവവാക്കുരണ്ട് എന്നു.', '2 x എന്നു.', '3 y എന്നു.', '4 z എന്നു.']];
+    assert.match(plain(P.parsePdfParagraphs(two, { wrapped: true })).chapters[0].items[0].t, /ഒന്ന്അപൂർവ/);
+    assert.match(plain(P.parsePdfParagraphs(two, { wrapped: true, wholeWords: true })).chapters[0].items[0].t, /ഒന്ന് അപൂർവ/);
+  });
+});
+
+describe('ocr.js: toLines', () => {
+  const ctx = {};
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(readApp('ocr.js'), ctx, { filename: 'ocr.js' });
+  test('Malayalam digits, | noise, word-final ZWNJ, blank and non-text lines', () => {
+    const text = '൧ ആദിയിൽ | ദൈവം\n\n  ൧൨  ആത്മാവ്‌ വെള്ളം ക്‌ഷ  \n— , .\nabc\n';
+    assert.deepEqual(plain(ctx.Ocr.toLines(text)), ['1 ആദിയിൽ ദൈവം', '12 ആത്മാവ് വെള്ളം ക്‌ഷ']);
+  });
+});

@@ -16,7 +16,7 @@
   'use strict';
 
   const Cloud = window.Cloud || { available: false };
-  const APP_VERSION = 'v16';               // keep in step with VERSION in sw.js
+  const APP_VERSION = 'v17';               // keep in step with VERSION in sw.js
   const Q_KEY = 'mlb.usageQueue';          // events not uploaded yet
   const SEND_KEY = 'mlb.usageSending';     // { [uid]: { id, keys, tries } } batch being uploaded (resent with the same id)
   const REFUSED_KEY = 'mlb.usageRefused';  // { [uid]: { n, first } } batches the rules refused (page loads, first time)

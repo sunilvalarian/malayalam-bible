@@ -1120,32 +1120,27 @@
   }
   const pendingNames = {};
 
+  const isPdf = (f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|bmp|gif)$/i.test(f.name);
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
+
   async function handleFiles(files) {
-    const list = [...files].filter((f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
-    if (!list.length) { toast('PDF ഫയലുകൾ മാത്രം'); return; }
+    const all = [...files];
+    const list = all.filter(isPdf), images = all.filter((f) => !isPdf(f) && isImage(f));
+    if (!list.length && !images.length) { toast('PDF അല്ലെങ്കിൽ ചിത്രങ്ങൾ മാത്രം'); return; }
+    if (images.length) addScanPages(images.sort(byName));
+    if (!list.length) return;
     const defBook = $('#upBook').value;
-    for (const f of list) uploads.push({ file: f, status: 'processing', results: [], error: null, defBook });
+    const mine = list.map((f) => ({ kind: 'pdf', name: f.name, file: f, status: 'processing', results: [], error: null, defBook }));
+    uploads.push(...mine);
     renderUploads();
-    for (const u of uploads.filter((x) => x.status === 'processing')) {
+    for (const u of mine) {
       try {
         const ex = await window.PdfExtract.extract(await u.file.arrayBuffer());
         const flat = ex.pages.flat().map((p) => p.text).join(' ');
         if (!/[ഀ-ൿ]/.test(flat)) throw new Error(flat.trim() ? 'മലയാളം ടെക്സ്റ്റ് കണ്ടെത്തിയില്ല (ഫോണ്ട് എൻകോഡിംഗ് പിന്തുണയ്ക്കുന്നില്ല)' : 'ടെക്സ്റ്റ് ഇല്ല — സ്കാൻ ചെയ്ത (ചിത്ര) PDF ആകാം');
-        const lex = new Map(getLexicon());
-        ex.pages.flat().forEach((p) => P.addToLexicon(lex, P.normalize(p.text)));
-        const hint = P.chapterFromFilename(u.file.name);
-        // only the target book's name counts as a chapter header ("ഉത്പത്തി 3"); other
-        // catalog names double as people's names (യാക്കോബ്) and would split chapters wrongly
-        const res = P.parsePdfParagraphs(ex.pages, { chapter: hint, bookNames: [bookName(u.defBook)], lexicon: lex });
-        const detected = res.bookTitle ? findBook(res.bookTitle, CAT) || findBook(res.bookTitle) : null;
         const garbled = !ex.actualText && (flat.match(/(^|\s)[െേൈ]/g) || []).length > 20;
-        u.results = res.chapters.map((c, i) => ({
-          chapter: c.chapter || (hint && i === 0 ? hint : null),
-          items: c.items, warnings: c.warnings.concat(garbled ? ['അക്ഷരക്രമം തെറ്റായിരിക്കാം — പ്രിവ്യൂ പരിശോധിക്കുക'] : []),
-          book: detected || u.defBook, include: true, preview: false,
-        }));
-        if (!u.results.length) throw new Error('വാക്യങ്ങൾ കണ്ടെത്തിയില്ല');
-        u.status = 'ok';
+        parseInto(u, ex.pages, P.chapterFromFilename(u.file.name), garbled ? ['അക്ഷരക്രമം തെറ്റായിരിക്കാം — പ്രിവ്യൂ പരിശോധിക്കുക'] : []);
       } catch (err) {
         u.status = 'error';
         u.error = err.message || String(err);
@@ -1154,27 +1149,123 @@
     }
   }
 
+  // extracted pages (PDF paragraphs or OCR lines) → u.results, one per chapter found
+  function parseInto(u, pages, hint, extraWarnings) {
+    const lex = new Map(getLexicon());
+    pages.flat().forEach((p) => P.addToLexicon(lex, P.normalize(typeof p === 'string' ? p : p.text)));
+    // only the target book's name counts as a chapter header ("ഉത്പത്തി 3"); other
+    // catalog names double as people's names (യാക്കോബ്) and would split chapters wrongly
+    // OCR gives the printed lines one by one, however long they are, and a line break there
+    // never splits a word (the PDF guesses both from the line lengths)
+    const scan = u.kind === 'scan';
+    const res = P.parsePdfParagraphs(pages, { chapter: hint, bookNames: [bookName(u.defBook)], lexicon: lex, wrapped: scan || undefined, wholeWords: scan });
+    const detected = res.bookTitle ? findBook(res.bookTitle, CAT) || findBook(res.bookTitle) : null;
+    u.results = res.chapters.map((c, i) => ({
+      chapter: c.chapter || (hint && i === 0 ? hint : null),
+      items: c.items, warnings: c.warnings.concat(extraWarnings), extra: extraWarnings,
+      book: detected || u.defBook, include: true, preview: u.kind === 'scan', editing: false, text: null,
+    }));
+    if (!u.results.length) throw new Error('വാക്യങ്ങൾ കണ്ടെത്തിയില്ല');
+    u.status = 'ok';
+  }
+
+  // ---------- camera scan: photos of printed pages → text (js/ocr.js) ----------
+  // Photos are gathered into one scan (one photo per page, in order) and read together, so a
+  // chapter that runs over several pages comes out whole.
+  function scanGroup() {
+    let u = uploads.find((x) => x.kind === 'scan' && x.status === 'collecting');
+    if (!u) {
+      u = { kind: 'scan', name: 'ക്യാമറ സ്കാൻ', images: [], status: 'collecting', results: [], error: null, defBook: $('#upBook').value };
+      uploads.push(u);
+    }
+    return u;
+  }
+  function addScanPages(files) {
+    const u = scanGroup();
+    u.error = null;
+    for (const f of files) u.images.push({ file: f, url: URL.createObjectURL(f) });
+    renderUploads();
+  }
+  function removeUpload(i) {
+    const [u] = uploads.splice(i, 1);
+    if (u && u.images) u.images.forEach((im) => URL.revokeObjectURL(im.url));
+  }
+  async function readScan(u) {
+    if (!window.Ocr) { toast('OCR ലഭ്യമല്ല'); return; }
+    u.status = 'processing';
+    u.progress = 'OCR തയ്യാറാക്കുന്നു…';
+    u.defBook = $('#upBook').value;
+    renderUploads();
+    const t0 = Date.now();
+    try {
+      const ex = await window.Ocr.recognize(u.images.map((im) => im.file), (pr) => {
+        const pct = Math.round(pr.p * 100) + '%';
+        u.progress = pr.stage === 'load' ? `OCR തയ്യാറാക്കുന്നു (ആദ്യ തവണ ~4 MB ഡൗൺലോഡ്)… ${pct}` : `പേജ് ${pr.page}/${pr.pages} വായിക്കുന്നു… ${pct}`;
+        const el = $(`#upList [data-prog="${uploads.indexOf(u)}"]`);
+        if (el) el.textContent = u.progress;
+      });
+      if (!/[ഀ-ൿ]/.test(ex.pages.flat().join(' '))) throw new Error('മലയാളം ടെക്സ്റ്റ് കണ്ടെത്തിയില്ല — കൂടുതൽ വ്യക്തവും നേരെയുമുള്ള ഫോട്ടോ എടുക്കുക');
+      parseInto(u, ex.pages, null, ['സ്കാൻ ചെയ്ത ടെക്സ്റ്റ് — തെറ്റുകൾ ഉണ്ടാകാം, സേവ് ചെയ്യുന്നതിന് മുമ്പ് ഫോട്ടോയുമായി ഒത്തുനോക്കി തിരുത്തുക']);
+      Usage.track('scan', { pages: u.images.length, n: u.results.length, sec: Math.round((Date.now() - t0) / 1000) });
+    } catch (err) {
+      // keep the photos, so the scan can be retried or a page retaken
+      u.status = 'collecting';
+      u.error = err.message || String(err);
+    }
+    renderUploads();
+  }
+  function scanPagesHtml(u, removable) {
+    return `<div class="scan-pages">${u.images.map((im, i) => `<figure>
+      <a href="${im.url}" target="_blank" rel="noopener"><img src="${im.url}" alt="പേജ് ${i + 1}" loading="lazy"></a>
+      <figcaption>${i + 1}</figcaption>
+      ${removable ? `<button class="icon-btn sm" data-img-rm="${i}" aria-label="പേജ് ${i + 1} നീക്കുക"><svg><use href="#i-x"/></svg></button>` : ''}
+    </figure>`).join('')}</div>`;
+  }
+  const scanBusy = () => uploads.some((u) => u.kind === 'scan' && u.status === 'processing');
+  $('#upScan').addEventListener('click', () => $('#upCamera').click());
+  $('#upCamera').addEventListener('change', (e) => {
+    const files = [...e.target.files].filter(isImage);
+    e.target.value = '';
+    if (files.length) addScanPages(files);
+  });
+  // the Malayalam model takes a lot of memory: free it when the dialog closes
+  $('#dlgUpload').addEventListener('close', () => { if (window.Ocr && !scanBusy()) window.Ocr.release(); });
+
   function renderUploads() {
     const list = $('#upList');
     list.innerHTML = uploads.map((u, ui) => {
-      if (u.status === 'processing') return `<div class="up-item"><div class="up-row"><span class="spin"></span><span class="fname">${esc(u.file.name)}<small>വായിക്കുന്നു…</small></span></div></div>`;
-      if (u.status === 'error') return `<div class="up-item"><div class="up-row"><span class="fname">${esc(u.file.name)}<small>${esc(u.error)}</small></span><span class="status err">പിശക്</span><button class="icon-btn sm" data-rm="${ui}" aria-label="നീക്കുക"><svg><use href="#i-x"/></svg></button></div></div>`;
+      if (u.status === 'processing') return `<div class="up-item"><div class="up-row"><span class="spin"></span><span class="fname">${esc(u.name)}<small data-prog="${ui}">${esc(u.progress || 'വായിക്കുന്നു…')}</small></span></div></div>`;
+      if (u.status === 'error') return `<div class="up-item"><div class="up-row"><span class="fname">${esc(u.name)}<small>${esc(u.error)}</small></span><span class="status err">പിശക്</span><button class="icon-btn sm" data-rm="${ui}" aria-label="നീക്കുക"><svg><use href="#i-x"/></svg></button></div></div>`;
+      if (u.status === 'collecting') return `<div class="up-item scan-item" data-scan="${ui}">
+          <div class="up-row">
+            <svg class="scan-ic"><use href="#i-camera"/></svg>
+            <span class="fname">${esc(u.name)}<small>${u.images.length} പേജ് · എല്ലാ പേജുകളും ചേർത്ത ശേഷം "ടെക്സ്റ്റ് ആക്കുക" അമർത്തുക</small></span>
+            <button class="btn sm" data-scan-add><svg><use href="#i-camera"/></svg><span>അടുത്ത പേജ്</span></button>
+            <button class="btn sm primary" data-scan-read ${u.images.length ? '' : 'disabled'}><svg><use href="#i-check"/></svg><span>ടെക്സ്റ്റ് ആക്കുക</span></button>
+            <button class="icon-btn sm" data-rm="${ui}" aria-label="സ്കാൻ നീക്കുക"><svg><use href="#i-x"/></svg></button>
+          </div>
+          ${u.error ? `<div class="up-warn">⚠ ${esc(u.error)}</div>` : ''}
+          ${scanPagesHtml(u, true)}
+        </div>`;
       return u.results.map((r, ri) => {
         const b = bookMap.get(r.book);
         const exists = r.chapter && b && b.chapters.has(r.chapter);
-        const vcount = P.verseMap(r.items).size;
         const st = !r.chapter ? '<span class="status err">അധ്യായ നമ്പർ നൽകുക</span>'
           : exists ? '<span class="status warn">നിലവിലുള്ളത് മാറ്റിസ്ഥാപിക്കും</span>' : '<span class="status ok">പുതിയത്</span>';
         return `<div class="up-item" data-u="${ui}" data-r="${ri}">
           <div class="up-row">
             <input type="checkbox" class="up-inc" ${r.include ? 'checked' : ''} aria-label="ഉൾപ്പെടുത്തുക">
-            <span class="fname">${esc(u.file.name)}${u.results.length > 1 ? ` <small>ഭാഗം ${ri + 1}/${u.results.length}</small>` : ''}<small>${vcount} വാക്യങ്ങൾ · ${r.items.filter((x) => x.h).length} തലക്കെട്ടുകൾ</small></span>
+            <span class="fname">${esc(u.name)}${u.results.length > 1 ? ` <small>ഭാഗം ${ri + 1}/${u.results.length}</small>` : ''}<small class="up-count">${countText(r)}</small></span>
             <select class="up-book" aria-label="പുസ്തകം">${bookOptions(r.book)}</select>
             <label>അധ്യായം <input type="number" class="up-ch" min="1" max="200" value="${r.chapter || ''}"></label>
             ${st}
             <button class="btn sm up-prev">${r.preview ? 'പ്രിവ്യൂ മറയ്ക്കുക' : 'പ്രിവ്യൂ'}</button>
+            <button class="btn sm up-edit">${r.editing ? 'തിരുത്തൽ മറയ്ക്കുക' : 'ടെക്സ്റ്റ് തിരുത്തുക'}</button>
           </div>
-          ${r.warnings.length ? `<div class="up-warn">⚠ ${esc(r.warnings.join(' · '))}</div>` : ''}
+          <div class="up-warn" ${r.warnings.length ? '' : 'hidden'}>⚠ ${esc(r.warnings.join(' · '))}</div>
+          ${r.editing && u.kind === 'scan' && ri === 0 ? scanPagesHtml(u, false) : ''}
+          ${r.editing ? `<textarea class="up-text" spellcheck="false" aria-label="ടെക്സ്റ്റ് തിരുത്തുക">${esc(r.text != null ? r.text : P.toEditorText(r.items))}</textarea>
+            <small class="up-hint">[5] = വാക്യം 5 തുടങ്ങുന്നു · ## = തലക്കെട്ട് · ഓരോ വരിയും ഒരു ഖണ്ഡിക</small>` : ''}
           ${r.preview ? `<div class="up-preview reader">${renderItems(r.items)}</div>` : ''}
         </div>`;
       }).join('');
@@ -1182,15 +1273,44 @@
     const ready = uploads.some((u) => u.status === 'ok' && u.results.some((r) => r.include && r.chapter));
     $('#upSave').disabled = !ready || uploads.some((u) => u.status === 'processing');
   }
+  const countText = (r) => `${P.verseMap(r.items).size} വാക്യങ്ങൾ · ${r.items.filter((x) => x.h).length} തലക്കെട്ടുകൾ`;
   $('#upList').addEventListener('click', (e) => {
     const rm = e.target.closest('[data-rm]');
-    if (rm) { uploads.splice(+rm.dataset.rm, 1); renderUploads(); return; }
+    if (rm) { removeUpload(+rm.dataset.rm); renderUploads(); return; }
+    const scan = e.target.closest('.up-item[data-scan]');
+    if (scan) {
+      const u = uploads[+scan.dataset.scan];
+      const img = e.target.closest('[data-img-rm]');
+      // the last read's error was about these photos: gone once one is retaken or removed
+      if (img) { const [im] = u.images.splice(+img.dataset.imgRm, 1); URL.revokeObjectURL(im.url); u.error = null; renderUploads(); }
+      else if (e.target.closest('[data-scan-add]')) $('#upCamera').click();
+      else if (e.target.closest('[data-scan-read]')) readScan(u);
+      return;
+    }
     const item = e.target.closest('.up-item[data-u]');
     if (!item) return;
     const r = uploads[+item.dataset.u].results[+item.dataset.r];
     if (e.target.closest('.up-prev')) { r.preview = !r.preview; renderUploads(); }
+    if (e.target.closest('.up-edit')) { r.editing = !r.editing; renderUploads(); }
+  });
+  // text edited before saving (editor format): the preview and counts follow as you type
+  $('#upList').addEventListener('input', (e) => {
+    if (!e.target.classList.contains('up-text')) return;
+    const item = e.target.closest('.up-item[data-u]');
+    const r = uploads[+item.dataset.u].results[+item.dataset.r];
+    r.text = e.target.value;
+    r.items = P.parseEditorText(r.text);
+    r.warnings = P.validate(r.items).concat(r.extra);
+    const warn = item.querySelector('.up-warn');
+    // always rendered (hidden when empty), so a warning that comes up while typing shows too
+    warn.textContent = '⚠ ' + r.warnings.join(' · ');
+    warn.hidden = !r.warnings.length;
+    const prev = item.querySelector('.up-preview');
+    if (prev) prev.innerHTML = renderItems(r.items);
+    item.querySelector('.up-count').textContent = countText(r);
   });
   $('#upList').addEventListener('change', (e) => {
+    if (e.target.classList.contains('up-text')) return;
     const item = e.target.closest('.up-item[data-u]');
     if (!item) return;
     const r = uploads[+item.dataset.u].results[+item.dataset.r];
@@ -1221,7 +1341,8 @@
     });
     if (!persist(chosen.map((r) => [r.book, r.chapter]), 'upload')) { revertOverlay(); return; }
     buildLibrary();
-    uploads.length = 0;
+    // photos still waiting to be read stay for next time
+    for (let i = uploads.length - 1; i >= 0; i--) if (uploads[i].status !== 'collecting') removeUpload(i);
     $('#dlgUpload').close();
     const first = chosen[0];
     go(first.book, first.chapter);
@@ -1294,7 +1415,7 @@ p{margin:0 0 .9em}
 
   // ---------- menu ----------
   // every item of the ഉള്ളടക്കം and ഡാറ്റ sections (same keys as data-perm in index.html)
-  const MENU_PERM = { upload: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
+  const MENU_PERM = { upload: 'upload', scan: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
   async function menuAction(a) {
     const m = $('#dlgMenu');
     if (m.open) m.close();
@@ -1314,6 +1435,7 @@ p{margin:0 0 .9em}
     }
     if (['bookmarks', 'highlights', 'notes', 'history'].includes(a)) openLibrary(a);
     else if (a === 'upload') openUpload();
+    else if (a === 'scan') { openUpload(); $('#upCamera').click(); }
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();

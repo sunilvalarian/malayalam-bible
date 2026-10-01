@@ -3,19 +3,23 @@
  * copy of the data, see cloud.js). Same-origin files use stale-while-revalidate, so after a
  * `git push` the new version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v16';
+const VERSION = 'v17';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)
 const SHELL = [
   './', './index.html', './css/style.css',
-  './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
+  './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/ocr.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
   './admin.html', './css/admin.css', './js/admin.js',
   './app.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png',
 ];
 // the Firebase SDK that cloud.js loads (keep the version in step with SDK there)
 const FIREBASE_SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
 const LIBS = ['firebase-app-compat.js', 'firebase-auth-compat.js', 'firebase-firestore-compat.js'].map((f) => FIREBASE_SDK + f);
+// the OCR library of js/ocr.js (camera scan) and the worker / core it loads (keep the version in
+// step with LIB there). Not fetched ahead (the core is ~4 MB): cached the first time someone scans.
+// Tesseract keeps the Malayalam language data in IndexedDB itself.
+const TESSERACT = ['https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/', 'https://cdn.jsdelivr.net/npm/tesseract.js@v7.0.0/', 'https://cdn.jsdelivr.net/npm/tesseract.js-core@v7.0.0/'];
 
 // the font stylesheets of index.html and admin.html (keep the URLs identical to the <link> tags)
 const FONT_CSS = [
@@ -88,8 +92,8 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Firebase SDK: cache-first (a versioned URL never changes)
-  if (url.href.startsWith(FIREBASE_SDK)) {
+  // Firebase SDK and the OCR library: cache-first (a versioned URL never changes)
+  if (url.href.startsWith(FIREBASE_SDK) || TESSERACT.some((p) => url.href.startsWith(p))) {
     e.respondWith(caches.open(LIB_CACHE).then(async (c) => {
       const hit = await c.match(req, { ignoreVary: true }) || await c.match(url.href);
       if (hit) return hit;
