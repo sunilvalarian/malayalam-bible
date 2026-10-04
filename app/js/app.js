@@ -340,10 +340,33 @@
   }
 
   // ---------- AI translation ----------
-  // Made by Claude from the original-language text (functions/api/translate.js), for editors and
-  // admins; stored in Firestore aiTranslations/{BOOK_CH}, which everyone can read. Cloud mode only.
+  // Made by Claude from the original-language text. Two sources: the translation bundled with the app
+  // (js/ai-data.js, built by tools/build-ai-data.js; also offline and without login), and the ones
+  // editors / admins make in the app (functions/api/translate.js → Firestore aiTranslations/{BOOK_CH},
+  // which everyone can read). A finished one from Firestore wins over the bundled one.
   let shown = { items: [], ai: false };    // what the reader shows now (copy / share use it)
-  const aiMode = () => (cloudMode && ['ai', 'both'].includes(settings.ver) ? settings.ver : 'orig');
+  const aiMode = () => (['ai', 'both'].includes(settings.ver) ? settings.ver : 'orig');
+  const isOnline = () => navigator.onLine !== false;
+
+  // js/ai-data.js (about 1 MB): loaded the first time the AI view or the list is opened
+  let bundledAiP = null;
+  function bundledAi() {
+    if (!bundledAiP) {
+      bundledAiP = new Promise((resolve) => {
+        if (window.AI_BIBLE) { resolve(window.AI_BIBLE); return; }
+        const s = document.createElement('script');
+        s.src = 'js/ai-data.js';
+        s.onload = () => resolve(window.AI_BIBLE || null);
+        s.onerror = () => { bundledAiP = null; resolve(null); };   // offline before it was ever loaded: try again later
+        document.head.appendChild(s);
+      });
+    }
+    return bundledAiP;
+  }
+  const bundledChapter = (ab, b, c) => {
+    const items = ab && ab.books && ab.books[b] && ab.books[b][c];
+    return items ? { items, done: true, model: ab.model || '', bundled: true } : null;
+  };
   // cache: key → { items, done, model, … } | null (none yet) | { error }; busy: the chapter being made
   const aiState = { cache: new Map(), loading: new Set(), busy: null };
   const aiKey = (b, c) => `${b}_${c}`;
@@ -384,9 +407,15 @@
     const k = aiKey(b, c);
     if (aiState.cache.has(k) || aiState.loading.has(k)) return;
     aiState.loading.add(k);
-    Cloud.init()
-      .then(() => Cloud.getAiTranslation(b, c))
-      .then((d) => aiState.cache.set(k, d), (e) => { console.warn('ai translation:', e && e.code); aiState.cache.set(k, { error: (e && e.code) || 'error' }); })
+    const fromCloud = cloudMode
+      ? Cloud.init().then(() => Cloud.getAiTranslation(b, c)).catch((e) => { console.warn('ai translation:', e && e.code); return { error: (e && e.code) || 'error' }; })
+      : null;
+    Promise.all([bundledAi(), fromCloud])
+      .then(([ab, d]) => {
+        const own = bundledChapter(ab, b, c);
+        // one made in the app wins once it is finished; otherwise the bundled one (also when offline)
+        aiState.cache.set(k, d && !d.error && d.done && d.items.length ? d : own || d);
+      })
       .finally(() => {
         aiState.loading.delete(k);
         if (cur.book === b && cur.chapter === c && aiMode() !== 'orig' && !selection.size) rerenderKeep();
@@ -399,7 +428,8 @@
     aiLoad(b, c);
     const d = aiState.cache.get(k);
     const busy = aiState.busy && aiState.busy.key === k ? aiState.busy : null;
-    const mayMake = can('aiTranslate');
+    // making one needs the server function (cloud mode), not just the role
+    const mayMake = cloudMode && can('aiTranslate');
     const btn = (act, label) => `<button class="btn${act === 'make' ? ' primary' : ' ghost'}" data-ai="${act}">${label}</button>`;
     const note = (html, cls) => `<div class="ai-note${cls ? ' ' + cls : ''}">${html}</div>`;
     if (d && /permission-denied/.test(d.error || '')) return { data: null, top: note(AI_NO_RULES, 'warn'), bottom: '' };
@@ -409,7 +439,7 @@
     }
     if (d === undefined) return { data: null, top: note('<span class="spin"></span> AI പരിഭാഷ ലോഡ് ചെയ്യുന്നു…'), bottom: '' };
     if (d && d.error) {
-      return { data: null, top: note(Cloud.online ? 'AI പരിഭാഷ ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ഈ അധ്യായത്തിന്റെ AI പരിഭാഷ ഈ ഉപകരണത്തിൽ ഇല്ല.', 'warn'), bottom: '' };
+      return { data: null, top: note(isOnline() ? 'AI പരിഭാഷ ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ഈ അധ്യായത്തിന്റെ AI പരിഭാഷ ഈ ഉപകരണത്തിൽ ഇല്ല.', 'warn'), bottom: '' };
     }
     if (!d || !d.items.length) {
       return {
@@ -463,18 +493,27 @@
     const body = $('#aiListBody');
     body.innerHTML = '<p class="ai-list-sum"><span class="spin"></span> ലോഡ് ചെയ്യുന്നു…</p>';
     openDialog($('#dlgAiList'));
-    let list;
-    try { await Cloud.init(); list = await Cloud.getAiIndex(); } catch (e) {
-      console.warn('ai index:', e && e.code);
-      const why = /permission-denied/.test((e && e.code) || '') ? AI_NO_RULES
-        : Cloud.online ? 'ലിസ്റ്റ് ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ലിസ്റ്റ് ഈ ഉപകരണത്തിൽ ഇല്ല.';
+    // the bundled chapters, plus the ones made in the app (aiIndex/chapters, one read)
+    const [ab, idx] = await Promise.all([
+      bundledAi(),
+      cloudMode ? Cloud.init().then(() => Cloud.getAiIndex()).then((l) => ({ l }), (e) => ({ e })) : { l: [] },
+    ]);
+    const all = new Map();
+    for (const [book, chs] of Object.entries((ab && ab.books) || {})) {
+      for (const [n, items] of Object.entries(chs)) all.set(aiKey(book, +n), { book, chapter: +n, verses: P.verseMap(items).size });
+    }
+    for (const x of idx.l || []) all.set(aiKey(x.book, x.chapter), x);
+    if (idx.e && !all.size) {
+      console.warn('ai index:', idx.e.code);
+      const why = /permission-denied/.test(idx.e.code || '') ? AI_NO_RULES
+        : isOnline() ? 'ലിസ്റ്റ് ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ലിസ്റ്റ് ഈ ഉപകരണത്തിൽ ഇല്ല.';
       body.innerHTML = `<div class="empty-state"><p>${esc(why)}</p></div>`;
       return;
     }
     // only chapters the reader has (a book removed since then isn't listed)
-    list = list.filter((x) => bookMap.get(x.book) && bookMap.get(x.book).chapters.has(x.chapter));
+    const list = [...all.values()].filter((x) => bookMap.get(x.book) && bookMap.get(x.book).chapters.has(x.chapter));
     if (!list.length) {
-      body.innerHTML = `<div class="empty-state"><svg><use href="#i-book"/></svg><p>ഇതുവരെ ഒരു അധ്യായത്തിനും AI പരിഭാഷ പൂർത്തിയായിട്ടില്ല.</p>${can('aiTranslate') ? '<p class="hint">ഒരു അധ്യായം തുറന്ന് Aa → പാഠം → AI പരിഭാഷ → "AI പരിഭാഷ ഉണ്ടാക്കുക".</p>' : ''}</div>`;
+      body.innerHTML = `<div class="empty-state"><svg><use href="#i-book"/></svg><p>ഇതുവരെ ഒരു അധ്യായത്തിനും AI പരിഭാഷ പൂർത്തിയായിട്ടില്ല.</p>${cloudMode && can('aiTranslate') ?'<p class="hint">ഒരു അധ്യായം തുറന്ന് Aa → പാഠം → AI പരിഭാഷ → "AI പരിഭാഷ ഉണ്ടാക്കുക".</p>' : ''}</div>`;
       return;
     }
     const byBook = new Map();
@@ -1033,7 +1072,6 @@
     reader.classList.toggle('hide-headings', !settings.headings);
     reader.classList.toggle('layout-verse', settings.layout === 'verse');
     reader.classList.toggle('compare', aiMode() === 'both');
-    $('#verRow').hidden = $('#menuAiList').hidden = !cloudMode;
     $('#fontSizeOut').textContent = settings.fontSize;
     $$('#dlgSettings button[data-font]').forEach((b) => {
       b.disabled = +b.dataset.font < 0 ? settings.fontSize <= FONT_MIN : settings.fontSize >= FONT_MAX;

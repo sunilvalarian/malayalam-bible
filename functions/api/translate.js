@@ -100,7 +100,11 @@ async function translatePart(client, req) {
     if (h || (i === 0 && req.first)) it.p = 1;
     items.push(it);
   });
-  return { items, model: res.model };
+  // tokens billed (with a fallback, every attempt counts), returned with each part
+  const tries = (res.usage && res.usage.iterations) || [res.usage || {}];
+  const usage = { input: 0, output: 0 };
+  for (const u of tries) { usage.input += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0); usage.output += u.output_tokens || 0; }
+  return { items, model: res.model, usage };
 }
 
 export async function onRequestPost({ request, env }) {
@@ -113,81 +117,86 @@ export async function onRequestPost({ request, env }) {
     check(who, 'not-signed-in', 401);
     const profile = await fsGet(cfg, 'users/' + who.uid);
     check(profile && ['editor', 'admin'].includes(profile.role), 'not-allowed', 403);
-
-    // 2. the request
     let body;
     try { body = await readJson(request); } catch (e) { throw new Fail('bad-request'); }
-    check(body && typeof body === 'object', 'bad-request');
-    const book = String(body.book || '');
-    const chapter = body.chapter;
-    const verses = body.verses;
-    const part = body.part;
-    check(/^[1-4]?[A-Z]{2,3}$/.test(book), 'bad-request');
-    check(Number.isInteger(chapter) && chapter >= 1 && chapter <= 200, 'bad-request');
-    check(Array.isArray(verses) && verses.length >= 1 && verses.length <= 200, 'bad-request');
-    check(verses.every((v, i) => Number.isInteger(v) && v >= 1 && v <= 200 && (i === 0 || v > verses[i - 1])), 'bad-request');
-    const nParts = Math.ceil(verses.length / PART_SIZE);
-    check(Number.isInteger(part) && part >= 0 && part < nParts, 'bad-request');
-    const names = { ml: cleanName(body.names && body.names.ml), en: cleanName(body.names && body.names.en) };
-    check(names.ml || names.en, 'bad-request');
-
-    const path = `aiTranslations/${book}_${chapter}`;
-    const doc = await fsGet(cfg, path);
-    let runId = String(body.runId || '');
-    let before = [];
-    if (part === 0) {
-      // a finished translation is replaced only when asked to (it was paid for once already)
-      check(!(doc && doc.done) || body.force === true, 'exists', 409);
-      runId = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, '0')).join('');
-    } else {
-      // parts go in order, within one run (another editor may have started a new run meanwhile)
-      check(doc && doc.runId === runId && doc.nParts === nParts, 'superseded', 409);
-      const prev = partItems(doc, part - 1);
-      check(prev, 'out-of-order', 409);
-      before = prev.filter((x) => x.v).slice(-CONTEXT_VERSES);
-    }
-
-    // 3. Claude
-    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 5 * 60 * 1000 });
-    let out;
-    try {
-      out = await translatePart(client, { names, chapter, verses, want: partVerses(verses, part), before, first: part === 0 });
-    } catch (e) {
-      if (e instanceof Fail) throw e;
-      if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
-        console.error('translate: API key', e.status);
-        throw new Fail('translate-not-configured', 503);
-      }
-      if (e instanceof Anthropic.RateLimitError) throw new Fail('busy', 429);
-      if (e instanceof Anthropic.APIError && (e.status === 529 || e.status >= 500)) throw new Fail('busy', 503);
-      console.error('translate: Claude', e);
-      throw new Fail('ai-error', 502);
-    }
-
-    // 4. store it (the rules let nobody else write aiTranslations)
-    const now = new Date();
-    const done = part === nParts - 1;
-    if (part === 0) {
-      await fsSet(cfg, path, encodeFields({
-        book, chapter, runId, nParts, verses: verses.length, parts: { p0: out.items }, done,
-        model: out.model, createdBy: who.email, createdAt: now, updatedAt: now,
-      }));
-    } else {
-      // the run may have been replaced while Claude was working: check again just before writing
-      const latest = await fsGet(cfg, path);
-      check(latest && latest.runId === runId, 'superseded', 409);
-      await fsUpdate(cfg, path, {
-        ['parts.p' + part]: encodeValue(out.items), done: encodeValue(done),
-        model: encodeValue(out.model), updatedAt: encodeValue(now),
-      });
-    }
-    // the list of finished chapters
-    const entry = done ? encodeValue({ book, chapter, verses: verses.length, model: out.model, at: now }) : undefined;
-    if (done || part === 0) await fsUpdate(cfg, INDEX, { [fieldPath('chapters', `${book}_${chapter}`)]: entry }, { mustExist: false });
-    return json({ runId, part, nParts, items: out.items, done, model: out.model });
+    return json(await translateRequest(env, cfg, who, body));
   } catch (e) {
     if (e instanceof Fail) return json({ error: e.code }, e.status);
     console.error('translate', e);
     return json({ error: 'server-error' }, 500);
   }
+}
+
+// One part of a chapter, for someone already allowed to (the request above):
+// body as described at the top → { runId, part, nParts, items, done, model }; throws Fail (e.code) on errors
+export async function translateRequest(env, cfg, who, body) {
+  // 2. the request
+  check(body && typeof body === 'object', 'bad-request');
+  const book = String(body.book || '');
+  const chapter = body.chapter;
+  const verses = body.verses;
+  const part = body.part;
+  check(/^[1-4]?[A-Z]{2,3}$/.test(book), 'bad-request');
+  check(Number.isInteger(chapter) && chapter >= 1 && chapter <= 200, 'bad-request');
+  check(Array.isArray(verses) && verses.length >= 1 && verses.length <= 200, 'bad-request');
+  check(verses.every((v, i) => Number.isInteger(v) && v >= 1 && v <= 200 && (i === 0 || v > verses[i - 1])), 'bad-request');
+  const nParts = Math.ceil(verses.length / PART_SIZE);
+  check(Number.isInteger(part) && part >= 0 && part < nParts, 'bad-request');
+  const names = { ml: cleanName(body.names && body.names.ml), en: cleanName(body.names && body.names.en) };
+  check(names.ml || names.en, 'bad-request');
+
+  const path = `aiTranslations/${book}_${chapter}`;
+  const doc = await fsGet(cfg, path);
+  let runId = String(body.runId || '');
+  let before = [];
+  if (part === 0) {
+    // a finished translation is replaced only when asked to (it was paid for once already)
+    check(!(doc && doc.done) || body.force === true, 'exists', 409);
+    runId = [...crypto.getRandomValues(new Uint8Array(8))].map((b) => b.toString(16).padStart(2, '0')).join('');
+  } else {
+    // parts go in order, within one run (another editor may have started a new run meanwhile)
+    check(doc && doc.runId === runId && doc.nParts === nParts, 'superseded', 409);
+    const prev = partItems(doc, part - 1);
+    check(prev, 'out-of-order', 409);
+    before = prev.filter((x) => x.v).slice(-CONTEXT_VERSES);
+  }
+
+  // 3. Claude
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 1, timeout: 5 * 60 * 1000 });
+  let out;
+  try {
+    out = await translatePart(client, { names, chapter, verses, want: partVerses(verses, part), before, first: part === 0 });
+  } catch (e) {
+    if (e instanceof Fail) throw e;
+    if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) {
+      console.error('translate: API key', e.status);
+      throw new Fail('translate-not-configured', 503);
+    }
+    if (e instanceof Anthropic.RateLimitError) throw new Fail('busy', 429);
+    if (e instanceof Anthropic.APIError && (e.status === 529 || e.status >= 500)) throw new Fail('busy', 503);
+    console.error('translate: Claude', e);
+    throw new Fail('ai-error', 502);
+  }
+
+  // 4. store it (the rules let nobody else write aiTranslations)
+  const now = new Date();
+  const done = part === nParts - 1;
+  if (part === 0) {
+    await fsSet(cfg, path, encodeFields({
+      book, chapter, runId, nParts, verses: verses.length, parts: { p0: out.items }, done,
+      model: out.model, createdBy: who.email, createdAt: now, updatedAt: now,
+    }));
+  } else {
+    // the run may have been replaced while Claude was working: check again just before writing
+    const latest = await fsGet(cfg, path);
+    check(latest && latest.runId === runId, 'superseded', 409);
+    await fsUpdate(cfg, path, {
+      ['parts.p' + part]: encodeValue(out.items), done: encodeValue(done),
+      model: encodeValue(out.model), updatedAt: encodeValue(now),
+    });
+  }
+  // the list of finished chapters
+  const entry = done ? encodeValue({ book, chapter, verses: verses.length, model: out.model, at: now }) : undefined;
+  if (done || part === 0) await fsUpdate(cfg, INDEX, { [fieldPath('chapters', `${book}_${chapter}`)]: entry }, { mustExist: false });
+  return { runId, part, nParts, items: out.items, done, model: out.model, usage: out.usage };
 }
