@@ -87,6 +87,24 @@
         b.changed.add(n);
       }
     }
+    // chapters there is only an AI translation of (e.g. New Testament books the app has no text of yet):
+    // in the library only for those who may see the AI translation, marked b.ai, and kept out of
+    // search, statistics, exports and the editors
+    if (aiAllowed() && window.AI_BIBLE) {
+      for (const [id, chs] of Object.entries(window.AI_BIBLE.books || {})) {
+        let b = map.get(id);
+        for (const [k, items] of Object.entries(chs)) {
+          const n = +k;
+          if (b && b.chapters.has(n)) continue;
+          if (!b) {
+            b = { id, name: (catById.get(id) || {}).name || id, chapters: new Map(), base: new Set(), changed: new Set() };
+            map.set(id, b);
+          }
+          (b.ai = b.ai || new Set()).add(n);
+          b.chapters.set(n, items);
+        }
+      }
+    }
     const order = (b) => (catById.has(b.id) ? catById.get(b.id).order : 1000);
     books = [...map.values()].filter((b) => b.chapters.size)
       .sort((a, b) => order(a) - order(b) || a.name.localeCompare(b.name));
@@ -96,6 +114,10 @@
     lexicon = null;
     updateStats();
   }
+
+  // a chapter that exists only as AI translation (see buildLibrary)
+  const aiOnly = (b, n) => !!(b && b.ai && b.ai.has(n));
+  const ownNums = (b) => b.nums.filter((n) => !aiOnly(b, n));
 
   function saveOverlay() { return LS.set(cloudMode ? 'cloudOverlay' : 'overlay', overlay); }
 
@@ -175,7 +197,7 @@
     if (index) return index;
     index = [];
     for (const b of books) {
-      for (const n of b.nums) {
+      for (const n of ownNums(b)) {
         for (const [v, t] of P.verseMap(b.chapters.get(n))) index.push({ b: b.id, c: n, v, t, k: P.searchKey(t) });
       }
     }
@@ -191,9 +213,10 @@
 
   function updateStats() {
     let ch = 0, vs = 0;
-    books.forEach((b) => { ch += b.nums.length; b.nums.forEach((n) => { vs += P.verseMap(b.chapters.get(n)).size; }); });
+    books.forEach((b) => { const own = ownNums(b); ch += own.length; own.forEach((n) => { vs += P.verseMap(b.chapters.get(n)).size; }); });
+    const bookCount = books.filter((b) => ownNums(b).length).length;
     const el = $('#libStats');
-    if (el) el.textContent = `${books.length} പുസ്തകം · ${ch} അധ്യായം · ${vs} വാക്യം`;
+    if (el) el.textContent = `${bookCount} പുസ്തകം · ${ch} അധ്യായം · ${vs} വാക്യം`;
   }
 
   // ---------- references ----------
@@ -310,16 +333,22 @@
       return;
     }
     const nb = neighbours();
-    // AI translation: in place of the text ('ai') or under each verse ('both'), once it has loaded
-    const mode = aiMode();
+    // AI translation: in place of the text ('ai') or under each verse ('both'), once it has loaded.
+    // A chapter there is only an AI translation of is always shown as such.
+    const onlyAi = aiOnly(b, cur.chapter);
+    const mode = onlyAi ? 'ai' : aiMode();
     reader.classList.toggle('compare', mode === 'both');   // also when a role change took the AI view away
-    const ai = mode === 'orig' ? null : aiView(cur.book, cur.chapter);
+    const ai = mode === 'orig' ? null
+      : onlyAi ? { data: { items, done: true, model: (window.AI_BIBLE || {}).model || '' }, top: aiNote(AI_ONLY_NOTE, 'warn'), bottom: aiNote(aiFootText((window.AI_BIBLE || {}).model), 'foot') }
+      : aiView(cur.book, cur.chapter);
     const aiItems = ai && ai.data && ai.data.items.length ? ai.data.items : null;
     shown = { items: mode === 'ai' && aiItems ? aiItems : items, ai: mode === 'ai' && !!aiItems };
     // (the switch below the title shows when the AI translation is on screen)
     const badge = !shown.ai && b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
     // one tap between the app's text, the AI translation and both (the same setting as Aa → പാഠം)
-    const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
+    const verBtn = (v, label, title) => (onlyAi && v !== 'ai'
+      ? `<button data-ver="${v}" aria-pressed="false" disabled title="${AI_ONLY_NOTE}">${label}</button>`
+      : `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`);
     const verSwitch = !aiAllowed() ? '' : `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('both', 'രണ്ടും', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ')}</div>`;
     const ctx = { book: cur.book, chapter: cur.chapter };
     if (mode === 'both' && aiItems) ctx.ai = aiUnderVerses(items, aiItems);
@@ -429,6 +458,11 @@
       });
   }
 
+  const AI_ONLY_NOTE = 'ഈ പുസ്തകത്തിന് ഇതുവരെ Original പാഠം ഇല്ല — AI പരിഭാഷ മാത്രം.';
+  const AI_ONLY_NO_EDIT = 'AI പരിഭാഷ മാത്രമുള്ള അധ്യായം — ഇതു തിരുത്താനാവില്ല. Original പാഠം PDF ആയി അപ്‌ലോഡ് ചെയ്യുക.';
+  const aiNote = (html, cls) => `<div class="ai-note${cls ? ' ' + cls : ''}">${html}</div>`;
+  const aiFootText = (model) => `AI പരിഭാഷ: Claude${model ? ` (${esc(model)})` : ''} മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.`;
+
   // → { data, top, bottom }: the AI translation (when loaded) and the notes above / below the text
   function aiView(b, c) {
     const k = aiKey(b, c);
@@ -438,7 +472,7 @@
     // making one needs the server function (cloud mode), not just the role
     const mayMake = cloudMode && can('aiTranslate');
     const btn = (act, label) => `<button class="btn${act === 'make' ? ' primary' : ' ghost'}" data-ai="${act}">${label}</button>`;
-    const note = (html, cls) => `<div class="ai-note${cls ? ' ' + cls : ''}">${html}</div>`;
+    const note = aiNote;
     if (d && /permission-denied/.test(d.error || '')) return { data: null, top: note(AI_NO_RULES, 'warn'), bottom: '' };
     if (busy) {
       const prog = busy.total ? ` ${busy.done} / ${busy.total}` : '';
@@ -456,8 +490,7 @@
       };
     }
     const partial = d.done ? '' : note('ഈ AI പരിഭാഷ പൂർത്തിയായിട്ടില്ല (ഇടയ്ക്ക് നിന്നുപോയി).' + (mayMake ? `<span class="ai-actions">${btn('make', 'വീണ്ടും ഉണ്ടാക്കുക')}</span>` : ''), 'warn');
-    const by = d.model ? ` (${esc(d.model)})` : '';
-    const bottom = note(`AI പരിഭാഷ: Claude${by} മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.`
+    const bottom = note(aiFootText(d.model)
       + (mayMake && d.done ? `<span class="ai-actions">${btn('remake', 'വീണ്ടും ഉണ്ടാക്കുക')}</span>` : ''), 'foot');
     return { data: d, top: partial, bottom };
   }
@@ -543,6 +576,25 @@
     if (aiMode() === 'orig') { settings.ver = 'ai'; saveSettings(); applySettings(); }
     if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c);
   });
+
+  // Books there is only an AI translation of join the library for those who may see AI (after sign-in,
+  // a role change, the owner's unlock) and leave it again when that permission goes. For them the
+  // bundle is loaded at once, so the book list knows these books.
+  let aiBooksShown = false;
+  function syncAiBooks() {
+    if (aiAllowed() && !window.AI_BIBLE) { bundledAi().then((ab) => { if (ab) syncAiBooks(); }); return; }
+    const want = aiAllowed() && !!window.AI_BIBLE;
+    if (want === aiBooksShown) return;
+    aiBooksShown = want;
+    buildLibrary();
+    // a link to an AI-only chapter that couldn't open before the bundle was there
+    if (want && pendingLink && bookMap.get(pendingLink.b) && bookMap.get(pendingLink.b).chapters.has(pendingLink.c)) {
+      const pl = pendingLink;
+      pendingLink = null;
+      go(pl.b, pl.c, pl.v ? { verse: pl.v } : undefined);
+    } else if (cur.book && !(bookMap.get(cur.book) && bookMap.get(cur.book).chapters.has(cur.chapter))) startAtFirst();
+    if ($('#dlgPicker').open) renderPicker(picker.tab);
+  }
 
   // back online: chapters that couldn't be loaded offline are tried again
   window.addEventListener('online', () => {
@@ -868,7 +920,7 @@
       const label = { OT: 'പഴയ നിയമം', NT: 'പുതിയ നിയമം', X: 'മറ്റുള്ളവ' };
       body.innerHTML = Object.entries(groups).filter(([, l]) => l.length).map(([g, l]) => `
         <div class="book-group"><h4>${label[g]}</h4><div class="book-list">
-          ${l.map((bk) => `<button class="book-item${bk.id === cur.book ? ' cur' : ''}" data-book="${bk.id}"><span>${esc(bk.name)}</span><small>${bk.nums.length}</small></button>`).join('')}
+          ${l.map((bk) => `<button class="book-item${bk.id === cur.book ? ' cur' : ''}" data-book="${bk.id}"><span>${esc(bk.name)}${bk.ai && bk.ai.size === bk.nums.length ? ' <em class="ai-tag">AI</em>' : ''}</span><small>${bk.nums.length}</small></button>`).join('')}
         </div></div>`).join('') || '<p class="empty-state">പുസ്തകങ്ങൾ ഇല്ല</p>';
     } else if (tab === 'chapters') {
       if (!b) { renderPicker('books'); return; }
@@ -1191,6 +1243,7 @@
   let verseEditCtx = null;
   function openVerseEdit(v) {
     if (!can('edit')) { needPermission('edit'); return; }
+    if (aiOnly(bookMap.get(cur.book), cur.chapter)) { toast(AI_ONLY_NO_EDIT); return; }
     const items = bookMap.get(cur.book).chapters.get(cur.chapter);
     verseEditCtx = { book: cur.book, chapter: cur.chapter, v };
     $('#verseEditTitle').textContent = 'തിരുത്തുക · ' + refText(cur.book, cur.chapter, [v]);
@@ -1225,6 +1278,7 @@
     if (!can('edit')) { needPermission('edit'); return; }
     const b = bookMap.get(bookId);
     if (!b || !b.chapters.has(ch)) { toast('തിരുത്താൻ ഒരു അധ്യായം തുറക്കുക'); return; }
+    if (aiOnly(b, ch)) { toast(AI_ONLY_NO_EDIT); return; }
     clearSelection();
     Object.assign(editor, { book: bookId, chapter: ch, dirty: false });
     editor.original = P.toEditorText(b.chapters.get(ch));
@@ -1597,7 +1651,9 @@
   function mergedData() {
     return {
       version: new Date().toISOString().slice(0, 10),
-      books: books.map((b) => ({ id: b.id, name: b.name, chapters: Object.fromEntries(b.nums.map((n) => [n, b.chapters.get(n)])) })),
+      // the app's own text only (never AI-only chapters)
+      books: books.filter((b) => ownNums(b).length)
+        .map((b) => ({ id: b.id, name: b.name, chapters: Object.fromEntries(ownNums(b).map((n) => [n, b.chapters.get(n)])) })),
     };
   }
   function exportDataJs() {
@@ -1626,8 +1682,10 @@
   function exportHtmlBook() {
     const b = bookMap.get(cur.book);
     if (!b) return;
-    const toc = b.nums.map((n) => `<a href="#c${n}">${n}</a>`).join(' ');
-    const body = b.nums.map((n) => `<section id="c${n}"><h2>അധ്യായം ${n}</h2>${renderItems(b.chapters.get(n))}</section>`).join('\n');
+    const nums = ownNums(b);
+    if (!nums.length) { toast('ഈ പുസ്തകത്തിന് Original പാഠം ഇല്ല — AI പരിഭാഷ മാത്രം'); return; }
+    const toc = nums.map((n) => `<a href="#c${n}">${n}</a>`).join(' ');
+    const body = nums.map((n) => `<section id="c${n}"><h2>അധ്യായം ${n}</h2>${renderItems(b.chapters.get(n))}</section>`).join('\n');
     const html = `<!doctype html><html lang="ml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(b.name)}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+Malayalam:wght@400;700&family=Noto+Sans+Malayalam:wght@400;700&display=swap">
@@ -1789,6 +1847,7 @@ p{margin:0 0 .9em}
 
   function applyPermissions() {
     $$('[data-perm]').forEach((el) => { el.hidden = !can(el.dataset.perm); });
+    syncAiBooks();
     // a menu heading disappears when nothing under it is left
     $$('#dlgMenu .menu-label').forEach((label) => {
       let el = label.nextElementSibling, any = false, gated = false;
@@ -2081,10 +2140,12 @@ p{margin:0 0 .9em}
     LS.set('cloudOverlay', overlay);
     buildLibrary();
     // a link to a chapter that exists only online (e.g. an uploaded book) can open now
-    if (pendingLink) {
+    // (kept until it can open: the chapter may also be an AI-only one that comes with the AI bundle)
+    if (pendingLink && bookMap.get(pendingLink.b) && bookMap.get(pendingLink.b).chapters.has(pendingLink.c)) {
       const pl = pendingLink;
       pendingLink = null;
-      if (bookMap.get(pl.b) && bookMap.get(pl.b).chapters.has(pl.c)) { go(pl.b, pl.c, pl.v ? { verse: pl.v } : undefined); return; }
+      go(pl.b, pl.c, pl.v ? { verse: pl.v } : undefined);
+      return;
     }
     const b = cur.book && bookMap.get(cur.book);
     if (!b || !b.chapters.has(cur.chapter)) { if (!$('dialog[open]')) startAtFirst(); return; }

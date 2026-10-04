@@ -186,6 +186,8 @@ All in **Firebase → Authentication → Sign-in method → Add new provider**. 
   Passkeys belong to the site's domain: a passkey made on `malayalam-bible.pages.dev` works only there.
 
 ### AI translation
+**Books with only an AI translation** (e.g. Matthew, from the Greek): for editors / admins they appear in the book list with an **AI** tag and always open in the AI view (Original / രണ്ടും are off, with a note that there is no Original text yet). They are left out of search, the verse counts, `data.js` / HTML exports and the editors. Once the book's own text is uploaded, its chapters work like Genesis (Original | AI | രണ്ടും). Everyone else doesn't see these books at all.
+
 **Bundled with the app**: the AI translation of Genesis 1–50 (1,533 verses, translated by Claude from the Hebrew Masoretic text, with the name spellings of the app's own translation) is in `app/js/ai-data.js`. The reader loads it only when the AI view or ☰ → AI പരിഭാഷകൾ is opened; it then works offline and without login. It is built from one JSON file per chapter (`{ book, chapter, verses: [{ v, heading, text }] }`) with `node tools/build-ai-data.js <folder>`. Verse numbers follow the app's (chapters 31–32 as in the Hebrew); where the app's text ends a chapter early (missing verse numbers in the source PDF), the AI translation has the whole chapter, and in the "both" view the extra verses appear under the last verse. A translation made later in the app (below) replaces the bundled one for that chapter once it is finished.
 
 **Made in the app**: the AI translation of any other chapter is made by Claude (Anthropic) in the Cloudflare Pages Function [`functions/api/translate.js`](functions/api/translate.js):
