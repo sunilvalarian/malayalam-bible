@@ -2215,7 +2215,9 @@ p{margin:0 0 .9em}
   applySettings();
   updateCounts();
   const fromHash = parseHash();
-  if (cloudMode && fromHash && !(bookMap.get(fromHash.b) && bookMap.get(fromHash.b).chapters.has(fromHash.c))) pendingLink = fromHash;
+  // a link to a chapter that isn't there yet: an online-only chapter (cloud) or an AI-only one (comes
+  // with the AI bundle, also in local mode) opens once it arrives
+  if (fromHash && !(bookMap.get(fromHash.b) && bookMap.get(fromHash.b).chapters.has(fromHash.c))) pendingLink = fromHash;
   const last = settings.last;
   if (fromHash && bookMap.get(fromHash.b) && bookMap.get(fromHash.b).chapters.has(fromHash.c)) {
     go(fromHash.b, fromHash.c, fromHash.v ? { verse: fromHash.v } : undefined);

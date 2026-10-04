@@ -1,5 +1,6 @@
 // Builds app/js/ai-data.js — the AI translation bundled with the app — from one JSON file per chapter:
-//   node tools/build-ai-data.js <folder with GEN_1.json, GEN_2.json, …> [model]
+//   node tools/build-ai-data.js <folder with GEN_1.json, GEN_2.json, …> [model] [GEN,MAT,…]
+// The optional list keeps books that are still being translated out of the bundle.
 // Each file: { "book": "GEN", "chapter": 1, "verses": [{ "v": 1, "heading": "", "text": "…" }, …] }
 // (the shape functions/api/translate.js asks Claude for). The reader shows these chapters in the AI view
 // when Firestore has no AI translation of its own for them (one made later with the app's button wins).
@@ -8,6 +9,7 @@ const path = require('path');
 
 const dir = process.argv[2];
 const model = process.argv[3] || 'claude-opus-5-5';
+const only = process.argv[4] ? new Set(process.argv[4].split(',')) : null;
 if (!dir) { console.error('usage: node tools/build-ai-data.js <folder> [model]'); process.exit(2); }
 
 // same item format as the reader's text and functions/api/translate.js: { h } heading, { v, t, p } verse
@@ -25,7 +27,7 @@ function toItems(verses) {
 
 const books = {};
 let chapters = 0, verses = 0;
-const files = fs.readdirSync(dir).filter((f) => /^[1-4]?[A-Z]{2,3}_\d+\.json$/.test(f));
+const files = fs.readdirSync(dir).filter((f) => /^[1-4]?[A-Z]{2,3}_\d+\.json$/.test(f) && (!only || only.has(f.split('_')[0])));
 for (const f of files) {
   const d = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
   const vs = d.verses || [];
