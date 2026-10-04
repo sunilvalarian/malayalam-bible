@@ -1,9 +1,10 @@
 /* Offline support: the app shell, the Bible text and the Firebase library are cached on first
  * visit, so the reader and the portal open without internet (Firestore keeps its own offline
  * copy of the data, see cloud.js). Same-origin files use stale-while-revalidate, so after a
- * `git push` the new version is picked up in the background and shown on the next launch.
+ * `git push` the new version is picked up in the background (past the browser's HTTP cache)
+ * and the open page is told, so it can offer to reload (js/app.js, 'content-updated').
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v20';
+const VERSION = 'v21';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)
@@ -53,7 +54,8 @@ async function precacheFonts() {
 
 self.addEventListener('install', (e) => {
   e.waitUntil(Promise.all([
-    caches.open(CACHE).then((c) => c.addAll(SHELL)),
+    // fresh from the server, not from the browser's HTTP cache (GitHub Pages: 10 minutes)
+    caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))),
     // best effort: without it the first offline start can't sign in from the saved session
     caches.open(LIB_CACHE).then((c) => Promise.all(LIBS.map((u) => addOnce(c, u)))).catch(() => {}),
     // best effort: the first page load isn't controlled by the worker yet, so fetch the fonts here
@@ -61,12 +63,18 @@ self.addEventListener('install', (e) => {
   ]).then(() => self.skipWaiting()));
 });
 
+// tell the open pages that newer app files / Bible text are in the cache
+const announce = () => self.clients.matchAll({ type: 'window' })
+  .then((list) => list.forEach((c) => c.postMessage({ type: 'content-updated' })));
+
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== FONT_CACHE && k !== LIB_CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil(caches.keys().then(async (keys) => {
+    const old = keys.filter((k) => k !== CACHE && k !== FONT_CACHE && k !== LIB_CACHE);
+    await Promise.all(old.map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // an update (not the first install): the open page still runs the old files
+    if (old.some((k) => k.startsWith('ml-bible-v'))) await announce();
+  }));
 });
 
 // Cloudflare Pages serves admin.html at /admin (and index.html at /) through a redirect; a
@@ -74,6 +82,11 @@ self.addEventListener('activate', (e) => {
 const clean = (res) => (res && res.redirected
   ? res.blob().then((b) => new Response(b, { status: res.status, statusText: res.statusText, headers: res.headers }))
   : res);
+// a different file than the cached one (by ETag, else Last-Modified; unknown = unchanged)
+const changed = (a, b) => {
+  const tag = (r) => r.headers.get('etag') || r.headers.get('last-modified');
+  return !!(tag(a) && tag(b) && tag(a) !== tag(b));
+};
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -120,8 +133,13 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(caches.open(CACHE).then(async (c) => {
     const isAdmin = /\/admin(\.html)?$/.test(url.pathname);
     const hit = await c.match(req, { ignoreSearch: true }) || (isAdmin && req.mode === 'navigate' ? await c.match('./admin.html') : undefined);
-    const refresh = fetch(req).then((res) => {
-      if (res.ok) c.put(req, res.clone());
+    // ask the server (a cheap 304 when unchanged) instead of the browser's HTTP cache; a page
+    // navigation is left as it is (its redirects must stay as they are)
+    const refresh = fetch(req.mode === 'navigate' ? req : new Request(req, { cache: 'no-cache' })).then((res) => {
+      if (res.ok) {
+        c.put(req, res.clone());
+        if (hit && changed(hit, res) && /\.(js|css)$/.test(url.pathname)) announce();
+      }
       return res;
     }).catch(() => null);
     if (hit) { e.waitUntil(refresh); return clean(hit); }

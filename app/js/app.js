@@ -1925,6 +1925,14 @@ p{margin:0 0 .9em}
   }
   if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // sw.js has newer files / Bible text in its cache (e.g. a new book): offer to reload, once,
+    // and not over an open dialog (the next launch shows the new version anyway)
+    let updateOffered = false;
+    navigator.serviceWorker.addEventListener('message', async (e) => {
+      if (!e.data || e.data.type !== 'content-updated' || updateOffered || $('dialog[open]')) return;
+      updateOffered = true;
+      if (await confirmBox('പുതിയ പതിപ്പ്', 'പുതിയ ഉള്ളടക്കം ലഭ്യമാണ്. ഇപ്പോൾ പുതുക്കണോ?', 'പുതുക്കുക')) location.reload();
+    });
   }
 
   // ---------- boot ----------

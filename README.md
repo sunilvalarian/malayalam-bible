@@ -97,6 +97,7 @@ In `firestore.rules` a chapter write by a non-editor is allowed only for an acti
 
 ### Offline
 - The service worker (`app/sw.js`) caches the app, the Bible text, the fonts and the Firebase library on the first visit, and the OCR library the first time someone scans a page.
+- Updates: the app opens from that cache at once and checks the server in the background (past the browser's HTTP cache, a cheap "not modified" answer when nothing changed). When a new `git push` changed the app or the Bible text (e.g. a new book in `data.js`), the reader asks *പുതിയ ഉള്ളടക്കം ലഭ്യമാണ്. ഇപ്പോൾ പുതുക്കണോ?*; പുതുക്കുക reloads with the new version (otherwise it shows on the next launch). It doesn't ask over an open dialog.
 - Firestore's offline cache is switched on (`enablePersistence` in `cloud.js`). Chapters edited online, the admin switches, the user's profile, their synced highlights / notes and whatever the portal has loaded stay available offline.
 - The saved sign-in is used offline, with the role this device last saw for that account.
 - Offline, reading, search, highlights, bookmarks and notes work as usual. Chapter edits and uploads are queued by Firestore and sent when the connection is back (the rules check them then), and so are the activity-log entries.
