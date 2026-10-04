@@ -70,7 +70,11 @@ service cloud.firestore {
     // Chapters bundled with the app (app/js/data.js). hasBase must match this, so an editor
     // can't mark an uploaded chapter as "bundled" to get delete rights. Update when data.js
     // gains books (e.g. `|| (b == 'EXO' && c >= 1 && c <= 40)`).
-    function isBundled(b, c) { return b == 'GEN' && c >= 1 && c <= 50; }
+    function isBundled(b, c) {
+      return (b == 'GEN' && c >= 1 && c <= 50)
+        || (b == 'EXO' && c >= 1 && c <= 3)
+        || (b == 'MAT' && ((c >= 1 && c <= 16) || c == 18));
+    }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
     match /chapters/{id} {
