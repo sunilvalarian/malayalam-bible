@@ -11,8 +11,9 @@
   const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
   const ROLE_RANK = { none: 0, reader: 1, editor: 2, admin: 3 };
   // minimum role for each permission (see firestore.rules)
-  // (aiTranslate is checked by functions/api/translate.js, the only writer of aiTranslations)
-  const PERMS = { edit: 'editor', upload: 'editor', restore: 'editor', export: 'editor', aiTranslate: 'editor', delete: 'admin', reset: 'admin', users: 'admin' };
+  // (aiTranslate is checked by functions/api/translate.js, the only writer of aiTranslations;
+  // aiView only decides who is shown the AI translation in the reader)
+  const PERMS = { edit: 'editor', upload: 'editor', restore: 'editor', export: 'editor', aiView: 'editor', aiTranslate: 'editor', delete: 'admin', reset: 'admin', users: 'admin' };
   // permissions an admin can open to every signed-in, non-blocked user (settings/permissions)
   const OPEN_PERMS = { upload: 'openUpload', edit: 'openEdit' };
   // access codes: 8 characters without the look-alikes 0 O 1 I L (31^8 ≈ 2^39.6), shown as XXXX-XXXX
