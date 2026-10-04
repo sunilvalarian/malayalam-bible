@@ -1,6 +1,7 @@
 // Local stand-in for Cloudflare Pages: serves app/ at http://localhost:<port>/ (like the
-// published site) and runs the Pages Functions in functions/ (the passkey API).
-// Node 20+, no npm packages.
+// published site) and runs the Pages Functions in functions/ (passkey API, AI translation).
+// Node 20+. /api/translate needs `npm install` in the repository root (the Claude SDK) and
+// ANTHROPIC_API_KEY; the other functions use no npm packages.
 //
 //   node tools/dev-server.mjs [port]                    (default port 8788)
 //
@@ -35,6 +36,7 @@ const ROUTES = {
   '/api/passkey/challenge': 'functions/api/passkey/challenge.js',
   '/api/passkey/verify': 'functions/api/passkey/verify.js',
   '/api/where': 'functions/api/where.js',
+  '/api/translate': 'functions/api/translate.js',
 };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',

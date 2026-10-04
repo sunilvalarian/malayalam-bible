@@ -118,6 +118,7 @@
     <button data-menu="highlights"><svg><use href="#i-highlight"/></svg>ഹൈലൈറ്റുകൾ <span class="count" id="cntHighlights"></span></button>
     <button data-menu="notes"><svg><use href="#i-note"/></svg>കുറിപ്പുകൾ <span class="count" id="cntNotes"></span></button>
     <button data-menu="history"><svg><use href="#i-history"/></svg>വായനാ ചരിത്രം</button>
+    <button data-menu="aiList" id="menuAiList" hidden><svg><use href="#i-book"/></svg><span class="m-text">AI പരിഭാഷകൾ<small>AI പരിഭാഷ പൂർത്തിയായ അധ്യായങ്ങൾ</small></span></button>
     <div class="menu-label">ഉള്ളടക്കം</div>
     <button data-menu="upload" data-perm="upload"><svg><use href="#i-upload"/></svg>PDF അപ്‌ലോഡ് ചെയ്യുക</button>
     <button data-menu="scan" data-perm="upload"><svg><use href="#i-camera"/></svg><span class="m-text">ക്യാമറയിൽ സ്കാൻ ചെയ്യുക<small>അച്ചടിച്ച ബൈബിൾ പേജിന്റെ ഫോട്ടോ എടുത്ത് ചേർക്കാം</small></span></button>
@@ -169,6 +170,14 @@
 
 <!-- reading settings -->
 <dialog class="popover" id="dlgSettings" aria-label="വായനാ ക്രമീകരണം">
+  <div class="set-row col" id="verRow" hidden>
+    <span>പാഠം</span>
+    <div class="seg" id="verSeg">
+      <button data-v="orig" title="ഈ ആപ്പിലെ മലയാളം പരിഭാഷ">മൂലം</button>
+      <button data-v="ai" title="Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ">AI പരിഭാഷ</button>
+      <button data-v="both" title="ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ">രണ്ടും</button>
+    </div>
+  </div>
   <div class="set-row">
     <span>അക്ഷര വലിപ്പം</span>
     <div class="stepper">
@@ -223,6 +232,15 @@
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
   </div>
   <div class="sheet-body" id="libraryBody"></div>
+</dialog>
+
+<!-- chapters whose AI translation is finished -->
+<dialog class="sheet" id="dlgAiList" aria-label="AI പരിഭാഷകൾ">
+  <div class="sheet-head">
+    <h2 class="sheet-title">AI പരിഭാഷ പൂർത്തിയായ അധ്യായങ്ങൾ</h2>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="sheet-body" id="aiListBody"></div>
 </dialog>
 
 <!-- note -->

@@ -42,6 +42,7 @@
   const settings = Object.assign({
     fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'verse',
     numbers: true, headings: true, last: null, recent: [], history: [], whole: false, scope: 'all',
+    ver: 'orig',   // text shown: 'orig' (the app's translation), 'ai' (AI translation), 'both' (AI under each verse)
   }, LS.get('settings', {}));
   // one verse per line is now the default — switch readers who still have the old saved default
   if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
@@ -241,6 +242,8 @@
   const reader = $('#reader');
 
   // ---------- rendering ----------
+  // ctx = { book, chapter } for highlights / marks; ctx.ai = Map(verse → HTML, see aiUnderVerses)
+  // prints the AI translation under each verse (the "both" view)
   function renderItems(items, ctx) {
     ctx = ctx || {};
     const lastSeg = new Map();
@@ -266,7 +269,8 @@
           if (marks) marks = `<span class="mark-icons">${marks}</span>`;
         }
       }
-      html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}</span> `;
+      const aiLine = ctx.ai && lastSeg.get(it.v) === i && ctx.ai.has(it.v) ? `<span class="ai-line" lang="ml">${ctx.ai.get(it.v)}</span>` : '';
+      html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}${aiLine}</span> `;
     });
     close();
     return html;
@@ -306,13 +310,21 @@
       return;
     }
     const nb = neighbours();
-    const badge = b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
+    // AI translation: in place of the text ('ai') or under each verse ('both'), once it has loaded
+    const mode = aiMode();
+    const ai = mode === 'orig' ? null : aiView(cur.book, cur.chapter);
+    const aiItems = ai && ai.data && ai.data.items.length ? ai.data.items : null;
+    shown = { items: mode === 'ai' && aiItems ? aiItems : items, ai: mode === 'ai' && !!aiItems };
+    const badge = shown.ai ? '<span class="ch-badge ai">AI പരിഭാഷ</span>'
+      : b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
+    const ctx = { book: cur.book, chapter: cur.chapter };
+    if (mode === 'both' && aiItems) ctx.ai = aiUnderVerses(items, aiItems);
     const foot = `<div class="ch-foot">
       ${nb.prev ? `<button class="btn ghost" data-go="${nb.prev.b}/${nb.prev.c}"><svg><use href="#i-left"/></svg>${esc(bookName(nb.prev.b))} ${nb.prev.c}</button>` : '<span></span>'}
       ${nb.next ? `<button class="btn ghost" data-go="${nb.next.b}/${nb.next.c}">${esc(bookName(nb.next.b))} ${nb.next.c}<svg><use href="#i-right"/></svg></button>` : '<span></span>'}
     </div>`;
     reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${badge}</header>` +
-      renderItems(items, { book: cur.book, chapter: cur.chapter }) + foot;
+      (ai ? ai.top : '') + renderItems(shown.items, ctx) + (ai ? ai.bottom : '') + foot;
     $('#refLabel').textContent = `${b.name} ${cur.chapter}`;
     document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
     $('#btnPrev').disabled = !nb.prev;
@@ -326,6 +338,171 @@
     else if (opts.verse) scrollToVerse(opts.verse, opts.verseEnd, true);
     else window.scrollTo(0, 0);
   }
+
+  // ---------- AI translation ----------
+  // Made by Claude from the original-language text (functions/api/translate.js), for editors and
+  // admins; stored in Firestore aiTranslations/{BOOK_CH}, which everyone can read. Cloud mode only.
+  let shown = { items: [], ai: false };    // what the reader shows now (copy / share use it)
+  const aiMode = () => (cloudMode && ['ai', 'both'].includes(settings.ver) ? settings.ver : 'orig');
+  // cache: key → { items, done, model, … } | null (none yet) | { error }; busy: the chapter being made
+  const aiState = { cache: new Map(), loading: new Set(), busy: null };
+  const aiKey = (b, c) => `${b}_${c}`;
+  const AI_ERRORS = {
+    'not-configured': 'AI പരിഭാഷ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല (സെർവറിൽ ANTHROPIC_API_KEY ചേർക്കണം)',
+    'translate-not-configured': 'AI പരിഭാഷ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല (സെർവറിൽ ANTHROPIC_API_KEY ചേർക്കണം)',
+    'not-allowed': 'അനുമതിയില്ല — എഡിറ്റർമാർക്കും അഡ്മിനും മാത്രം',
+    'not-signed-in': 'ആദ്യം ലോഗിൻ ചെയ്യുക',
+    busy: 'AI സേവനം തിരക്കിലാണ് — കുറച്ച് കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക',
+    refused: 'AI ഈ ഭാഗം പരിഭാഷപ്പെടുത്തിയില്ല',
+    superseded: 'മറ്റൊരാൾ ഇതേ അധ്യായത്തിന്റെ AI പരിഭാഷ വീണ്ടും തുടങ്ങി',
+    exists: 'ഈ അധ്യായത്തിന് ഇതിനകം AI പരിഭാഷ ഉണ്ട്',
+    network: 'നെറ്റ്‌വർക്ക് പ്രശ്നം — പിന്നീട് ശ്രമിക്കുക',
+  };
+  // Firestore refused the read: the server still has rules without aiTranslations / aiIndex
+  const AI_NO_RULES = 'AI പരിഭാഷ വായിക്കാൻ അനുമതിയില്ല — സെർവറിലെ Firestore rules പുതുക്കിയിട്ടില്ല (firebase deploy --only firestore:rules).';
+  const aiErrorText = (e) => {
+    const code = String((e && e.code) || '').replace(/^ai\//, '');
+    return AI_ERRORS[code] || 'AI പരിഭാഷ പരാജയപ്പെട്ടു' + (code ? ' (' + code + ')' : '');
+  };
+
+  // verse → HTML of the AI translation printed under it (the "both" view). An AI verse whose number
+  // the app's text doesn't have (e.g. a PDF that lost some verse numbers) goes under the verse before it.
+  function aiUnderVerses(items, aiItems) {
+    const own = [...P.verseMap(items).keys()].sort((x, y) => x - y);
+    const out = new Map();
+    for (const [v, t] of P.verseMap(aiItems)) {
+      const mine = own.includes(v);
+      const at = mine ? v : own.filter((x) => x < v).pop() ?? own[0];
+      if (at === undefined) continue;
+      const html = mine ? esc(t) : `<sup class="vn">${v}</sup>${esc(t)}`;
+      out.set(at, out.has(at) ? out.get(at) + ' ' + html : html);
+    }
+    return out;
+  }
+
+  function aiLoad(b, c) {
+    const k = aiKey(b, c);
+    if (aiState.cache.has(k) || aiState.loading.has(k)) return;
+    aiState.loading.add(k);
+    Cloud.init()
+      .then(() => Cloud.getAiTranslation(b, c))
+      .then((d) => aiState.cache.set(k, d), (e) => { console.warn('ai translation:', e && e.code); aiState.cache.set(k, { error: (e && e.code) || 'error' }); })
+      .finally(() => {
+        aiState.loading.delete(k);
+        if (cur.book === b && cur.chapter === c && aiMode() !== 'orig' && !selection.size) rerenderKeep();
+      });
+  }
+
+  // → { data, top, bottom }: the AI translation (when loaded) and the notes above / below the text
+  function aiView(b, c) {
+    const k = aiKey(b, c);
+    aiLoad(b, c);
+    const d = aiState.cache.get(k);
+    const busy = aiState.busy && aiState.busy.key === k ? aiState.busy : null;
+    const mayMake = can('aiTranslate');
+    const btn = (act, label) => `<button class="btn${act === 'make' ? ' primary' : ' ghost'}" data-ai="${act}">${label}</button>`;
+    const note = (html, cls) => `<div class="ai-note${cls ? ' ' + cls : ''}">${html}</div>`;
+    if (d && /permission-denied/.test(d.error || '')) return { data: null, top: note(AI_NO_RULES, 'warn'), bottom: '' };
+    if (busy) {
+      const prog = busy.total ? ` ${busy.done} / ${busy.total}` : '';
+      return { data: null, top: note(`<span class="spin"></span> AI പരിഭാഷ ഉണ്ടാക്കുന്നു…${prog}<small>ഒരു അധ്യായത്തിന് ഏതാനും മിനിറ്റ് എടുത്തേക്കാം. ഈ പേജ് തുറന്നുവെക്കുക.</small>`), bottom: '' };
+    }
+    if (d === undefined) return { data: null, top: note('<span class="spin"></span> AI പരിഭാഷ ലോഡ് ചെയ്യുന്നു…'), bottom: '' };
+    if (d && d.error) {
+      return { data: null, top: note(Cloud.online ? 'AI പരിഭാഷ ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ഈ അധ്യായത്തിന്റെ AI പരിഭാഷ ഈ ഉപകരണത്തിൽ ഇല്ല.', 'warn'), bottom: '' };
+    }
+    if (!d || !d.items.length) {
+      return {
+        data: null,
+        top: note('ഈ അധ്യായത്തിന് ഇതുവരെ AI പരിഭാഷ ഇല്ല. താഴെ മൂല പാഠം.' + (mayMake ? `<span class="ai-actions">${btn('make', 'AI പരിഭാഷ ഉണ്ടാക്കുക')}</span>` : '')),
+        bottom: '',
+      };
+    }
+    const partial = d.done ? '' : note('ഈ AI പരിഭാഷ പൂർത്തിയായിട്ടില്ല (ഇടയ്ക്ക് നിന്നുപോയി).' + (mayMake ? `<span class="ai-actions">${btn('make', 'വീണ്ടും ഉണ്ടാക്കുക')}</span>` : ''), 'warn');
+    const by = d.model ? ` (${esc(d.model)})` : '';
+    const bottom = note(`AI പരിഭാഷ: Claude${by} മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.`
+      + (mayMake && d.done ? `<span class="ai-actions">${btn('remake', 'വീണ്ടും ഉണ്ടാക്കുക')}</span>` : ''), 'foot');
+    return { data: d, top: partial, bottom };
+  }
+
+  async function makeAiTranslation(force) {
+    if (!can('aiTranslate') || aiState.busy) return;
+    const b = cur.book, c = cur.chapter;
+    const items = bookMap.get(b) && bookMap.get(b).chapters.get(c);
+    if (!items) return;
+    if (!Cloud.online) { toast('AI പരിഭാഷയ്ക്ക് ഇന്റർനെറ്റ് വേണം'); return; }
+    if (force && !(await confirmBox('AI പരിഭാഷ വീണ്ടും ഉണ്ടാക്കണോ?', `${bookName(b)} ${c}: ഇപ്പോഴുള്ള AI പരിഭാഷ മാറ്റി പുതിയത് ഉണ്ടാക്കും (ഓരോ തവണയും AI സേവനത്തിന് ചെലവുണ്ട്).`, 'ഉണ്ടാക്കുക'))) return;
+    // every verse up to the last numbered one, also those the text has lost the number of
+    const last = Math.min(200, Math.max(0, ...[...P.verseMap(items).keys()].filter(Number.isInteger)));
+    if (!last) { toast('ഈ അധ്യായത്തിൽ വാക്യ നമ്പറുകൾ ഇല്ല'); return; }
+    const verses = Array.from({ length: last }, (_, i) => i + 1);
+    const k = aiKey(b, c);
+    const here = () => cur.book === b && cur.chapter === c && aiMode() !== 'orig' && !selection.size;
+    aiState.busy = { key: k, done: 0, total: 0 };
+    if (here()) rerenderKeep();
+    try {
+      const d = await Cloud.aiTranslate(
+        { book: b, chapter: c, verses, names: { ml: bookName(b), en: (catById.get(b) || {}).en || '' }, force: !!force },
+        (done, total) => { aiState.busy.done = done; aiState.busy.total = total; if (here()) rerenderKeep(); });
+      aiState.cache.set(k, d);
+      Cloud.log('ai-translate', b, c, d.model);
+      Usage.track('ai-translate', { b, c, model: d.model });
+      toast(`${bookName(b)} ${c}: AI പരിഭാഷ തയ്യാർ`);
+    } catch (e) {
+      console.warn('ai translate:', e && e.code, e && e.message);
+      aiState.cache.delete(k);      // shows what is stored now (e.g. the parts made before the error)
+      toast(aiErrorText(e), 6000);
+    } finally {
+      aiState.busy = null;
+      if (here()) rerenderKeep();
+    }
+  }
+
+  // ☰ → AI പരിഭാഷകൾ: the chapters whose AI translation is finished, by book; a tap opens it in the AI view
+  async function openAiList() {
+    const body = $('#aiListBody');
+    body.innerHTML = '<p class="ai-list-sum"><span class="spin"></span> ലോഡ് ചെയ്യുന്നു…</p>';
+    openDialog($('#dlgAiList'));
+    let list;
+    try { await Cloud.init(); list = await Cloud.getAiIndex(); } catch (e) {
+      console.warn('ai index:', e && e.code);
+      const why = /permission-denied/.test((e && e.code) || '') ? AI_NO_RULES
+        : Cloud.online ? 'ലിസ്റ്റ് ലോഡ് ചെയ്യാനായില്ല.' : 'ഓഫ്‌ലൈൻ — ലിസ്റ്റ് ഈ ഉപകരണത്തിൽ ഇല്ല.';
+      body.innerHTML = `<div class="empty-state"><p>${esc(why)}</p></div>`;
+      return;
+    }
+    // only chapters the reader has (a book removed since then isn't listed)
+    list = list.filter((x) => bookMap.get(x.book) && bookMap.get(x.book).chapters.has(x.chapter));
+    if (!list.length) {
+      body.innerHTML = `<div class="empty-state"><svg><use href="#i-book"/></svg><p>ഇതുവരെ ഒരു അധ്യായത്തിനും AI പരിഭാഷ പൂർത്തിയായിട്ടില്ല.</p>${can('aiTranslate') ? '<p class="hint">ഒരു അധ്യായം തുറന്ന് Aa → പാഠം → AI പരിഭാഷ → "AI പരിഭാഷ ഉണ്ടാക്കുക".</p>' : ''}</div>`;
+      return;
+    }
+    const byBook = new Map();
+    for (const x of list) (byBook.get(x.book) || byBook.set(x.book, []).get(x.book)).push(x);
+    const order = books.map((b) => b.id).filter((id) => byBook.has(id));
+    const verses = list.reduce((n, x) => n + (x.verses || 0), 0);
+    body.innerHTML = `<p class="ai-list-sum">${list.length} അധ്യായം · ${verses} വാക്യം — Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ. അധ്യായം തൊട്ടാൽ AI പരിഭാഷയിൽ തുറക്കും.</p>` +
+      order.map((id) => {
+        const chs = byBook.get(id).sort((x, y) => x.chapter - y.chapter);
+        const total = bookMap.get(id).nums.length;
+        return `<div class="book-group"><h4>${esc(bookName(id))} <small>${chs.length} / ${total}</small></h4><div class="grid">` +
+          chs.map((x) => `<button data-ai-go="${esc(id)}/${x.chapter}"${id === cur.book && x.chapter === cur.chapter ? ' class="cur"' : ''}>${x.chapter}</button>`).join('') + '</div></div>';
+      }).join('');
+  }
+  $('#aiListBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ai-go]');
+    if (!btn) return;
+    const [b, c] = btn.dataset.aiGo.split('/');
+    $('#dlgAiList').close();
+    if (aiMode() === 'orig') { settings.ver = 'ai'; saveSettings(); applySettings(); }
+    if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c);
+  });
+
+  // back online: chapters that couldn't be loaded offline are tried again
+  window.addEventListener('online', () => {
+    for (const [k, d] of aiState.cache) if (d && d.error) aiState.cache.delete(k);
+    if (cur.book && aiMode() !== 'orig' && !selection.size) rerenderKeep();
+  });
 
   function scrollToVerse(v, ve, flash) {
     const el = reader.querySelector(`.v[data-v="${v}"]`);
@@ -392,14 +569,16 @@
     $$('.swatch', bar).forEach((s) => s.classList.toggle('active', colors.size === 1 && s.dataset.color && colors.has(s.dataset.color)));
     $('[data-act="bookmark"]', bar).classList.toggle('on', keys.every((k) => user.bm[k]));
     $('[data-act="note"]', bar).classList.toggle('on', [...selection].some((v) => noteFor(cur.book, cur.chapter, v)));
-    $('[data-act="edit"]', bar).disabled = selection.size !== 1;
+    // the verse editor edits the app's own text, not the AI translation that is on screen
+    $('[data-act="edit"]', bar).disabled = selection.size !== 1 || shown.ai;
   }
 
+  // the selected verses as shown (the AI translation in the AI view)
   function selectedText() {
-    const vm = P.verseMap(bookMap.get(cur.book).chapters.get(cur.chapter));
+    const vm = P.verseMap(shown.items);
     const vs = [...selection].sort((a, b) => a - b);
     const body = vs.length === 1 ? vm.get(vs[0]) : vs.map((v) => `${v} ${vm.get(v)}`).join(' ');
-    return `${body}\n— ${refText(cur.book, cur.chapter, vs)}`;
+    return `${body}\n— ${refText(cur.book, cur.chapter, vs)}${shown.ai ? ' (AI പരിഭാഷ)' : ''}`;
   }
 
   async function copyText(text) {
@@ -421,6 +600,8 @@
     if (goBtn) { const [b, c] = goBtn.dataset.go.split('/'); go(b, +c); return; }
     const up = e.target.closest('[data-menu-open]');
     if (up) { menuAction(up.dataset.menuOpen); return; }
+    const aiBtn = e.target.closest('[data-ai]');
+    if (aiBtn) { makeAiTranslation(aiBtn.dataset.ai === 'remake'); return; }
     const noteIc = e.target.closest('.note-ic');
     if (noteIc) { openNote(noteIc.dataset.note); return; }
     const span = e.target.closest('.v');
@@ -851,6 +1032,8 @@
     reader.classList.toggle('hide-numbers', !settings.numbers);
     reader.classList.toggle('hide-headings', !settings.headings);
     reader.classList.toggle('layout-verse', settings.layout === 'verse');
+    reader.classList.toggle('compare', aiMode() === 'both');
+    $('#verRow').hidden = $('#menuAiList').hidden = !cloudMode;
     $('#fontSizeOut').textContent = settings.fontSize;
     $$('#dlgSettings button[data-font]').forEach((b) => {
       b.disabled = +b.dataset.font < 0 ? settings.fontSize <= FONT_MIN : settings.fontSize >= FONT_MAX;
@@ -862,6 +1045,7 @@
     segOn('#fontSeg', settings.font);
     segOn('#themeSeg', settings.theme);
     segOn('#layoutSeg', settings.layout);
+    segOn('#verSeg', aiMode());
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     $('meta[name="theme-color"]').content = dark ? '#121212' : settings.theme === 'sepia' ? '#f4ecd8' : '#fbfaf7';
   }
@@ -873,8 +1057,9 @@
     if (f) changeSetting('fontSize', Math.min(FONT_MAX, Math.max(FONT_MIN, settings.fontSize + +f.dataset.font)));
     const seg = e.target.closest('.seg button');
     if (seg) {
-      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout' }[seg.parentElement.id];
+      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout', verSeg: 'ver' }[seg.parentElement.id];
       if (k) changeSetting(k, seg.dataset.v);
+      if (k === 'ver' && cur.book) rerenderKeep();
     }
   });
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
@@ -1434,6 +1619,7 @@ p{margin:0 0 .9em}
       return;
     }
     if (['bookmarks', 'highlights', 'notes', 'history'].includes(a)) openLibrary(a);
+    else if (a === 'aiList') openAiList();
     else if (a === 'upload') openUpload();
     else if (a === 'scan') { openUpload(); $('#upCamera').click(); }
     else if (a === 'edit') openEditor(cur.book, cur.chapter);

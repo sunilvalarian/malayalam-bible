@@ -112,6 +112,20 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isEditor() && resource.data.hasBase == true);
     }
 
+    // ---- AI translations (id = BOOK_CHAPTER): shown next to the text as "AI" ----
+    // Written only by the Cloudflare Pages Function functions/api/translate.js (service account,
+    // for editors / admins), so nothing labelled AI here was typed in by a person.
+    match /aiTranslations/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // aiIndex/chapters: the finished AI translations ({ chapters: { GEN_1: { book, chapter, … } } }),
+    // for the reader's list; kept by the same function
+    match /aiIndex/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ---- user profiles + roles ----
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());

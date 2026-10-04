@@ -11,7 +11,8 @@
   const SDK = 'https://www.gstatic.com/firebasejs/10.14.1/';
   const ROLE_RANK = { none: 0, reader: 1, editor: 2, admin: 3 };
   // minimum role for each permission (see firestore.rules)
-  const PERMS = { edit: 'editor', upload: 'editor', restore: 'editor', export: 'editor', delete: 'admin', reset: 'admin', users: 'admin' };
+  // (aiTranslate is checked by functions/api/translate.js, the only writer of aiTranslations)
+  const PERMS = { edit: 'editor', upload: 'editor', restore: 'editor', export: 'editor', aiTranslate: 'editor', delete: 'admin', reset: 'admin', users: 'admin' };
   // permissions an admin can open to every signed-in, non-blocked user (settings/permissions)
   const OPEN_PERMS = { upload: 'openUpload', edit: 'openEdit' };
   // access codes: 8 characters without the look-alikes 0 O 1 I L (31^8 ≈ 2^39.6), shown as XXXX-XXXX
@@ -810,6 +811,49 @@
       if (detail) doc.detail = String(detail).slice(0, 200);
       return db.collection('changes').add(doc).catch(() => {});
     },
+
+    // ---- AI translation (made by Claude through functions/api/translate.js; read-only here) ----
+    // → { items, done, model, createdBy, updatedAt } or null; from the offline cache when offline
+    async getAiTranslation(book, chapter) {
+      const snap = await db.collection('aiTranslations').doc(`${book}_${chapter}`).get();
+      if (!snap.exists) return null;
+      const d = snap.data();
+      const parts = d.parts || {};
+      const items = [];
+      for (let i = 0; i < (d.nParts || 0); i++) if (parts['p' + i]) items.push(...parts['p' + i]);
+      return { items, done: !!d.done, model: d.model || '', createdBy: d.createdBy || '', updatedAt: d.updatedAt || null };
+    },
+    // the chapters whose AI translation is finished: [{ book, chapter, verses, model, at }] (one read)
+    async getAiIndex() {
+      const snap = await db.collection('aiIndex').doc('chapters').get();
+      return Object.values((snap.exists && snap.data().chapters) || {});
+    },
+    // Translates a chapter part by part (one request each); onProgress(done, total) after each.
+    // req = { book, chapter, verses: [1, 2, …], names: { ml, en }, force }
+    async aiTranslate(req, onProgress) {
+      if (!this.user || !auth.currentUser) throw err('ai/not-signed-in');
+      let runId = '', nParts = 1;
+      const items = [];
+      let model = '';
+      for (let part = 0; part < nParts; part++) {
+        const token = await auth.currentUser.getIdToken();
+        let res;
+        try {
+          res = await fetch('/api/translate', {
+            method: 'POST', cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body: JSON.stringify({ book: req.book, chapter: req.chapter, verses: req.verses, names: req.names, part, runId, force: !!req.force }),
+          });
+        } catch (e) { throw err('ai/network'); }
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(j.items)) throw err('ai/' + (j.error || (res.status === 404 ? 'not-configured' : 'server')));
+        runId = j.runId; nParts = j.nParts; model = j.model;
+        items.push(...j.items);
+        if (onProgress) onProgress(part + 1, nParts);
+      }
+      return { items, done: true, model, createdBy: this.user.email, updatedAt: null };
+    },
+
     async resetAll() {
       const snap = await db.collection('chapters').get();
       for (let i = 0; i < snap.docs.length; i += 400) {

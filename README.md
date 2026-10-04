@@ -8,6 +8,7 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
 - **Word search** (🔍 or `/`): finds partial words (`അനുഗ്രഹ`). Several words must all appear in the verse. Use `"quotes"` for an exact phrase. "Whole word" option. Search all books, this book, or this chapter.
 - **Tap a verse**: highlight (5 colours), copy, share, bookmark, note, edit. Lists are under ☰ → My library.
 - **Aa**: font size, line spacing, 4 Malayalam fonts, Light / Sepia / Dark / Auto themes, paragraph or verse-per-line layout.
+- **AI translation**: Aa → **പാഠം** switches between **മൂലം** (the app's own translation), **AI പരിഭാഷ** (a Malayalam translation made by Claude straight from the Hebrew / Greek original, not from the app's text) and **രണ്ടും** (the AI translation under each verse, for comparing). ☰ → **AI പരിഭാഷകൾ** lists the chapters whose AI translation is finished; a tap opens one in the AI view. Editors and admins make it per chapter with *AI പരിഭാഷ ഉണ്ടാക്കുക* (or *വീണ്ടും ഉണ്ടാക്കുക*); everyone can read it. See [AI translation](#ai-translation). Needs the login setup (not in local mode).
 - **Editing**: ☰ → *ഈ അധ്യായം തിരുത്തുക* opens a side-by-side editor with live preview. Format: `[5]` starts verse 5, `## text` is a heading, each line is a paragraph. The editor warns about missing or out-of-order verse numbers. *യഥാർത്ഥം* restores the original PDF text.
 - **Access codes and open editing**: an admin can hand out one-time codes that make someone an editor or admin, and can open PDF upload / chapter editing to everyone who is signed in (see [Login and permissions](#login-and-permissions)).
 - **Works without internet**: after one visit online, the reader and the administrator portal open offline too (see [Offline](#offline)). An **ഓഫ്‌ലൈൻ** badge shows in the top bar while there's no connection.
@@ -33,7 +34,7 @@ One-time Cloudflare setup:
 
 `app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
 
-The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`). Pages deploys them automatically; they need the secrets described under *Passkey* below and return "not configured" until then.
+The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`) and AI translation (`/api/translate`). Pages deploys them automatically; they need the secrets described under *Passkey* and [AI translation](#ai-translation) below and return "not configured" until then. The root `package.json` lists the one npm package the functions use (the Claude SDK, `@anthropic-ai/sdk`); Pages installs it on each deploy. The site in `app/` still has no build step.
 
 ## Login and permissions
 The published site can use Firebase for login. Permissions are enforced on Firebase's servers by [`firestore.rules`](firestore.rules), so they can't be bypassed from the page source. In the ☰ menu, the whole **ഉള്ളടക്കം** and **ഡാറ്റ** sections are shown only to people who have the permission; the same check guards the buttons, keyboard shortcuts (`e` = edit chapter) and links such as `?open=upload`.
@@ -45,6 +46,7 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 | Edit verses and chapters | | | ✓* | ✓ | ✓ |
 | Upload PDFs | | | ✓* | ✓ | ✓ |
 | Restore original text (remove an edit) | | | | ✓ | ✓ |
+| Make an AI translation of a chapter (reading it: everyone) | | | | ✓ | ✓ |
 | Download data.js, backup (.json), book as HTML; restore a backup | | | | ✓ | ✓ |
 | Delete chapters, reset all edits | | | | | ✓ |
 | Enter an access code (become Editor / Admin) | | | ✓ | ✓ | |
@@ -182,6 +184,24 @@ All in **Firebase → Authentication → Sign-in method → Add new provider**. 
 
   Passkeys belong to the site's domain: a passkey made on `malayalam-bible.pages.dev` works only there.
 
+### AI translation
+The AI translation is made by Claude (Anthropic) in the Cloudflare Pages Function [`functions/api/translate.js`](functions/api/translate.js):
+- **Who**: only editors and admins can start one (the function checks the Firebase ID token and the role in `users/{uid}`), because each chapter costs a little on the Claude API. Everyone, also visitors, can read the result.
+- **What Claude is asked**: translate the chapter from the original-language text (Hebrew / Aramaic, Greek Septuagint for the deuterocanonical books, Greek New Testament) into natural Malayalam, with the names Malayalam Catholics know from the POC Bible, one entry per verse in the app's numbering, plus section headings. It is **not** shown the app's own translation, so the two can be compared. Model `claude-opus-5-5`, effort `medium`; both are constants at the top of the file, next to the prompt. If Claude declines a passage, the request is re-run on Anthropic's recommended fallback model (`fallbacks: "default"`), and the model that answered is shown under the chapter.
+- **How**: a chapter is translated 12 verses per request (`PART_SIZE`), so no request runs long and the page shows progress (*1 / 3 …*). Each part gets the last 3 verses before it for continuity. The page must stay open until it's done. A translation that stopped half-way is shown as unfinished and can be made again.
+- **Where it is kept**: Firestore `aiTranslations/{BOOK_CH}` (`book, chapter, runId, nParts, verses, parts: { p0: items, p1: … }, done, model, createdBy, createdAt, updatedAt`; items are in the reader's format). `aiIndex/chapters` lists the finished chapters (`chapters: { GEN_1: { book, chapter, verses, model, at } }`) for ☰ → AI പരിഭാഷകൾ, so the list costs one read. The function writes both with the service account. In `firestore.rules`, both are readable by everyone and **writable by nobody**, so nothing labelled "AI" can be typed in by a person. A finished chapter is only replaced through *വീണ്ടും ഉണ്ടാക്കുക* (with a confirmation). It is listed again once the new translation is finished.
+- **Reading**: the reader loads a chapter's AI translation (1 Firestore read) only when the AI or "both" view is on. Firestore's offline cache keeps the ones already seen for offline reading. In the AI view, copy / share copy the AI text (marked "AI പരിഭാഷ"), and the verse editor is off (it edits the app's own text).
+- **Activity log**: each finished translation is logged as "AI പരിഭാഷ ഉണ്ടാക്കി" (with the model), and shows in the usage log.
+
+Setup:
+1. Get an API key at https://console.anthropic.com → **API keys** (add credit under **Billing**).
+2. Cloudflare → your Pages project → **Settings → Variables and Secrets → Add** (Production, type *Secret*): `ANTHROPIC_API_KEY` = the key. `FIREBASE_SERVICE_ACCOUNT` must be set too (as for the passkeys, see below).
+3. Deploy the rules (`firebase deploy --only firestore:rules`), then redeploy the site (push, or *Deployments → Retry*). Until the key is set, the button answers "AI പരിഭാഷ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല".
+
+Cost: a typical chapter (25–35 verses) is 3 requests. The price per chapter depends on its length and is shown in the Anthropic console under **Usage**. Try a few chapters first and check the console before translating whole books.
+
+Locally: `npm install` in the repository root, then run `tools/dev-server.mjs` with `ANTHROPIC_API_KEY` set as well (with the emulator variables below, the function writes to the Firestore emulator).
+
 ### Testing locally with the Firebase emulator
 ```
 firebase emulators:start --only auth,firestore --project demo-bible   # uses firebase.json + firestore.rules
@@ -197,7 +217,7 @@ The tests live in [`tests/`](tests) with their own `package.json`, so the site a
 cd tests
 npm install
 npm test              # everything
-npm run test:unit     # usage log, /api/where, parser (no emulator)
+npm run test:unit     # usage log, /api/where, /api/translate, parser (no emulator; /api/translate needs `npm install` in the root)
 npm run test:rules    # firestore.rules against the Firestore emulator (own ports: 8180 …)
 npm run test:e2e      # Chrome + emulators + dev server: offline start, usage upload, portal
 ```
