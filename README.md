@@ -239,5 +239,7 @@ node tools/build-data.js            # reads the PDFs in this folder → app/js/d
 ```
 This prints a report per chapter (verses found, headings, missing verse numbers). Several source PDFs have missing verse numbers, e.g. ch 2 (10–22), ch 13 (2–5, 8–9), ch 16, ch 17. These come out in the text without a number; fix them with the editor.
 
+Chapters typed from a photo of the printed Bible (no PDF) are kept in `tools/sources/<BOOK ID>/<chapter>.txt`, in the editor format (`## heading`, `[5]` starts verse 5, one line per paragraph). The same command adds them to `data.js` as their own books. So far: Exodus 1 and 2:1–7.
+
 ## Notes on PDFs
 The extractor (`app/js/pdf-extract.js`) reads the Unicode text that Google Docs / Chrome embed in the PDF (`ActualText`). Generic tools such as pdf.js scramble this Malayalam text. Scanned (image) PDFs and PDFs that use old ASCII Malayalam fonts (ML-TT etc.) have no usable text, and the upload dialog will say so.
