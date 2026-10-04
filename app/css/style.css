@@ -145,7 +145,17 @@ main { padding: 8px 16px 140px; }
 .reader.layout-verse .v.cont { margin-top: -.45em; }
 .reader .empty { text-align: center; color: var(--muted); padding: 60px 10px; font-family: var(--ui-font); }
 /* AI translation: the "both" view puts it under each verse; notes above / below the text */
-.reader .ch-title .ch-badge.ai { background: var(--accent); color: var(--accent-contrast); }
+/* മൂലം | AI | രണ്ടും under the chapter title */
+.reader .ver-switch {
+  display: flex; width: fit-content; margin: 14px auto 0; padding: 3px; gap: 2px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2);
+}
+.reader .ver-switch button {
+  border: 0; background: transparent; color: var(--muted); font-family: var(--ui-font);
+  font-size: 14px; font-weight: 600; line-height: 1.4; padding: 6px 16px; border-radius: 999px; min-height: 34px;
+}
+.reader .ver-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-contrast); }
+.reader .ver-switch button:not([aria-pressed="true"]):hover { color: var(--text); }
 .reader.compare p { margin: 0; }
 .reader.compare .v { display: block; margin-bottom: .8em; }
 .reader.compare .v.cont { margin-top: -.8em; }

@@ -315,15 +315,18 @@
     const ai = mode === 'orig' ? null : aiView(cur.book, cur.chapter);
     const aiItems = ai && ai.data && ai.data.items.length ? ai.data.items : null;
     shown = { items: mode === 'ai' && aiItems ? aiItems : items, ai: mode === 'ai' && !!aiItems };
-    const badge = shown.ai ? '<span class="ch-badge ai">AI പരിഭാഷ</span>'
-      : b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
+    // (the switch below the title shows when the AI translation is on screen)
+    const badge = !shown.ai && b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
+    // one tap between the app's text, the AI translation and both (the same setting as Aa → പാഠം)
+    const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
+    const verSwitch = `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'മൂലം', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('both', 'രണ്ടും', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ')}</div>`;
     const ctx = { book: cur.book, chapter: cur.chapter };
     if (mode === 'both' && aiItems) ctx.ai = aiUnderVerses(items, aiItems);
     const foot = `<div class="ch-foot">
       ${nb.prev ? `<button class="btn ghost" data-go="${nb.prev.b}/${nb.prev.c}"><svg><use href="#i-left"/></svg>${esc(bookName(nb.prev.b))} ${nb.prev.c}</button>` : '<span></span>'}
       ${nb.next ? `<button class="btn ghost" data-go="${nb.next.b}/${nb.next.c}">${esc(bookName(nb.next.b))} ${nb.next.c}<svg><use href="#i-right"/></svg></button>` : '<span></span>'}
     </div>`;
-    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${badge}</header>` +
+    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${badge}${verSwitch}</header>` +
       (ai ? ai.top : '') + renderItems(shown.items, ctx) + (ai ? ai.bottom : '') + foot;
     $('#refLabel').textContent = `${b.name} ${cur.chapter}`;
     document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
@@ -639,6 +642,11 @@
     if (goBtn) { const [b, c] = goBtn.dataset.go.split('/'); go(b, +c); return; }
     const up = e.target.closest('[data-menu-open]');
     if (up) { menuAction(up.dataset.menuOpen); return; }
+    const verBtn = e.target.closest('[data-ver]');
+    if (verBtn) {
+      if (verBtn.dataset.ver !== aiMode()) { changeSetting('ver', verBtn.dataset.ver); rerenderKeep(); }
+      return;
+    }
     const aiBtn = e.target.closest('[data-ai]');
     if (aiBtn) { makeAiTranslation(aiBtn.dataset.ai === 'remake'); return; }
     const noteIc = e.target.closest('.note-ic');
