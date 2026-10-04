@@ -1,8 +1,0 @@
-{
-  "name": "malayalam-bible",
-  "private": true,
-  "description": "Runtime dependencies of the Cloudflare Pages Functions in functions/ (Pages installs them on deploy). The site in app/ has no build step; the tests have their own package.json in tests/.",
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.131.0"
-  }
-}

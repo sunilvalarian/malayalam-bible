@@ -8,12 +8,11 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
 - **Word search** (🔍 or `/`): finds partial words (`അനുഗ്രഹ`). Several words must all appear in the verse. Use `"quotes"` for an exact phrase. "Whole word" option. Search all books, this book, or this chapter.
 - **Tap a verse**: highlight (5 colours), copy, share, bookmark, note, edit. Lists are under ☰ → My library.
 - **Aa**: font size, line spacing, 4 Malayalam fonts, Light / Sepia / Dark / Auto themes, paragraph or verse-per-line layout.
-- **AI translation** (editors and admins only — and the local owner when unlocked; everyone else sees only the original text, with no AI buttons): the switch under each chapter title (**Original | AI | രണ്ടും**, also in Aa → **പാഠം**) changes between **Original** (the app's own translation), **AI പരിഭാഷ** (a Malayalam translation made by Claude straight from the Hebrew / Greek original, not from the app's text) and **രണ്ടും** (the AI translation under each verse, for comparing). ☰ → **AI പരിഭാഷകൾ** lists the chapters whose AI translation is finished; a tap opens one in the AI view. Genesis comes with the app (`app/js/ai-data.js`, also offline and in local mode). For other chapters, editors and admins make one with *AI പരിഭാഷ ഉണ്ടാക്കുക* (or *വീണ്ടും ഉണ്ടാക്കുക*); everyone can read it. See [AI translation](#ai-translation).
 - **Editing**: ☰ → *ഈ അധ്യായം തിരുത്തുക* opens a side-by-side editor with live preview. Format: `[5]` starts verse 5, `## text` is a heading, each line is a paragraph. The editor warns about missing or out-of-order verse numbers. *യഥാർത്ഥം* restores the original PDF text.
 - **Access codes and open editing**: an admin can hand out one-time codes that make someone an editor or admin, and can open PDF upload / chapter editing to everyone who is signed in (see [Login and permissions](#login-and-permissions)).
 - **Works without internet**: after one visit online, the reader and the administrator portal open offline too (see [Offline](#offline)). An **ഓഫ്‌ലൈൻ** badge shows in the top bar while there's no connection.
 - **Usage log**: everything people do in the app is recorded, also offline, and shown in the portal → **ഉപയോഗം** (see [Usage log](#usage-log)).
-- **Word upload**: the same dialog (☰ → *PDF / Word അപ്‌ലോഡ് ചെയ്യുക*) also takes Microsoft Word **.docx** files. `app/js/docx-extract.js` reads them in the browser (no upload, no library): each Word paragraph is one paragraph, a Shift+Enter line break starts a new line (so verses typed one per line come out one per line), page breaks and deleted text of tracked changes are ignored, tables are read too. The text then goes through the same chapter / verse / heading detection, preview and save as a PDF. Type the chapter title like the PDFs (`ഉത്പത്തി 3` or `അധ്യായം 3`), or put the chapter number in the file name. Old Word 97–2003 **.doc** files can't be read: the dialog says to open them in Word and *Save As → Word Document (.docx)*. Text typed in old ASCII Malayalam fonts (ML-TT etc.) is refused like in PDFs; it has to be Unicode Malayalam. Uploading the app's own text for a chapter that so far had only an AI translation counts as a new chapter; the AI translation then becomes the comparison text.
+- **Word upload**: the same dialog (☰ → *PDF / Word അപ്‌ലോഡ് ചെയ്യുക*) also takes Microsoft Word **.docx** files. `app/js/docx-extract.js` reads them in the browser (no upload, no library): each Word paragraph is one paragraph, a Shift+Enter line break starts a new line (so verses typed one per line come out one per line), page breaks and deleted text of tracked changes are ignored, tables are read too. The text then goes through the same chapter / verse / heading detection, preview and save as a PDF. Type the chapter title like the PDFs (`ഉത്പത്തി 3` or `അധ്യായം 3`), or put the chapter number in the file name. Old Word 97–2003 **.doc** files can't be read: the dialog says to open them in Word and *Save As → Word Document (.docx)*. Text typed in old ASCII Malayalam fonts (ML-TT etc.) is refused like in PDFs; it has to be Unicode Malayalam.
 - **PDF upload**: ☰ → *PDF / Word അപ്‌ലോഡ്*. Drop one or more PDFs. The book and chapter number are detected (from the file name or an `അധ്യായം N` header) and can be changed. Preview, then save. The chapter becomes part of the reader, and ☰ → *HTML ആയി ഡൗൺലോഡ്* exports a whole book as a single HTML file. Each detected chapter has a *ടെക്സ്റ്റ് തിരുത്തുക* button to fix the text (editor format) before saving.
 - **Camera scan**: ☰ → *ക്യാമറയിൽ സ്കാൻ ചെയ്യുക* (or the button in the upload dialog) opens the phone's camera. Take a photo of each page of a printed Bible. The photos are gathered into one scan (*അടുത്ത പേജ്* adds a page, ✕ on a thumbnail removes one). *ടെക്സ്റ്റ് ആക്കുക* reads them with OCR in the browser (`app/js/ocr.js`, [Tesseract.js](https://github.com/naptha/tesseract.js) with its Malayalam model). The text then goes through the same chapter / verse detection, preview and save as a PDF. OCR makes mistakes, so check the preview against the photo and fix the text before saving. Photos chosen through the upload dropzone are scanned the same way. Nothing leaves the device: the photos aren't uploaded, only the saved chapter text is. Same permission as PDF upload.
   - The first scan downloads the OCR library (about 4 MB) and the Malayalam model (about 3 MB) from cdn.jsdelivr.net. After that the service worker and the browser keep them, so scanning also works offline.
@@ -35,7 +34,7 @@ One-time Cloudflare setup:
 
 `app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
 
-The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`) and AI translation (`/api/translate`). Pages deploys them automatically; they need the secrets described under *Passkey* and [AI translation](#ai-translation) below and return "not configured" until then. The root `package.json` lists the one npm package the functions use (the Claude SDK, `@anthropic-ai/sdk`); Pages installs it on each deploy. The site in `app/` still has no build step.
+The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`). Pages deploys them automatically; they need the secrets described under *Passkey* below and return "not configured" until then.
 
 ## Login and permissions
 The published site can use Firebase for login. Permissions are enforced on Firebase's servers by [`firestore.rules`](firestore.rules), so they can't be bypassed from the page source. In the ☰ menu, the whole **ഉള്ളടക്കം** and **ഡാറ്റ** sections are shown only to people who have the permission; the same check guards the buttons, keyboard shortcuts (`e` = edit chapter) and links such as `?open=upload`.
@@ -47,8 +46,6 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 | Edit verses and chapters | | | ✓* | ✓ | ✓ |
 | Upload PDFs | | | ✓* | ✓ | ✓ |
 | Restore original text (remove an edit) | | | | ✓ | ✓ |
-| See the AI translation (Original \| AI \| രണ്ടും, ☰ → AI പരിഭാഷകൾ) | | | | ✓ | ✓ |
-| Make an AI translation of a chapter | | | | ✓ | ✓ |
 | Download data.js, backup (.json), book as HTML; restore a backup | | | | ✓ | ✓ |
 | Delete chapters, reset all edits | | | | | ✓ |
 | Enter an access code (become Editor / Admin) | | | ✓ | ✓ | |
@@ -186,28 +183,6 @@ All in **Firebase → Authentication → Sign-in method → Add new provider**. 
 
   Passkeys belong to the site's domain: a passkey made on `malayalam-bible.pages.dev` works only there.
 
-### AI translation
-**Books with only an AI translation** (e.g. Matthew, from the Greek): for editors / admins they appear in the book list with an **AI** tag and always open in the AI view (Original / രണ്ടും are off, with a note that there is no Original text yet). They are left out of search, the verse counts, `data.js` / HTML exports and the editors. Once the book's own text is uploaded, its chapters work like Genesis (Original | AI | രണ്ടും). Everyone else doesn't see these books at all.
-
-**Bundled with the app**: the AI translation of Genesis 1–50 (1,533 verses, translated by Claude from the Hebrew Masoretic text, with the name spellings of the app's own translation) is in `app/js/ai-data.js`. The reader loads it only when the AI view or ☰ → AI പരിഭാഷകൾ is opened; it then works offline and without login. It is built from one JSON file per chapter (`{ book, chapter, verses: [{ v, heading, text }] }`) with `node tools/build-ai-data.js <folder>`. Verse numbers follow the app's (chapters 31–32 as in the Hebrew); where the app's text ends a chapter early (missing verse numbers in the source PDF), the AI translation has the whole chapter, and in the "both" view the extra verses appear under the last verse. A translation made later in the app (below) replaces the bundled one for that chapter once it is finished.
-
-**Made in the app**: the AI translation of any other chapter is made by Claude (Anthropic) in the Cloudflare Pages Function [`functions/api/translate.js`](functions/api/translate.js):
-- **Who**: only editors and admins can start one (the function checks the Firebase ID token and the role in `users/{uid}`), because each chapter costs a little on the Claude API. Everyone, also visitors, can read the result.
-- **What Claude is asked**: translate the chapter from the original-language text (Hebrew / Aramaic, Greek Septuagint for the deuterocanonical books, Greek New Testament) into natural Malayalam, with the names Malayalam Catholics know from the POC Bible, one entry per verse in the app's numbering, plus section headings. It is **not** shown the app's own translation, so the two can be compared. Model `claude-opus-5-5`, effort `medium`; both are constants at the top of the file, next to the prompt. If Claude declines a passage, the request is re-run on Anthropic's recommended fallback model (`fallbacks: "default"`), and the model that answered is shown under the chapter.
-- **How**: a chapter is translated 12 verses per request (`PART_SIZE`), so no request runs long and the page shows progress (*1 / 3 …*). Each part gets the last 3 verses before it for continuity. The page must stay open until it's done. A translation that stopped half-way is shown as unfinished and can be made again.
-- **Where it is kept**: Firestore `aiTranslations/{BOOK_CH}` (`book, chapter, runId, nParts, verses, parts: { p0: items, p1: … }, done, model, createdBy, createdAt, updatedAt`; items are in the reader's format). `aiIndex/chapters` lists the finished chapters (`chapters: { GEN_1: { book, chapter, verses, model, at } }`) for ☰ → AI പരിഭാഷകൾ, so the list costs one read. The function writes both with the service account. In `firestore.rules`, both are readable by everyone and **writable by nobody**, so nothing labelled "AI" can be typed in by a person. A finished chapter is only replaced through *വീണ്ടും ഉണ്ടാക്കുക* (with a confirmation). It is listed again once the new translation is finished.
-- **Reading**: the reader loads a chapter's AI translation (1 Firestore read) only when the AI or "both" view is on. Firestore's offline cache keeps the ones already seen for offline reading. In the AI view, copy / share copy the AI text (marked "AI പരിഭാഷ"), and the verse editor is off (it edits the app's own text).
-- **Activity log**: each finished translation is logged as "AI പരിഭാഷ ഉണ്ടാക്കി" (with the model), and shows in the usage log.
-
-Setup:
-1. Get an API key at https://console.anthropic.com → **API keys** (add credit under **Billing**).
-2. Cloudflare → your Pages project → **Settings → Variables and Secrets → Add** (Production, type *Secret*): `ANTHROPIC_API_KEY` = the key. `FIREBASE_SERVICE_ACCOUNT` must be set too (as for the passkeys, see below).
-3. Deploy the rules (`firebase deploy --only firestore:rules`), then redeploy the site (push, or *Deployments → Retry*). Until the key is set, the button answers "AI പരിഭാഷ ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല".
-
-Cost: a typical chapter (25–35 verses) is 3 requests. The price per chapter depends on its length and is shown in the Anthropic console under **Usage**. Try a few chapters first and check the console before translating whole books.
-
-Locally: `npm install` in the repository root, then run `tools/dev-server.mjs` with `ANTHROPIC_API_KEY` set as well (with the emulator variables below, the function writes to the Firestore emulator).
-
 ### Testing locally with the Firebase emulator
 ```
 firebase emulators:start --only auth,firestore --project demo-bible   # uses firebase.json + firestore.rules
@@ -223,7 +198,7 @@ The tests live in [`tests/`](tests) with their own `package.json`, so the site a
 cd tests
 npm install
 npm test              # everything
-npm run test:unit     # usage log, /api/where, /api/translate, parser (no emulator; /api/translate needs `npm install` in the root)
+npm run test:unit     # usage log, /api/where, parser (no emulator)
 npm run test:rules    # firestore.rules against the Firestore emulator (own ports: 8180 …)
 npm run test:e2e      # Chrome + emulators + dev server: offline start, usage upload, portal
 ```

@@ -22,12 +22,12 @@
     edit: 'അധ്യായം തിരുത്തി', 'edit-verse': 'വാക്യം തിരുത്തി', restore: 'യഥാർത്ഥം പുനഃസ്ഥാപിച്ചു', delete: 'അധ്യായം നീക്കി',
     upload: 'അപ്‌ലോഡ് ചെയ്തു (PDF / Word / സ്കാൻ)', 'reset-all': 'എല്ലാ തിരുത്തലുകളും മായ്ച്ചു', revert: 'അഡ്മിൻ യഥാർത്ഥത്തിലേക്ക് മാറ്റി',
     'code-create': 'ആക്സസ് കോഡ് ഉണ്ടാക്കി', 'code-revoke': 'ആക്സസ് കോഡ് റദ്ദാക്കി', redeem: 'ആക്സസ് കോഡ് ഉപയോഗിച്ചു',
-    settings: 'ക്രമീകരണം മാറ്റി', 'ai-translate': 'AI പരിഭാഷ ഉണ്ടാക്കി',
+    settings: 'ക്രമീകരണം മാറ്റി',
   };
   const EXPIRY = [[1, '1 മണിക്കൂർ'], [24, '24 മണിക്കൂർ'], [168, '7 ദിവസം'], [720, '30 ദിവസം']];
   const PERM_LABEL = {
     edit: 'വാക്യം / അധ്യായം തിരുത്തുക', upload: 'PDF / Word അപ്‌ലോഡ്', restore: 'യഥാർത്ഥ പാഠം / ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക',
-    export: 'data.js, ബാക്കപ്പ്, HTML ഡൗൺലോഡ്', aiView: 'AI പരിഭാഷ കാണുക (Original | AI | രണ്ടും)', aiTranslate: 'AI പരിഭാഷ ഉണ്ടാക്കുക (Claude)', delete: 'അധ്യായം നീക്കുക', reset: 'എല്ലാ തിരുത്തലുകളും മായ്ക്കുക',
+    export: 'data.js, ബാക്കപ്പ്, HTML ഡൗൺലോഡ്', delete: 'അധ്യായം നീക്കുക', reset: 'എല്ലാ തിരുത്തലുകളും മായ്ക്കുക',
     users: 'അഡ്മിൻ പോർട്ടൽ: ഉപയോക്താക്കൾ, റോളുകൾ, ക്ഷണങ്ങൾ, ചരിത്രം, പാസ്‌കീകൾ',
   };
   const SECTIONS = [
@@ -288,10 +288,10 @@
     login: 'ലോഗിൻ', logout: 'ലോഗൗട്ട്', 'signed-out': 'ലോഗിൻ അവസാനിച്ചു', role: 'റോൾ മാറി',
     online: 'ഓൺലൈൻ ആയി', offline: 'ഓഫ്‌ലൈൻ ആയി', install: 'ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്തു', error: 'പിശക്', admin: 'പോർട്ടൽ പേജ്',
     edit: ACTION_LABEL.edit, 'edit-verse': ACTION_LABEL['edit-verse'], upload: ACTION_LABEL.upload, restore: ACTION_LABEL.restore, delete: ACTION_LABEL.delete,
-    scan: 'ക്യാമറയിൽ സ്കാൻ ചെയ്തു', 'ai-translate': ACTION_LABEL['ai-translate'],
+    scan: 'ക്യാമറയിൽ സ്കാൻ ചെയ്തു',
   };
   const MENU_LABEL = {
-    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', aiList: 'AI പരിഭാഷകൾ', upload: 'PDF / Word അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ',
+    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', upload: 'PDF / Word അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ',
     edit: 'അധ്യായം തിരുത്തൽ', exportHtml: 'HTML ഡൗൺലോഡ്', exportData: 'data.js എക്സ്പോർട്ട്', backup: 'ബാക്കപ്പ്', restore: 'ബാക്കപ്പ് പുനഃസ്ഥാപിക്കൽ',
     install: 'ഇൻസ്റ്റാൾ', reset: 'എല്ലാ തിരുത്തലും മായ്ക്കൽ', login: 'ലോഗിൻ', logout: 'ലോഗൗട്ട്', admin: 'അഡ്മിൻ പോർട്ടൽ',
     redeem: 'കോഡ് നൽകൽ', addPasskey: 'പാസ്‌കീ ചേർക്കൽ', lock: 'ലോക്ക്', verifyResend: 'സ്ഥിരീകരണ ലിങ്ക്', verifyCheck: 'സ്ഥിരീകരണം',

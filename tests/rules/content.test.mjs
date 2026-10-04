@@ -1,4 +1,4 @@
-// firestore.rules → chapters/{id}, aiTranslations/{id}, settings/{id}, changes/{id}
+// firestore.rules → chapters/{id}, settings/{id}, changes/{id}
 import { describe, it, beforeEach } from 'node:test';
 import { setup, assertSucceeds, assertFails, ts, Timestamp, OWNER } from './helpers.mjs';
 
@@ -106,40 +106,6 @@ describe('chapters: open to everyone (settings/permissions)', () => {
   });
 });
 
-describe('aiTranslations (written only by functions/api/translate.js)', () => {
-  beforeEach(() => t.seedUsers());
-  const ai = (db, id) => db.collection('aiTranslations').doc(id);
-  const doc = (over = {}) => ({
-    book: 'GEN', chapter: 1, runId: '0123456789abcdef', nParts: 1, verses: 2, done: true,
-    parts: { p0: ITEMS }, model: 'claude-opus-5-5', createdBy: E, createdAt: Timestamp.now(), updatedAt: Timestamp.now(), ...over,
-  });
-
-  it('anyone reads them, also visitors', async () => {
-    await t.seed((db) => ai(db, 'GEN_1').set(doc()));
-    await assertSucceeds(ai(t.anon(), 'GEN_1').get());
-    await assertSucceeds(ai(t.as.reader(), 'GEN_1').get());
-    await assertSucceeds(ai(t.anon(), 'GEN_2').get());        // not made yet
-  });
-  it('nobody writes them from the app, not even admins (so "AI" text is never typed in by hand)', async () => {
-    await assertFails(ai(t.as.owner(), 'GEN_1').set(doc()));
-    await assertFails(ai(t.as.admin(), 'GEN_1').set(doc()));
-    await assertFails(ai(t.as.editor(), 'GEN_1').set(doc()));
-    await assertFails(ai(t.as.reader(), 'GEN_1').set(doc()));
-    await t.seed((db) => ai(db, 'GEN_1').set(doc()));
-    await assertFails(ai(t.as.editor(), 'GEN_1').update({ 'parts.p0': [{ v: 1, t: 'changed' }] }));
-    await assertFails(ai(t.as.admin(), 'GEN_1').delete());
-  });
-  it('aiIndex/chapters (the list of finished chapters): anyone reads, nobody writes', async () => {
-    const ix = (db) => db.collection('aiIndex').doc('chapters');
-    const list = { chapters: { GEN_1: { book: 'GEN', chapter: 1, verses: 31, model: 'claude-opus-5-5', at: Timestamp.now() } } };
-    await t.seed((db) => ix(db).set(list));
-    await assertSucceeds(ix(t.anon()).get());
-    await assertFails(ix(t.as.admin()).set(list));
-    await assertFails(ix(t.as.editor()).update({ 'chapters.GEN_2': { book: 'GEN', chapter: 2 } }));
-    await assertFails(ix(t.as.owner()).delete());
-  });
-});
-
 describe('settings', () => {
   beforeEach(() => t.seedUsers());
   const s = (by, over = {}) => ({ openUpload: true, openEdit: false, updatedBy: by, updatedAt: ts(), ...over });
@@ -174,7 +140,6 @@ describe('changes (activity log)', () => {
 
   it('editors log any action', async () => {
     await assertSucceeds(add(t.as.editor(), log('edit', E)));
-    await assertSucceeds(add(t.as.editor(), log('ai-translate', E, { detail: 'claude-opus-5-5' })));
     await assertSucceeds(add(t.as.editor(), log('revert', E)));
     await assertSucceeds(add(t.as.admin(), log('reset-all', 'admin@example.com', { book: '-', chapter: 0 })));
   });
