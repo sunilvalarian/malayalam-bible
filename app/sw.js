@@ -3,13 +3,13 @@
  * copy of the data, see cloud.js). Same-origin files use stale-while-revalidate, so after a
  * `git push` the new version is picked up in the background and shown on the next launch.
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v18';
+const VERSION = 'v19';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)
 const SHELL = [
   './', './index.html', './css/style.css',
-  './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/ocr.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
+  './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/docx-extract.js', './js/ocr.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
   './admin.html', './css/admin.css', './js/admin.js',
   './app.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png',
 ];

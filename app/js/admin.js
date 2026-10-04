@@ -20,13 +20,13 @@
   const ROLE_LABEL = { admin: 'അഡ്മിൻ', editor: 'എഡിറ്റർ', reader: 'വായനക്കാരൻ', none: 'തടഞ്ഞു' };
   const ACTION_LABEL = {
     edit: 'അധ്യായം തിരുത്തി', 'edit-verse': 'വാക്യം തിരുത്തി', restore: 'യഥാർത്ഥം പുനഃസ്ഥാപിച്ചു', delete: 'അധ്യായം നീക്കി',
-    upload: 'PDF അപ്‌ലോഡ് ചെയ്തു', 'reset-all': 'എല്ലാ തിരുത്തലുകളും മായ്ച്ചു', revert: 'അഡ്മിൻ യഥാർത്ഥത്തിലേക്ക് മാറ്റി',
+    upload: 'അപ്‌ലോഡ് ചെയ്തു (PDF / Word / സ്കാൻ)', 'reset-all': 'എല്ലാ തിരുത്തലുകളും മായ്ച്ചു', revert: 'അഡ്മിൻ യഥാർത്ഥത്തിലേക്ക് മാറ്റി',
     'code-create': 'ആക്സസ് കോഡ് ഉണ്ടാക്കി', 'code-revoke': 'ആക്സസ് കോഡ് റദ്ദാക്കി', redeem: 'ആക്സസ് കോഡ് ഉപയോഗിച്ചു',
     settings: 'ക്രമീകരണം മാറ്റി', 'ai-translate': 'AI പരിഭാഷ ഉണ്ടാക്കി',
   };
   const EXPIRY = [[1, '1 മണിക്കൂർ'], [24, '24 മണിക്കൂർ'], [168, '7 ദിവസം'], [720, '30 ദിവസം']];
   const PERM_LABEL = {
-    edit: 'വാക്യം / അധ്യായം തിരുത്തുക', upload: 'PDF അപ്‌ലോഡ്', restore: 'യഥാർത്ഥ പാഠം / ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക',
+    edit: 'വാക്യം / അധ്യായം തിരുത്തുക', upload: 'PDF / Word അപ്‌ലോഡ്', restore: 'യഥാർത്ഥ പാഠം / ബാക്കപ്പ് പുനഃസ്ഥാപിക്കുക',
     export: 'data.js, ബാക്കപ്പ്, HTML ഡൗൺലോഡ്', aiView: 'AI പരിഭാഷ കാണുക (Original | AI | രണ്ടും)', aiTranslate: 'AI പരിഭാഷ ഉണ്ടാക്കുക (Claude)', delete: 'അധ്യായം നീക്കുക', reset: 'എല്ലാ തിരുത്തലുകളും മായ്ക്കുക',
     users: 'അഡ്മിൻ പോർട്ടൽ: ഉപയോക്താക്കൾ, റോളുകൾ, ക്ഷണങ്ങൾ, ചരിത്രം, പാസ്‌കീകൾ',
   };
@@ -262,7 +262,7 @@
         ${card('content', 'തിരുത്തിയ അധ്യായങ്ങൾ', n(chapters && chapters.length), chapters ? `തിരുത്ത് ${edited} · അപ്‌ലോഡ് ${uploaded} · മറച്ചത് ${hidden}` : '')}
         ${card('passkeys', 'പാസ്‌കീകൾ', n(passkeys && passkeys.length), '')}
         ${card('codes', 'ആക്സസ് കോഡുകൾ (സജീവം)', n(codes && codes.filter((c) => codeStatus(c) === 'active').length), codes ? `ആകെ ${codes.length} · ഉപയോഗിച്ചത് ${codes.filter((c) => c.used).length}` : '')}
-        ${card('settings', 'എല്ലാവർക്കും തുറന്നത്', `<span class="adm-stat-text">${[Cloud.settings.openUpload && 'PDF അപ്‌ലോഡ്', Cloud.settings.openEdit && 'തിരുത്തൽ'].filter(Boolean).join(' · ') || 'ഒന്നുമില്ല'}</span>`, 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (ക്രമീകരണങ്ങൾ)')}
+        ${card('settings', 'എല്ലാവർക്കും തുറന്നത്', `<span class="adm-stat-text">${[Cloud.settings.openUpload && 'PDF / Word അപ്‌ലോഡ്', Cloud.settings.openEdit && 'തിരുത്തൽ'].filter(Boolean).join(' · ') || 'ഒന്നുമില്ല'}</span>`, 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (ക്രമീകരണങ്ങൾ)')}
       </div>
       <h2 class="adm-h2">അവസാന 10 പ്രവർത്തനങ്ങൾ</h2>
       ${changes ? activityTable(changes.items) : failMsg()}
@@ -291,7 +291,7 @@
     scan: 'ക്യാമറയിൽ സ്കാൻ ചെയ്തു', 'ai-translate': ACTION_LABEL['ai-translate'],
   };
   const MENU_LABEL = {
-    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', aiList: 'AI പരിഭാഷകൾ', upload: 'PDF അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ',
+    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', aiList: 'AI പരിഭാഷകൾ', upload: 'PDF / Word അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ',
     edit: 'അധ്യായം തിരുത്തൽ', exportHtml: 'HTML ഡൗൺലോഡ്', exportData: 'data.js എക്സ്പോർട്ട്', backup: 'ബാക്കപ്പ്', restore: 'ബാക്കപ്പ് പുനഃസ്ഥാപിക്കൽ',
     install: 'ഇൻസ്റ്റാൾ', reset: 'എല്ലാ തിരുത്തലും മായ്ക്കൽ', login: 'ലോഗിൻ', logout: 'ലോഗൗട്ട്', admin: 'അഡ്മിൻ പോർട്ടൽ',
     redeem: 'കോഡ് നൽകൽ', addPasskey: 'പാസ്‌കീ ചേർക്കൽ', lock: 'ലോക്ക്', verifyResend: 'സ്ഥിരീകരണ ലിങ്ക്', verifyCheck: 'സ്ഥിരീകരണം',
@@ -718,7 +718,7 @@
   }
   const detailText = (d) => String(d)
     .replace(/^(editor|admin)\b/, (r) => ROLE_LABEL[r])
-    .replace(/openUpload=(true|false)/, (m, v) => 'PDF അപ്‌ലോഡ്: ' + (v === 'true' ? 'ഓൺ' : 'ഓഫ്'))
+    .replace(/openUpload=(true|false)/, (m, v) => 'PDF / Word അപ്‌ലോഡ്: ' + (v === 'true' ? 'ഓൺ' : 'ഓഫ്'))
     .replace(/openEdit=(true|false)/, (m, v) => 'തിരുത്തൽ: ' + (v === 'true' ? 'ഓൺ' : 'ഓഫ്'));
   const codeActions = (c) => `<button class="btn sm" data-copy="${esc(c.code)}" title="കോഡ് പകർത്തുക"><svg><use href="#i-copy"/></svg><span>പകർത്തുക</span></button>
       <a class="btn sm adm-wa" href="${esc(shareUrl(c))}" target="_blank" rel="noopener"><svg><use href="#i-chat"/></svg><span>WhatsApp-ൽ അയയ്ക്കുക</span></a>`;
@@ -813,12 +813,12 @@
         <span><strong>${title}</strong><small>${text}</small></span>
       </label>`;
     body.innerHTML = `<div class="adm-card adm-settings">
-        ${row('setUpload', s.openUpload, 'എല്ലാവർക്കും PDF അപ്‌ലോഡ്', 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (തടഞ്ഞവർ ഒഴികെ) ☰ → “PDF അപ്‌ലോഡ് ചെയ്യുക” ഉപയോഗിച്ച് അധ്യായങ്ങൾ ചേർക്കാനും നിലവിലുള്ളവ മാറ്റിസ്ഥാപിക്കാനും കഴിയും.')}
+        ${row('setUpload', s.openUpload, 'എല്ലാവർക്കും PDF / Word അപ്‌ലോഡ്', 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (തടഞ്ഞവർ ഒഴികെ) ☰ → “PDF / Word അപ്‌ലോഡ് ചെയ്യുക” ഉപയോഗിച്ച് അധ്യായങ്ങൾ ചേർക്കാനും നിലവിലുള്ളവ മാറ്റിസ്ഥാപിക്കാനും കഴിയും.')}
         ${row('setEdit', s.openEdit, 'എല്ലാവർക്കും അധ്യായം തിരുത്തൽ', 'ലോഗിൻ ചെയ്ത എല്ലാവർക്കും (തടഞ്ഞവർ ഒഴികെ) ☰ → “ഈ അധ്യായം തിരുത്തുക”, വാക്യം തിരുത്തൽ എന്നിവ ഉപയോഗിക്കാം.')}
       </div>
       <p class="hint">ടിക്ക് ചെയ്യുമ്പോൾ ഉടൻ സേവ് ആകും, തുറന്നിരിക്കുന്ന എല്ലാ പേജുകളിലും ഉടൻ ബാധകമാകും. ലോഗിൻ ചെയ്യാത്തവർക്ക് എപ്പോഴും വായന മാത്രം; തടഞ്ഞവർക്കും ഇത് ബാധകമല്ല. അധ്യായം നീക്കൽ, എല്ലാ തിരുത്തലുകളും മായ്ക്കൽ, ഉപയോക്താക്കൾ, ഈ പോർട്ടൽ എന്നിവ അഡ്മിന് മാത്രം; data.js / ബാക്കപ്പ് / HTML ഡൗൺലോഡ്, യഥാർത്ഥ പാഠം പുനഃസ്ഥാപിക്കൽ എന്നിവ എഡിറ്റർമാർക്കും അഡ്മിൻമാർക്കും മാത്രം. എല്ലാ മാറ്റങ്ങളും പ്രവർത്തന ചരിത്രത്തിൽ കാണാം, “ഉള്ളടക്കം” വിഭാഗത്തിൽ നിന്ന് തിരിച്ചാക്കാം.</p>
       <p class="hint" id="setMeta">${s.updatedBy ? `അവസാനം മാറ്റിയത്: ${esc(s.updatedBy)} · ${esc(fmtTime(s.updatedAt))}` : ''}</p>`;
-    const names = { openUpload: 'എല്ലാവർക്കും PDF അപ്‌ലോഡ്', openEdit: 'എല്ലാവർക്കും അധ്യായം തിരുത്തൽ' };
+    const names = { openUpload: 'എല്ലാവർക്കും PDF / Word അപ്‌ലോഡ്', openEdit: 'എല്ലാവർക്കും അധ്യായം തിരുത്തൽ' };
     [['setUpload', 'openUpload'], ['setEdit', 'openEdit']].forEach(([id, key]) => {
       $('#' + id).addEventListener('change', async (e) => {
         const box = e.target;

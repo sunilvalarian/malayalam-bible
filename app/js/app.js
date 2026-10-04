@@ -327,7 +327,7 @@
     const b = bookMap.get(cur.book);
     const items = b && b.chapters.get(cur.chapter);
     if (!items) {
-      reader.innerHTML = `<div class="empty"><p>ഉള്ളടക്കം ഒന്നുമില്ല.</p>${can('upload') ? '<p><button class="btn primary" data-menu-open="upload">PDF അപ്‌ലോഡ് ചെയ്യുക</button></p>' : ''}</div>`;
+      reader.innerHTML = `<div class="empty"><p>ഉള്ളടക്കം ഒന്നുമില്ല.</p>${can('upload') ? '<p><button class="btn primary" data-menu-open="upload">PDF / Word അപ്‌ലോഡ് ചെയ്യുക</button></p>' : ''}</div>`;
       $('#refLabel').textContent = 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ';
       $('#btnPrev').disabled = $('#btnNext').disabled = true;
       return;
@@ -459,7 +459,7 @@
   }
 
   const AI_ONLY_NOTE = 'ഈ പുസ്തകത്തിന് ഇതുവരെ Original പാഠം ഇല്ല — AI പരിഭാഷ മാത്രം.';
-  const AI_ONLY_NO_EDIT = 'AI പരിഭാഷ മാത്രമുള്ള അധ്യായം — ഇതു തിരുത്താനാവില്ല. Original പാഠം PDF ആയി അപ്‌ലോഡ് ചെയ്യുക.';
+  const AI_ONLY_NO_EDIT = 'AI പരിഭാഷ മാത്രമുള്ള അധ്യായം — ഇതു തിരുത്താനാവില്ല. Original പാഠം PDF / Word ആയി അപ്‌ലോഡ് ചെയ്യുക.';
   const aiNote = (html, cls) => `<div class="ai-note${cls ? ' ' + cls : ''}">${html}</div>`;
   const aiFootText = (model) => `AI പരിഭാഷ: Claude${model ? ` (${esc(model)})` : ''} മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.`;
 
@@ -1410,26 +1410,43 @@
   const pendingNames = {};
 
   const isPdf = (f) => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  // Word: .docx is read (js/docx-extract.js); the old binary .doc only gets a "save as .docx" hint
+  const isDocx = (f) => /\.docx$/i.test(f.name) || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  const isOldDoc = (f) => /\.doc$/i.test(f.name) || f.type === 'application/msword';
   const isImage = (f) => /^image\//.test(f.type) || /\.(jpe?g|png|webp|bmp|gif)$/i.test(f.name);
   const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
+  const OLD_DOC = 'പഴയ .doc ഫയൽ — Word-ൽ തുറന്ന് "Save As → Word Document (.docx)" ആയി സേവ് ചെയ്ത് വീണ്ടും അപ്‌ലോഡ് ചെയ്യുക';
 
   async function handleFiles(files) {
     const all = [...files];
-    const list = all.filter(isPdf), images = all.filter((f) => !isPdf(f) && isImage(f));
-    if (!list.length && !images.length) { toast('PDF അല്ലെങ്കിൽ ചിത്രങ്ങൾ മാത്രം'); return; }
+    const docs = all.filter((f) => isPdf(f) || isDocx(f) || isOldDoc(f));
+    const images = all.filter((f) => !docs.includes(f) && isImage(f));
+    if (!docs.length && !images.length) { toast('PDF, Word (.docx) അല്ലെങ്കിൽ ചിത്രങ്ങൾ മാത്രം'); return; }
     if (images.length) addScanPages(images.sort(byName));
-    if (!list.length) return;
+    if (!docs.length) return;
     const defBook = $('#upBook').value;
-    const mine = list.map((f) => ({ kind: 'pdf', name: f.name, file: f, status: 'processing', results: [], error: null, defBook }));
+    const mine = docs.map((f) => ({ kind: isPdf(f) ? 'pdf' : 'docx', name: f.name, file: f, status: 'processing', results: [], error: null, defBook }));
     uploads.push(...mine);
     renderUploads();
     for (const u of mine) {
       try {
-        const ex = await window.PdfExtract.extract(await u.file.arrayBuffer());
-        const flat = ex.pages.flat().map((p) => p.text).join(' ');
-        if (!/[ഀ-ൿ]/.test(flat)) throw new Error(flat.trim() ? 'മലയാളം ടെക്സ്റ്റ് കണ്ടെത്തിയില്ല (ഫോണ്ട് എൻകോഡിംഗ് പിന്തുണയ്ക്കുന്നില്ല)' : 'ടെക്സ്റ്റ് ഇല്ല — സ്കാൻ ചെയ്ത (ചിത്ര) PDF ആകാം');
-        const garbled = !ex.actualText && (flat.match(/(^|\s)[െേൈ]/g) || []).length > 20;
-        parseInto(u, ex.pages, P.chapterFromFilename(u.file.name), garbled ? ['അക്ഷരക്രമം തെറ്റായിരിക്കാം — പ്രിവ്യൂ പരിശോധിക്കുക'] : []);
+        if (u.kind === 'pdf') {
+          const ex = await window.PdfExtract.extract(await u.file.arrayBuffer());
+          const flat = ex.pages.flat().map((p) => p.text).join(' ');
+          if (!/[ഀ-ൿ]/.test(flat)) throw new Error(flat.trim() ? 'മലയാളം ടെക്സ്റ്റ് കണ്ടെത്തിയില്ല (ഫോണ്ട് എൻകോഡിംഗ് പിന്തുണയ്ക്കുന്നില്ല)' : 'ടെക്സ്റ്റ് ഇല്ല — സ്കാൻ ചെയ്ത (ചിത്ര) PDF ആകാം');
+          const garbled = !ex.actualText && (flat.match(/(^|\s)[െേൈ]/g) || []).length > 20;
+          parseInto(u, ex.pages, P.chapterFromFilename(u.file.name), garbled ? ['അക്ഷരക്രമം തെറ്റായിരിക്കാം — പ്രിവ്യൂ പരിശോധിക്കുക'] : []);
+        } else {
+          if (isOldDoc(u.file) && !isDocx(u.file)) throw new Error(OLD_DOC);
+          let ex;
+          try { ex = await window.DocxExtract.extract(await u.file.arrayBuffer()); } catch (e) {
+            throw new Error(e.code === 'docx/old-doc' ? OLD_DOC : 'ഈ Word ഫയൽ വായിക്കാൻ കഴിഞ്ഞില്ല (കേടായതോ .docx അല്ലാത്തതോ ആകാം)');
+          }
+          const flat = ex.pages.flat().join(' ');
+          // text typed in an old ASCII Malayalam font (ML-TT etc.) has no Malayalam letters
+          if (!/[ഀ-ൿ]/.test(flat)) throw new Error(flat.trim() ? 'മലയാളം യൂണികോഡ് ടെക്സ്റ്റ് കണ്ടെത്തിയില്ല (പഴയ ASCII ഫോണ്ട് ആകാം)' : 'ഈ Word ഫയലിൽ ടെക്സ്റ്റ് ഇല്ല');
+          parseInto(u, ex.pages, P.chapterFromFilename(u.file.name), []);
+        }
       } catch (err) {
         u.status = 'error';
         u.error = err.message || String(err);
@@ -1447,7 +1464,8 @@
     // OCR gives the printed lines one by one, however long they are, and a line break there
     // never splits a word (the PDF guesses both from the line lengths)
     const scan = u.kind === 'scan';
-    const res = P.parsePdfParagraphs(pages, { chapter: hint, bookNames: [bookName(u.defBook)], lexicon: lex, wrapped: scan || undefined, wholeWords: scan });
+    // a Word paragraph / line is complete as typed: a line break there never splits a word either
+    const res = P.parsePdfParagraphs(pages, { chapter: hint, bookNames: [bookName(u.defBook)], lexicon: lex, wrapped: scan || undefined, wholeWords: scan || u.kind === 'docx' });
     const detected = res.bookTitle ? findBook(res.bookTitle, CAT) || findBook(res.bookTitle) : null;
     u.results = res.chapters.map((c, i) => ({
       chapter: c.chapter || (hint && i === 0 ? hint : null),
@@ -1538,7 +1556,8 @@
         </div>`;
       return u.results.map((r, ri) => {
         const b = bookMap.get(r.book);
-        const exists = r.chapter && b && b.chapters.has(r.chapter);
+        // a chapter there is only an AI translation of is still new for the app's own text
+        const exists = r.chapter && b && b.chapters.has(r.chapter) && !aiOnly(b, r.chapter);
         const st = !r.chapter ? '<span class="status err">അധ്യായ നമ്പർ നൽകുക</span>'
           : exists ? '<span class="status warn">നിലവിലുള്ളത് മാറ്റിസ്ഥാപിക്കും</span>' : '<span class="status ok">പുതിയത്</span>';
         return `<div class="up-item" data-u="${ui}" data-r="${ri}">
