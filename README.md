@@ -217,7 +217,7 @@ This prints a report per chapter (verses found, headings, missing verse numbers)
 
 Chapters typed from a photo of the printed Bible (no PDF) are kept in `tools/sources/<BOOK ID>/<chapter>.txt`, in the editor format (`## heading`, `[5]` starts verse 5, one line per paragraph). The same command adds them to `data.js` as their own books. So far: Exodus 1, 2 and 3:1–5 (3:5 unfinished, continues on the next page).
 
-Other books' chapter PDFs go in the same folder, with the chapter number in the file name (`tools/sources/MAT/അധ്യായം 5.pdf`); their fixes are under the book id in `tools/text-fixes.js`. So far: Matthew 1–16 and 18 (the PDF of chapter 17 was a blank page). Not in the source PDFs, so missing in the text: Matthew 11:23–24 and 14:7.
+Other books' chapter PDFs go in the same folder, with the chapter number in the file name (`tools/sources/MAT/അധ്യായം 5.pdf`); their fixes are under the book id in `tools/text-fixes.js`. Matthew 1–16 come from the PDFs (not in them, so missing in the text: 11:23–24 and 14:7). Matthew 17–28 were typed from photos of the printed Bible (pages 24–42), as `17.txt` … `28.txt`: the PDF of chapter 17 was a blank page and the one of chapter 18 stopped at verse 23. Cross-references and footnotes of the print are left out.
 
 ## Notes on PDFs
 The extractor (`app/js/pdf-extract.js`) reads the Unicode text that Google Docs / Chrome embed in the PDF (`ActualText`). Generic tools such as pdf.js scramble this Malayalam text. Scanned (image) PDFs and PDFs that use old ASCII Malayalam fonts (ML-TT etc.) have no usable text, and the upload dialog will say so.
