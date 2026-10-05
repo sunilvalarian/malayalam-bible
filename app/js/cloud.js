@@ -705,6 +705,8 @@
       return auth.signOut();
     },
     get online() { return navigator.onLine !== false; },
+    // the signed-in user's Firebase ID token (refreshed when it has expired), for the server functions
+    idToken() { return auth && auth.currentUser ? auth.currentUser.getIdToken() : Promise.resolve(''); },
     // opened from an e-mail sign-in link that still waits for the address to be typed in
     get emailLinkPending() { return !!this._emailLink; },
     get signedIn() { return !!(auth && auth.currentUser); },

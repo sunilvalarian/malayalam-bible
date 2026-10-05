@@ -4,7 +4,7 @@
  * `git push` the new version is picked up in the background (past the browser's HTTP cache)
  * and the open page is told, so it can offer to reload (js/app.js, 'content-updated').
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v21';
+const VERSION = 'v22';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)

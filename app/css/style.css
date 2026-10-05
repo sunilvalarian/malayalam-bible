@@ -350,6 +350,10 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 .scan-pages .icon-btn { position: absolute; top: 4px; right: 4px; background: var(--surface); }
 .up-text { display: block; width: calc(100% - 24px); margin: 0 12px; min-height: 220px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: 16px; line-height: 1.7; }
 .up-hint { display: block; padding: 6px 12px 10px; color: var(--muted); font-size: 13px; }
+.src-intro { margin: 0 0 4px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.src-note { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; }
+.src-note input { width: 100%; box-sizing: border-box; }
+#srcChapter { width: 84px; }
 .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

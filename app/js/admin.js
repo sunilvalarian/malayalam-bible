@@ -288,10 +288,10 @@
     login: 'ലോഗിൻ', logout: 'ലോഗൗട്ട്', 'signed-out': 'ലോഗിൻ അവസാനിച്ചു', role: 'റോൾ മാറി',
     online: 'ഓൺലൈൻ ആയി', offline: 'ഓഫ്‌ലൈൻ ആയി', install: 'ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്തു', error: 'പിശക്', admin: 'പോർട്ടൽ പേജ്',
     edit: ACTION_LABEL.edit, 'edit-verse': ACTION_LABEL['edit-verse'], upload: ACTION_LABEL.upload, restore: ACTION_LABEL.restore, delete: ACTION_LABEL.delete,
-    scan: 'ക്യാമറയിൽ സ്കാൻ ചെയ്തു',
+    scan: 'ക്യാമറയിൽ സ്കാൻ ചെയ്തു', sources: 'ഉറവിട ഫയലുകൾ സൂക്ഷിച്ചു',
   };
   const MENU_LABEL = {
-    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', upload: 'PDF / Word അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ',
+    bookmarks: 'ബുക്ക്മാർക്കുകൾ', highlights: 'ഹൈലൈറ്റുകൾ', notes: 'കുറിപ്പുകൾ', history: 'വായന ചരിത്രം', upload: 'PDF / Word അപ്‌ലോഡ്', scan: 'ക്യാമറ സ്കാൻ', sources: 'ഉറവിട ഫയലുകൾ',
     edit: 'അധ്യായം തിരുത്തൽ', exportHtml: 'HTML ഡൗൺലോഡ്', exportData: 'data.js എക്സ്പോർട്ട്', backup: 'ബാക്കപ്പ്', restore: 'ബാക്കപ്പ് പുനഃസ്ഥാപിക്കൽ',
     install: 'ഇൻസ്റ്റാൾ', reset: 'എല്ലാ തിരുത്തലും മായ്ക്കൽ', login: 'ലോഗിൻ', logout: 'ലോഗൗട്ട്', admin: 'അഡ്മിൻ പോർട്ടൽ',
     redeem: 'കോഡ് നൽകൽ', addPasskey: 'പാസ്‌കീ ചേർക്കൽ', lock: 'ലോക്ക്', verifyResend: 'സ്ഥിരീകരണ ലിങ്ക്', verifyCheck: 'സ്ഥിരീകരണം',
@@ -328,6 +328,7 @@
       case 'admin': return (SECTIONS.find((s) => s.id === e.sec) || {}).title || e.sec || '';
       case 'open': return [e.pg === 'admin' || e.page === 'admin' ? 'പോർട്ടൽ' : 'വായന', e.installed ? 'ഇൻസ്റ്റാൾ ചെയ്ത ആപ്പ്' : 'ബ്രൗസർ', e.ref ? 'വന്നത്: ' + e.ref : ''].filter(Boolean).join(' · ');
       case 'highlight': return ref + (e.col ? ` · ${e.col}` : '');
+      case 'sources': return `${e.b ? bookName(e.b) + (e.c ? ' ' + e.c : '') : ''} · ${e.n || 0} ഫയൽ`;
       case 'note': return ref + (e.len ? ` · ${e.len} അക്ഷരം` : '');
       case 'scan': return `${e.pages || 0} പേജ് · ${e.n || 0} അധ്യായം · ${fmtDur(e.sec)}`;
       default: return ref;

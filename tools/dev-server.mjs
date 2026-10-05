@@ -10,6 +10,8 @@
 //     then open http://localhost:8788/?emulator  and  http://localhost:8788/admin.html?emulator
 //   against a real project: FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}' PASSKEY_SECRET=...
 // Use "localhost", not 127.0.0.1: browsers refuse passkeys on an IP address.
+// Source documents uploaded in the app (☰ → ഉറവിട ഫയലുകൾ) are written to tools/uploads/ here;
+// with GITHUB_TOKEN set they are committed on GitHub like on the published site.
 
 import http from 'node:http';
 import fs from 'node:fs/promises';
@@ -35,7 +37,25 @@ const ROUTES = {
   '/api/passkey/challenge': 'functions/api/passkey/challenge.js',
   '/api/passkey/verify': 'functions/api/passkey/verify.js',
   '/api/where': 'functions/api/where.js',
+  '/api/sources/upload': 'functions/api/sources/upload.js',
 };
+
+// /api/sources/upload saves into this repository's folder here instead of committing on GitHub
+// (unless GITHUB_TOKEN is set): → the path, or null when the file is already there
+async function localStore(rel, b64) {
+  const file = path.join(ROOT, ...rel.split('/'));
+  if (!file.startsWith(path.join(ROOT, 'tools', 'uploads') + path.sep)) throw new Error('bad path ' + rel);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  try {
+    await fs.writeFile(file, Buffer.from(b64, 'base64'), { flag: 'wx' });
+  } catch (e) {
+    if (e.code === 'EEXIST') return null;
+    throw e;
+  }
+  console.log('saved', rel);
+  return rel;
+}
+const LOOPBACK = /^(::1|127\.\d+\.\d+\.\d+|::ffff:127\.\d+\.\d+\.\d+)$/;
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png',
@@ -51,7 +71,10 @@ async function runFunction(file, req, body) {
   // the client address, like Cloudflare's CF-Connecting-IP (for /api/where)
   const headers = Object.assign({}, req.headers, { 'x-real-ip': req.socket.remoteAddress || '' });
   const request = new Request(url, { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : body });
-  return handler({ request, env: process.env, params: {}, waitUntil() {}, next() {} });
+  // the app's local owner (no Firebase, no sign-in token) may save files only from this computer
+  const env = process.env.GITHUB_TOKEN ? process.env
+    : Object.assign({}, process.env, { LOCAL_STORE: localStore, LOCAL_TRUSTED: LOOPBACK.test(req.socket.remoteAddress || '') });
+  return handler({ request, env, params: {}, waitUntil() {}, next() {} });
 }
 
 http.createServer(async (req, res) => {

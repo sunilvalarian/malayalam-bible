@@ -121,6 +121,7 @@
     <div class="menu-label">ഉള്ളടക്കം</div>
     <button data-menu="upload" data-perm="upload"><svg><use href="#i-upload"/></svg>PDF / Word അപ്‌ലോഡ് ചെയ്യുക</button>
     <button data-menu="scan" data-perm="upload"><svg><use href="#i-camera"/></svg><span class="m-text">ക്യാമറയിൽ സ്കാൻ ചെയ്യുക<small>അച്ചടിച്ച ബൈബിൾ പേജിന്റെ ഫോട്ടോ എടുത്ത് ചേർക്കാം</small></span></button>
+    <button data-menu="sources" data-perm="upload"><svg><use href="#i-file"/></svg><span class="m-text">ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക<small>പുസ്തകം തിരിച്ച് PDF / Word / ഫോട്ടോ — പിന്നീട് ടെക്സ്റ്റ് ആക്കി ചേർക്കാൻ</small></span></button>
     <button data-menu="edit" data-perm="edit"><svg><use href="#i-edit"/></svg>ഈ അധ്യായം തിരുത്തുക</button>
     <button data-menu="exportHtml" data-perm="export"><svg><use href="#i-file"/></svg>പുസ്തകം HTML ആയി ഡൗൺലോഡ്</button>
     <button data-menu="admin" data-perm="users"><svg><use href="#i-shield"/></svg><span class="m-text">അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ<small>ഉപയോക്താക്കൾ, റോളുകൾ, ക്ഷണങ്ങൾ, ചരിത്രം, പാസ്‌കീകൾ</small></span></button>
@@ -308,6 +309,43 @@
       <small>കണ്ടെത്തിയ ഓരോ അധ്യായത്തിനും താഴെ മാറ്റാം.</small>
     </div>
     <div id="upList" class="up-list"></div>
+  </div>
+</dialog>
+
+<!-- source documents: kept as they are in the repository (tools/uploads/), turned into text later -->
+<dialog class="fullscreen" id="dlgSources" aria-label="ഉറവിട ഫയലുകൾ">
+  <div class="fs-head">
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+    <h2>ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക</h2>
+    <span class="spacer"></span>
+    <button class="btn primary" id="srcSend" disabled><svg><use href="#i-upload"/></svg><span>അപ്‌ലോഡ്</span></button>
+  </div>
+  <div class="up-body">
+    <p class="src-intro">പുസ്തകം (അറിയാമെങ്കിൽ അധ്യായവും) തിരഞ്ഞെടുത്ത് PDF, Word അല്ലെങ്കിൽ അച്ചടിച്ച പേജുകളുടെ ഫോട്ടോകൾ ചേർക്കുക. ഫയലുകൾ അതേപടി സൂക്ഷിക്കും; പിന്നീട് അവ ടെക്സ്റ്റ് ആക്കി ആപ്പിൽ ചേർക്കും.</p>
+    <div class="up-default">
+      <label>പുസ്തകം:
+        <select id="srcBook"></select>
+      </label>
+      <label>അധ്യായം:
+        <input type="number" id="srcChapter" min="1" max="150" inputmode="numeric" placeholder="—">
+      </label>
+    </div>
+    <label class="src-note">കുറിപ്പ് (ആവശ്യമെങ്കിൽ)
+      <input type="text" id="srcNote" maxlength="500" placeholder="ഉദാ: പേജ് 24–26, 3:5 മുതൽ">
+    </label>
+    <label class="dropzone" id="srcDrop">
+      <input type="file" id="srcInput" accept="application/pdf,.pdf,.docx,.doc,.odt,.rtf,.txt,image/*" multiple hidden>
+      <svg><use href="#i-upload"/></svg>
+      <strong>ഫയലുകൾ തിരഞ്ഞെടുക്കാൻ ഇവിടെ ടാപ്പ് ചെയ്യുക</strong>
+      <small class="desk-only">അല്ലെങ്കിൽ ഫയലുകൾ ഇവിടേക്ക് വലിച്ചിടുക</small>
+      <small>PDF, Word, ടെക്സ്റ്റ്, ഫോട്ടോകൾ · ഒരു ഫയൽ 15 MB വരെ · പേജുകളുടെ ക്രമത്തിൽ ചേർക്കുക</small>
+    </label>
+    <div class="scan-bar">
+      <input type="file" id="srcCamera" accept="image/*" capture="environment" hidden>
+      <button class="btn primary" id="srcShoot"><svg><use href="#i-camera"/></svg><span>ഫോട്ടോ എടുക്കുക</span></button>
+      <small>ഓരോ പേജും പ്രത്യേകം — നേരെ, നല്ല വെളിച്ചത്തിൽ, മുഴുവനായി ഫ്രെയിമിൽ.</small>
+    </div>
+    <div id="srcList" class="up-list"></div>
   </div>
 </dialog>
 

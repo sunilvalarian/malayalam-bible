@@ -1089,14 +1089,14 @@
 
   // ---------- upload ----------
   const uploads = [];
-  function bookOptions(selected) {
+  function bookOptions(selected, noNew) {
     const known = new Set(CAT.map((b) => b.id));
     const extra = books.filter((b) => !known.has(b.id));
     const opt = (id, name) => `<option value="${id}" ${id === selected ? 'selected' : ''}>${esc(name)}</option>`;
     return `<optgroup label="പഴയ നിയമം">${CAT.filter((b) => b.testament === 'OT').map((b) => opt(b.id, b.name)).join('')}</optgroup>
       <optgroup label="പുതിയ നിയമം">${CAT.filter((b) => b.testament === 'NT').map((b) => opt(b.id, b.name)).join('')}</optgroup>
       ${extra.length ? `<optgroup label="മറ്റുള്ളവ">${extra.map((b) => opt(b.id, b.name)).join('')}</optgroup>` : ''}
-      <option value="__new">+ പുതിയ പുസ്തകം…</option>`;
+      ${noNew ? '' : '<option value="__new">+ പുതിയ പുസ്തകം…</option>'}`;
   }
   function openUpload() {
     if (!can('upload')) { needPermission('upload'); return; }
@@ -1367,6 +1367,138 @@
     toast(`${chosen.length} അധ്യായം ചേർത്തു`);
   });
 
+  // ---------- source documents ----------
+  // Files are kept as they are in the repository, tools/uploads/<BOOK>/[<chapter>/], by
+  // functions/api/sources/upload.js (a commit on GitHub; tools/dev-server.mjs writes to disk),
+  // to be turned into text later. Nothing is read or changed in the reader here.
+  const sources = [];        // { file, name, status: ready | sending | done | error, error, where }
+  const SRC_MAX = 15 * 1024 * 1024;
+  const SRC_TYPES = /\.(pdf|docx?|odt|rtf|txt|jpe?g|png|webp|gif|bmp|tiff?|heic|heif)$/i;
+  const SRC_ERRORS = {
+    'not-configured': 'സെർവറിൽ സംഭരണം ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല (GITHUB_TOKEN)',
+    'permission-denied': 'ഫയലുകൾ അപ്‌ലോഡ് ചെയ്യാൻ അനുമതിയില്ല',
+    'sign-in-required': 'ലോഗിൻ ചെയ്യുക', 'bad-token': 'വീണ്ടും ലോഗിൻ ചെയ്യുക', 'token-expired': 'വീണ്ടും ലോഗിൻ ചെയ്യുക',
+    'too-large': 'ഫയൽ വളരെ വലുതാണ് (15 MB വരെ)', 'bad-type': 'ഈ തരം ഫയൽ സ്വീകരിക്കില്ല', 'bad-chapter': 'അധ്യായ നമ്പർ ശരിയല്ല',
+  };
+  let srcBusy = false;
+  let srcShots = 0;
+  const sizeText = (n) => (n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1024 / 1024).toFixed(1) + ' MB');
+
+  function openSources() {
+    if (!can('upload')) { needPermission('upload'); return; }
+    if (!sources.some((s) => s.status === 'ready')) $('#srcBook').innerHTML = bookOptions(cur.book || 'GEN', true);
+    renderSources();
+    openDialog($('#dlgSources'));
+  }
+  function addSources(files, fromCamera) {
+    const bad = [];
+    for (const f of files) {
+      if (!SRC_TYPES.test(f.name) && !/^image\//.test(f.type)) { bad.push(f.name); continue; }
+      // the camera calls every photo image.jpg: number them in the order taken
+      const name = fromCamera ? `page-${String(++srcShots).padStart(2, '0')}${(f.name.match(/\.[A-Za-z0-9]+$/) || ['.jpg'])[0].toLowerCase()}` : f.name;
+      sources.push({ file: f, name, status: 'ready', error: null, where: '' });
+    }
+    if (bad.length) toast('സ്വീകരിക്കാത്ത ഫയൽ: ' + bad.join(', '), 5000);
+    renderSources();
+  }
+  function renderSources() {
+    $('#srcList').innerHTML = sources.map((s, i) => {
+      const st = s.status === 'done' ? '<span class="status ok">സൂക്ഷിച്ചു</span>'
+        : s.status === 'error' ? '<span class="status err">പിശക്</span>'
+        : s.status === 'sending' ? '<span class="status">അയയ്ക്കുന്നു…</span>' : '<span class="status">തയ്യാർ</span>';
+      const info = [sizeText(s.file.size), s.where, s.error].filter(Boolean).join(' · ');
+      return `<div class="up-item"><div class="up-row">
+        ${s.status === 'sending' ? '<span class="spin"></span>' : ''}
+        <span class="fname">${esc(s.name)}<small>${esc(info)}</small></span>
+        ${st}
+        ${s.status === 'ready' || s.status === 'error' ? `<button class="icon-btn sm" data-src-rm="${i}" aria-label="നീക്കുക"><svg><use href="#i-x"/></svg></button>` : ''}
+      </div></div>`;
+    }).join('');
+    $('#srcSend').disabled = srcBusy || !sources.some((s) => s.status === 'ready' || s.status === 'error');
+  }
+  // big phone photos → at most 2400 px JPEG (plenty to read a printed page, and much quicker to send)
+  async function shrinkPhoto(file) {
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+      if (bmp.close) bmp.close();
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.88));
+      return blob && blob.size < file.size ? blob : file;
+    } catch (e) { return file; }
+  }
+  const toBase64 = (blob) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).slice(String(r.result).indexOf(',') + 1));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+  async function sendSources() {
+    if (!can('upload')) { needPermission('upload'); return; }
+    const book = $('#srcBook').value;
+    const chapter = $('#srcChapter').value.trim();
+    if (chapter && !(/^\d{1,3}$/.test(chapter) && +chapter >= 1 && +chapter <= 150)) { toast(SRC_ERRORS['bad-chapter']); $('#srcChapter').focus(); return; }
+    if (!navigator.onLine) { toast('ഓൺലൈൻ അല്ല — ഫയലുകൾ അയയ്ക്കാൻ ഇന്റർനെറ്റ് വേണം'); return; }
+    const note = $('#srcNote').value.trim();
+    const where = bookName(book) + (chapter ? ' ' + +chapter : '');
+    srcBusy = true;
+    let sent = 0;
+    // one at a time, in the order added: each is a commit on the same branch
+    for (const s of sources) {
+      if (s.status !== 'ready' && s.status !== 'error') continue;
+      s.status = 'sending'; s.error = null;
+      renderSources();
+      try {
+        const blob = await shrinkPhoto(s.file);
+        if (blob.size > SRC_MAX) throw new Error(SRC_ERRORS['too-large']);
+        const name = blob === s.file ? s.name : s.name.replace(/\.[^.]*$/, '') + '.jpg';
+        const token = cloudMode && Cloud.idToken ? await Cloud.idToken() : '';
+        const qs = new URLSearchParams({ book, chapter, name, note });
+        let res;
+        try {
+          res = await fetch('/api/sources/upload?' + qs, {
+            method: 'POST', cache: 'no-store', body: await toBase64(blob),
+            headers: Object.assign({ 'Content-Type': 'text/plain' }, token ? { Authorization: 'Bearer ' + token } : {}),
+          });
+        } catch (e) { throw new Error('കണക്ഷൻ പിശക് — വീണ്ടും ശ്രമിക്കുക'); }
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          // a host without the function (a plain web server, or the app opened from disk)
+          if (!j.error) throw new Error('ഈ സെർവറിൽ ഈ സൗകര്യം ഇല്ല — പ്രസിദ്ധീകരിച്ച സൈറ്റ് അല്ലെങ്കിൽ node tools/dev-server.mjs ഉപയോഗിക്കുക');
+          throw new Error(SRC_ERRORS[j.error] || 'പിശക് (' + j.error + ')');
+        }
+        s.status = 'done';
+        s.where = where;
+        sent++;
+      } catch (err) {
+        s.status = 'error';
+        s.error = err.message || String(err);
+      }
+      renderSources();
+    }
+    srcBusy = false;
+    renderSources();
+    if (sent) {
+      Usage.track('sources', { b: book, c: chapter ? +chapter : null, n: sent });
+      toast(`${sent} ഫയൽ സൂക്ഷിച്ചു (${where})`);
+    }
+  }
+  $('#srcInput').addEventListener('change', (e) => { addSources([...e.target.files]); e.target.value = ''; });
+  $('#srcCamera').addEventListener('change', (e) => { addSources([...e.target.files], true); e.target.value = ''; });
+  $('#srcShoot').addEventListener('click', () => $('#srcCamera').click());
+  $('#srcSend').addEventListener('click', sendSources);
+  $('#srcList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-src-rm]');
+    if (b && !srcBusy) { sources.splice(+b.dataset.srcRm, 1); renderSources(); }
+  });
+  const srcDz = $('#srcDrop');
+  ['dragenter', 'dragover'].forEach((ev) => srcDz.addEventListener(ev, (e) => { e.preventDefault(); srcDz.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => srcDz.addEventListener(ev, (e) => { e.preventDefault(); srcDz.classList.remove('over'); }));
+  srcDz.addEventListener('drop', (e) => addSources([...e.dataTransfer.files]));
+
   // ---------- export / import ----------
   function download(name, text, type) {
     const blob = new Blob([text], { type: type || 'text/plain;charset=utf-8' });
@@ -1434,7 +1566,7 @@ p{margin:0 0 .9em}
 
   // ---------- menu ----------
   // every item of the ഉള്ളടക്കം and ഡാറ്റ sections (same keys as data-perm in index.html)
-  const MENU_PERM = { upload: 'upload', scan: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
+  const MENU_PERM = { upload: 'upload', scan: 'upload', sources: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
   async function menuAction(a) {
     const m = $('#dlgMenu');
     if (m.open) m.close();
@@ -1455,6 +1587,7 @@ p{margin:0 0 .9em}
     if (['bookmarks', 'highlights', 'notes', 'history'].includes(a)) openLibrary(a);
     else if (a === 'upload') openUpload();
     else if (a === 'scan') { openUpload(); $('#upCamera').click(); }
+    else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();
@@ -1589,6 +1722,7 @@ p{margin:0 0 .9em}
     let closed = false;
     if ($('#dlgEditor').open && !can('edit')) { editor.dirty = false; $('#dlgEditor').close(); closed = true; }
     if ($('#dlgUpload').open && !can('upload')) { $('#dlgUpload').close(); closed = true; }
+    if ($('#dlgSources').open && !can('upload')) { $('#dlgSources').close(); closed = true; }
     if ($('#dlgVerseEdit').open && !can('edit')) { $('#dlgVerseEdit').close('lost'); closed = true; }
     return closed;
   }
