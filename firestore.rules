@@ -73,7 +73,8 @@ service cloud.firestore {
     function isBundled(b, c) {
       return (b == 'GEN' && c >= 1 && c <= 50)
         || (b == 'EXO' && c >= 1 && c <= 3)
-        || (b == 'MAT' && ((c >= 1 && c <= 16) || c == 18));
+        || (b == 'MAT' && c >= 1 && c <= 28)
+        || (b == 'MRK' && c >= 1 && c <= 16);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
