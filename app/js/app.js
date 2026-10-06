@@ -1372,13 +1372,14 @@
   // functions/api/sources/upload.js (a commit on GitHub; tools/dev-server.mjs writes to disk),
   // to be turned into text later. Nothing is read or changed in the reader here.
   const sources = [];        // { file, name, status: ready | sending | done | error, error, where }
-  const SRC_MAX = 15 * 1024 * 1024;
+  const SRC_MAX = 2 * 1024 * 1024;           // the upload function only has ~10 ms of CPU on the free plan
   const SRC_TYPES = /\.(pdf|docx?|odt|rtf|txt|jpe?g|png|webp|gif|bmp|tiff?|heic|heif)$/i;
   const SRC_ERRORS = {
     'not-configured': 'സെർവറിൽ സംഭരണം ഇതുവരെ സജ്ജമാക്കിയിട്ടില്ല (GITHUB_TOKEN)',
     'permission-denied': 'ഫയലുകൾ അപ്‌ലോഡ് ചെയ്യാൻ അനുമതിയില്ല',
+    'exists': 'ഈ പേരിൽ ഫയലുകൾ ഇപ്പോൾ തന്നെ ഉണ്ട് — പേര് മാറ്റി വീണ്ടും ശ്രമിക്കുക',
     'sign-in-required': 'ലോഗിൻ ചെയ്യുക', 'bad-token': 'വീണ്ടും ലോഗിൻ ചെയ്യുക', 'token-expired': 'വീണ്ടും ലോഗിൻ ചെയ്യുക',
-    'too-large': 'ഫയൽ വളരെ വലുതാണ് (15 MB വരെ)', 'bad-type': 'ഈ തരം ഫയൽ സ്വീകരിക്കില്ല', 'bad-chapter': 'അധ്യായ നമ്പർ ശരിയല്ല',
+    'too-large': 'ഫയൽ വളരെ വലുതാണ് (2 MB വരെ) — PDF ചെറിയ ഭാഗങ്ങളായി വിഭജിക്കുക', 'bad-type': 'ഈ തരം ഫയൽ സ്വീകരിക്കില്ല', 'bad-chapter': 'അധ്യായ നമ്പർ ശരിയല്ല',
   };
   let srcBusy = false;
   let srcShots = 0;
@@ -1416,17 +1417,17 @@
     }).join('');
     $('#srcSend').disabled = srcBusy || !sources.some((s) => s.status === 'ready' || s.status === 'error');
   }
-  // big phone photos → at most 2400 px JPEG (plenty to read a printed page, and much quicker to send)
+  // phone photos → at most 2000 px JPEG (plenty to read a printed page, and small enough for the upload function)
   async function shrinkPhoto(file) {
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= 1.5 * 1024 * 1024 || !window.createImageBitmap) return file;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= 700 * 1024 || !window.createImageBitmap) return file;
     try {
       const bmp = await createImageBitmap(file);
-      const k = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+      const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
       const c = document.createElement('canvas');
       c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
       c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
       if (bmp.close) bmp.close();
-      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.88));
+      const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.8));
       return blob && blob.size < file.size ? blob : file;
     } catch (e) { return file; }
   }
@@ -1454,20 +1455,27 @@
       try {
         const blob = await shrinkPhoto(s.file);
         if (blob.size > SRC_MAX) throw new Error(SRC_ERRORS['too-large']);
-        const name = blob === s.file ? s.name : s.name.replace(/\.[^.]*$/, '') + '.jpg';
+        let name = blob === s.file ? s.name : s.name.replace(/\.[^.]*$/, '') + '.jpg';
+        // a photo named .jfif, .avif or without an extension: the server goes by the extension
+        const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/heic': '.heic', 'image/heif': '.heif' }[blob.type];
+        if (!SRC_TYPES.test(name) && ext) name = name.replace(/\.[^.]*$/, '') + ext;
+        let body;
+        try { body = await toBase64(blob); } catch (e) { throw new Error('ഫയൽ വായിക്കാനായില്ല — ഫോണിൽ സൂക്ഷിച്ച ശേഷം വീണ്ടും ചേർക്കുക'); }
         const token = cloudMode && Cloud.idToken ? await Cloud.idToken() : '';
         const qs = new URLSearchParams({ book, chapter, name, note });
         let res;
         try {
           res = await fetch('/api/sources/upload?' + qs, {
-            method: 'POST', cache: 'no-store', body: await toBase64(blob),
+            method: 'POST', cache: 'no-store', body,
             headers: Object.assign({ 'Content-Type': 'text/plain' }, token ? { Authorization: 'Bearer ' + token } : {}),
           });
         } catch (e) { throw new Error('കണക്ഷൻ പിശക് — വീണ്ടും ശ്രമിക്കുക'); }
         const j = await res.json().catch(() => ({}));
         if (!res.ok) {
           // a host without the function (a plain web server, or the app opened from disk)
-          if (!j.error) throw new Error('ഈ സെർവറിൽ ഈ സൗകര്യം ഇല്ല — പ്രസിദ്ധീകരിച്ച സൈറ്റ് അല്ലെങ്കിൽ node tools/dev-server.mjs ഉപയോഗിക്കുക');
+          if (!j.error && (res.status === 404 || res.status === 405)) throw new Error('ഈ സെർവറിൽ ഈ സൗകര്യം ഇല്ല — പ്രസിദ്ധീകരിച്ച സൈറ്റ് അല്ലെങ്കിൽ node tools/dev-server.mjs ഉപയോഗിക്കുക');
+          // Cloudflare's own error page, e.g. the function ran over its CPU limit
+          if (!j.error) throw new Error('സെർവർ പിശക് (' + res.status + ') — ഫയൽ ചെറുതാക്കി വീണ്ടും ശ്രമിക്കുക');
           throw new Error(SRC_ERRORS[j.error] || 'പിശക് (' + j.error + ')');
         }
         s.status = 'done';

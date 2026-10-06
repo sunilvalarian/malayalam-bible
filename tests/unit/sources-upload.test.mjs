@@ -51,7 +51,8 @@ beforeEach(() => {
     }
     if (url.startsWith('https://api.github.com/')) {
       github.calls.push({ url, init, body: JSON.parse(init.body) });
-      if (github.taken.has(url)) return new Response('{}', { status: 422 });
+      if (github.taken.has(url)) return new Response(JSON.stringify({ message: 'Invalid request.\n\n"sha" wasn\'t supplied.' }), { status: 422 });
+      if (github.reject) return new Response(JSON.stringify({ message: 'Repository rule violations found' }), { status: 422 });
       return new Response('{}', { status: 201 });
     }
     throw new Error('unexpected fetch ' + url);
@@ -119,6 +120,10 @@ describe('functions/api/sources/upload.js', () => {
     assert.equal((await call({ env, body: 'not base64!' })).body.error, 'bad-content');
     assert.equal((await call({ env, body: '' })).body.error, 'bad-content');
     assert.equal((await call({ env, body: 'abc"}' })).body.error, 'bad-content');
+    assert.equal((await call({ env, body: 'ab=c' })).body.error, 'bad-content');
+    assert.equal((await call({ env, body: 'a===' })).body.error, 'bad-content');
+    assert.equal((await call({ env, body: 'QUJ\nDQQ=' })).body.error, 'bad-content');
+    for (const ok of ['QQ==', 'QUI=', 'QUJD']) assert.equal((await call({ env, body: ok })).status, 201, ok);
   });
 
   test('editor (emulator token) → committed on GitHub without a redeploy', async () => {
@@ -144,6 +149,15 @@ describe('functions/api/sources/upload.js', () => {
     assert.equal(github.calls.length, 2);
     assert.match(github.calls[1].url, /^https:\/\/api\.github\.com\/repos\/me\/repo\/contents\//);
     assert.equal(github.calls[1].body.branch, 'uploads');
+  });
+  test('another 422 (wrong branch, a ruleset) → github-422, not "name taken"', async () => {
+    github.reject = true;
+    assert.deepEqual(await call({ token: emuToken(), env: Object.assign({ GITHUB_TOKEN: 't' }, EMU) }), { status: 502, body: { error: 'github-422' } });
+    assert.equal(github.calls.length, 1);
+  });
+  test('more than 2 MB → 413 too-large', async () => {
+    const env = { LOCAL_STORE: localStore().fn, LOCAL_TRUSTED: true };
+    assert.deepEqual(await call({ env, body: 'A'.repeat(Math.ceil(2 * 1024 * 1024 / 3) * 4 + 4) }), { status: 413, body: { error: 'too-large' } });
   });
   test('without GITHUB_TOKEN → 503 not-configured', async () => {
     assert.deepEqual(await call({ token: emuToken(), env: EMU }), { status: 503, body: { error: 'not-configured' } });

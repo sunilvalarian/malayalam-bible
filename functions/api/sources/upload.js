@@ -17,7 +17,8 @@
 
 import { json, dec, b64urlDecode } from '../../_lib/util.js';
 
-const MAX_BYTES = 15 * 1024 * 1024;
+// the free plan gives a function ~10 ms of CPU and this one needs ~3 ms per MB: the app shrinks photos well below this
+const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_B64 = Math.ceil(MAX_BYTES / 3) * 4;
 const EXT = /\.(pdf|docx?|odt|rtf|txt|jpe?g|png|webp|gif|bmp|tiff?|heic|heif)$/i;
 const ROOT_DIR = 'tools/uploads';
@@ -141,7 +142,13 @@ async function saveToGitHub(env, path, b64, message) {
       body,
     });
     if (res.ok) return path;
-    if (res.status === 422) return null;           // a file with this name is already there
+    // 422 is also a wrong branch, a ruleset …: only "sha wasn't supplied" means the name is taken
+    if (res.status === 422) {
+      const text = await res.text().catch(() => '');
+      if (/sha/i.test(text)) return null;
+      console.error('github', res.status, text.slice(0, 300));
+      throw new Fail('github-422', 502);
+    }
     // 409: another upload moved the branch at the same moment — try again
     if (res.status === 409 && attempt < 2) { await new Promise((r) => setTimeout(r, 400 * (attempt + 1))); continue; }
     console.error('github', res.status, (await res.text().catch(() => '')).slice(0, 300));
@@ -165,10 +172,12 @@ export async function onRequestPost({ request, env }) {
 
     const who = await authorize(request, env);
 
-    // one pass over the text (the free plan allows a function ~10 ms of CPU): the app sends no line breaks
+    // the app sends no line breaks. A negated class is one cheap scan (~1 ms per MB); the anchored
+    // /^[A-Za-z0-9+/]+={0,2}$/ costs ~9 ms per MB, enough to run over the free plan's CPU limit
     const b64 = await request.text();
     check(b64.length <= MAX_B64, 'too-large', 413);
-    check(b64.length > 0 && b64.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(b64), 'bad-content');
+    const eq = b64.indexOf('=');
+    check(b64.length > 0 && b64.length % 4 === 0 && !/[^A-Za-z0-9+/=]/.test(b64) && (eq < 0 || /^={1,2}$/.test(b64.slice(eq))), 'bad-content');
 
     const message = `[CF-Pages-Skip] Source upload ${book}${chapter ? ' ' + +chapter : ''}: ${name}\n\nUploaded by: ${who}` + (note ? `\nNote: ${note}` : '');
     const date = new Date();
