@@ -7,7 +7,7 @@ const ITEMS = [{ v: 1, t: 'ആദിയിൽ ദൈവം ആകാശവും
 // the chapters in app/js/data.js — same as isBundled() in firestore.rules
 const isBundled = (b, c) => (b === 'GEN' && c >= 1 && c <= 50) || (b === 'EXO' && c >= 1 && c <= 3)
   || (b === 'MAT' && c >= 1 && c <= 28) || (b === 'MRK' && c >= 1 && c <= 16)
-  || (b === 'LUK' && c >= 1 && c <= 24);
+  || (b === 'LUK' && c >= 1 && c <= 24) || (b === 'ACT' && c >= 1 && c <= 28);
 // what Cloud.saveChapter() writes
 const chapter = (book, c, by, over = {}) => ({
   book, chapter: c, items: ITEMS, deleted: false, bookName: null,
@@ -31,11 +31,12 @@ describe('chapters: editors', () => {
     await assertSucceeds(ch(t.as.editor(), 'EXO_10').set(chapter('EXO', 10, E, { bookName: 'പുറപ്പാട്' })));
     await assertSucceeds(ch(t.as.editor(), 'GEN_3').set(chapter('GEN', 3, E, { items: [{ v: 1, t: 'changed' }] })));
   });
-  it('an editor saves edits to the bundled Exodus, Matthew, Mark and Luke chapters', async () => {
+  it('an editor saves edits to the bundled Exodus, Matthew, Mark, Luke and Acts chapters', async () => {
     await assertSucceeds(ch(t.as.editor(), 'EXO_1').set(chapter('EXO', 1, E)));
     await assertSucceeds(ch(t.as.editor(), 'MAT_17').set(chapter('MAT', 17, E)));
     await assertSucceeds(ch(t.as.editor(), 'MRK_16').set(chapter('MRK', 16, E)));
     await assertSucceeds(ch(t.as.editor(), 'LUK_24').set(chapter('LUK', 24, E)));
+    await assertSucceeds(ch(t.as.editor(), 'ACT_28').set(chapter('ACT', 28, E)));
     await assertFails(ch(t.as.editor(), 'JHN_1').set(chapter('JHN', 1, E, { hasBase: true })));   // not bundled
   });
   it('the required fields are checked', async () => {
