@@ -75,7 +75,7 @@ service cloud.firestore {
         || (b == 'EXO' && c >= 1 && c <= 3)
         || (b == 'MAT' && c >= 1 && c <= 28)
         || (b == 'MRK' && c >= 1 && c <= 16)
-        || (b == 'LUK' && c >= 1 && c <= 15);
+        || (b == 'LUK' && c >= 1 && c <= 24);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
