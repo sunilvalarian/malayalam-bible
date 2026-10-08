@@ -1380,6 +1380,12 @@
     'exists': 'ഈ പേരിൽ ഫയലുകൾ ഇപ്പോൾ തന്നെ ഉണ്ട് — പേര് മാറ്റി വീണ്ടും ശ്രമിക്കുക',
     'sign-in-required': 'ലോഗിൻ ചെയ്യുക', 'bad-token': 'വീണ്ടും ലോഗിൻ ചെയ്യുക', 'token-expired': 'വീണ്ടും ലോഗിൻ ചെയ്യുക',
     'too-large': 'ഫയൽ വളരെ വലുതാണ് (2 MB വരെ) — PDF ചെറിയ ഭാഗങ്ങളായി വിഭജിക്കുക', 'bad-type': 'ഈ തരം ഫയൽ സ്വീകരിക്കില്ല', 'bad-chapter': 'അധ്യായ നമ്പർ ശരിയല്ല',
+    'photo-too-large': 'ഫോട്ടോ വളരെ വലുതാണ് (2 MB വരെ), ഈ ബ്രൗസറിന് ചെറുതാക്കാനായില്ല — ക്യാമറയിൽ JPEG ആയി എടുത്ത് വീണ്ടും ശ്രമിക്കുക',
+    // the server's GitHub token (Cloudflare Pages → Settings → Variables and Secrets)
+    'github-401': 'സെർവറിലെ GitHub ടോക്കൺ (GITHUB_TOKEN) തെറ്റാണ് അല്ലെങ്കിൽ കാലാവധി കഴിഞ്ഞു',
+    'github-403': 'GitHub ടോക്കണിന് repository-യിൽ എഴുതാൻ അനുമതിയില്ല (Contents: Read and write വേണം)',
+    'github-404': 'GitHub ടോക്കണിന് repository കാണാനാകുന്നില്ല (GITHUB_REPO / ടോക്കണിന്റെ repository access)',
+    'github-422': 'GitHub ഫയൽ സ്വീകരിച്ചില്ല (branch / ruleset — GITHUB_BRANCH)',
   };
   let srcBusy = false;
   let srcShots = 0;
@@ -1417,9 +1423,12 @@
     }).join('');
     $('#srcSend').disabled = srcBusy || !sources.some((s) => s.status === 'ready' || s.status === 'error');
   }
-  // phone photos → at most 2000 px JPEG (plenty to read a printed page, and small enough for the upload function)
+  // phone photos → at most 2000 px JPEG (plenty to read a printed page, and small enough for the upload function).
+  // Some galleries / file pickers give a photo no type (or application/octet-stream): go by the name then.
+  // A format the browser can't decode (HEIC outside Safari) stays as it is.
   async function shrinkPhoto(file) {
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size <= 700 * 1024 || !window.createImageBitmap) return file;
+    const photo = /^image\//.test(file.type) || /\.(jpe?g|jfif|png|webp|bmp|gif|tiff?|heic|heif|avif)$/i.test(file.name || '');
+    if (!photo || file.size <= 700 * 1024 || !window.createImageBitmap) return file;
     try {
       const bmp = await createImageBitmap(file);
       const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
@@ -1454,7 +1463,7 @@
       renderSources();
       try {
         const blob = await shrinkPhoto(s.file);
-        if (blob.size > SRC_MAX) throw new Error(SRC_ERRORS['too-large']);
+        if (blob.size > SRC_MAX) throw new Error(SRC_ERRORS[/^image\//.test(blob.type) || /\.(jpe?g|jfif|png|webp|bmp|gif|tiff?|heic|heif|avif)$/i.test(s.name) ? 'photo-too-large' : 'too-large']);
         let name = blob === s.file ? s.name : s.name.replace(/\.[^.]*$/, '') + '.jpg';
         // a photo named .jfif, .avif or without an extension: the server goes by the extension
         const ext = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'image/heic': '.heic', 'image/heif': '.heif' }[blob.type];
