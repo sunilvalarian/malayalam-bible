@@ -80,7 +80,10 @@ service cloud.firestore {
         || (b == 'ROM' && c >= 1 && c <= 16)
         || (b == '1CO' && c >= 1 && c <= 16)
         || (b == '2CO' && c >= 1 && c <= 13)
-        || (b == 'GAL' && c >= 1 && c <= 6);
+        || (b == 'GAL' && c >= 1 && c <= 6)
+        || (b == 'EPH' && c >= 1 && c <= 6)
+        || (b == 'PHP' && c >= 1 && c <= 4)
+        || (b == 'COL' && c >= 1 && c <= 4);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----

@@ -230,6 +230,8 @@ Romans, 1 Corinthians and 2 Corinthians (`tools/sources/ROM`, `1CO`, `2CO`) were
 
 Galatians (`tools/sources/GAL/1.txt` … `6.txt`) was typed in full from photos of the printed Bible (pages 236–241, one photo per page), with all 149 verses (1:24, 2:21, 3:29, 4:31, 5:26, 6:18). Worth checking against the book: 2:21 (വൃഥാ). The photos are not in the repository.
 
+Ephesians, Philippians and Colossians (`tools/sources/EPH/1.txt` … `6.txt`, `PHP/1.txt` … `4.txt`, `COL/1.txt` … `4.txt`) were typed in full from photos of the printed Bible (pages 243–248, 250–253 and 255–259, one photo per page), with every verse (Ephesians 1:23, 2:22, 3:21, 4:32, 5:33, 6:24; Philippians 1:30, 2:30, 3:21, 4:23; Colossians 1:29, 2:23, 3:25, 4:18). Blurred spots that were read but are worth checking against the book: Ephesians 3:17 (the punctuation after വസിക്കട്ടെ), 4:3 (ബദ്ധതയിൽ) and 5:25–31; Colossians 3:1–14. The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
