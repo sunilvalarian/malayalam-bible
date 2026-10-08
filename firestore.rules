@@ -79,7 +79,8 @@ service cloud.firestore {
         || (b == 'ACT' && c >= 1 && c <= 28)
         || (b == 'ROM' && c >= 1 && c <= 16)
         || (b == '1CO' && c >= 1 && c <= 16)
-        || (b == '2CO' && c >= 1 && c <= 13);
+        || (b == '2CO' && c >= 1 && c <= 13)
+        || (b == 'GAL' && c >= 1 && c <= 6);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
