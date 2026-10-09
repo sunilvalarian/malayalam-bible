@@ -83,7 +83,17 @@ service cloud.firestore {
         || (b == 'GAL' && c >= 1 && c <= 6)
         || (b == 'EPH' && c >= 1 && c <= 6)
         || (b == 'PHP' && c >= 1 && c <= 4)
-        || (b == 'COL' && c >= 1 && c <= 4);
+        || (b == 'COL' && c >= 1 && c <= 4)
+        || (b == '1TH' && c >= 1 && c <= 5)
+        || (b == '2TH' && c >= 1 && c <= 3)
+        || (b == '1TI' && c >= 1 && c <= 6)
+        || (b == '2TI' && c >= 1 && c <= 4)
+        || (b == 'TIT' && c >= 1 && c <= 3)
+        || (b == 'PHM' && c == 1)
+        || (b == 'HEB' && c >= 1 && c <= 13)
+        || (b == 'JAS' && c >= 1 && c <= 5)
+        || (b == '1PE' && c >= 1 && c <= 5)
+        || (b == '2PE' && c >= 1 && c <= 3);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----

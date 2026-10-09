@@ -232,6 +232,25 @@ Galatians (`tools/sources/GAL/1.txt` … `6.txt`) was typed in full from photos 
 
 Ephesians, Philippians and Colossians (`tools/sources/EPH/1.txt` … `6.txt`, `PHP/1.txt` … `4.txt`, `COL/1.txt` … `4.txt`) were typed in full from photos of the printed Bible (pages 243–248, 250–253 and 255–259, one photo per page), with every verse (Ephesians 1:23, 2:22, 3:21, 4:32, 5:33, 6:24; Philippians 1:30, 2:30, 3:21, 4:23; Colossians 1:29, 2:23, 3:25, 4:18). Blurred spots that were read but are worth checking against the book: Ephesians 3:17 (the punctuation after വസിക്കട്ടെ), 4:3 (ബദ്ധതയിൽ) and 5:25–31; Colossians 3:1–14. The photos are not in the repository.
 
+The remaining letters and Hebrews were typed in full the same way, one photo per page, with every verse:
+
+| Book | Source files | Pages |
+|---|---|---|
+| 1 and 2 Thessalonians | `tools/sources/1TH`, `2TH` | 261–264, 266–267 |
+| 1 and 2 Timothy | `1TI`, `2TI` | 270–274, 275–278 |
+| Titus and Philemon | `TIT`, `PHM` | 279–281, 283 |
+| Hebrews | `HEB` | 285–296 |
+| James | `JAS` | 299–302 |
+| 1 and 2 Peter | `1PE`, `2PE` | 304–308, 310–312 |
+
+Three obvious misprints were corrected: 1 Timothy 3:11 പരദുഷണം → പരദൂഷണം, Hebrews 7:10 അബാഹത്തെ → അബ്രാഹത്തെ and 2 Peter 1:3 ഭക്തക്കും → ഭക്തിക്കും. Other odd spellings were kept as printed, for example 2 Timothy 2:21 വിശുദ്ധീകരിക്കപ്പെടേണ്ടതും and 1 Timothy 2:5 ഉള്ളു (for ഉള്ളൂ).
+
+Worth checking against the book:
+- Philemon 13 ബന്ധിതാവസ്ഥയിൽ: only the top half of that line is in the photo.
+- Blurred spots: Hebrews 7:20–25 and 11:16 (അവിടന്ന്), James 3:4–6 and 4:1–2, Titus 1:12 (ക്രേത്ത്യർ) and 2 Timothy 4:19 (അക്വീലായ്ക്കും).
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.

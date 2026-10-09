@@ -10,7 +10,12 @@ const isBundled = (b, c) => (b === 'GEN' && c >= 1 && c <= 50) || (b === 'EXO' &
   || (b === 'LUK' && c >= 1 && c <= 24) || (b === 'ACT' && c >= 1 && c <= 28)
   || (b === 'ROM' && c >= 1 && c <= 16) || (b === '1CO' && c >= 1 && c <= 16) || (b === '2CO' && c >= 1 && c <= 13)
   || (b === 'GAL' && c >= 1 && c <= 6) || (b === 'EPH' && c >= 1 && c <= 6)
-  || (b === 'PHP' && c >= 1 && c <= 4) || (b === 'COL' && c >= 1 && c <= 4);
+  || (b === 'PHP' && c >= 1 && c <= 4) || (b === 'COL' && c >= 1 && c <= 4)
+  || (b === '1TH' && c >= 1 && c <= 5) || (b === '2TH' && c >= 1 && c <= 3)
+  || (b === '1TI' && c >= 1 && c <= 6) || (b === '2TI' && c >= 1 && c <= 4)
+  || (b === 'TIT' && c >= 1 && c <= 3) || (b === 'PHM' && c === 1)
+  || (b === 'HEB' && c >= 1 && c <= 13) || (b === 'JAS' && c >= 1 && c <= 5)
+  || (b === '1PE' && c >= 1 && c <= 5) || (b === '2PE' && c >= 1 && c <= 3);
 // what Cloud.saveChapter() writes
 const chapter = (book, c, by, over = {}) => ({
   book, chapter: c, items: ITEMS, deleted: false, bookName: null,
@@ -34,7 +39,7 @@ describe('chapters: editors', () => {
     await assertSucceeds(ch(t.as.editor(), 'EXO_10').set(chapter('EXO', 10, E, { bookName: 'പുറപ്പാട്' })));
     await assertSucceeds(ch(t.as.editor(), 'GEN_3').set(chapter('GEN', 3, E, { items: [{ v: 1, t: 'changed' }] })));
   });
-  it('an editor saves edits to the bundled Exodus, Matthew, Mark, Luke, Acts, Romans, Corinthians, Galatians, Ephesians, Philippians and Colossians chapters', async () => {
+  it('an editor saves edits to the bundled Exodus, Matthew, Mark, Luke, Acts and Romans … 2 Peter chapters', async () => {
     await assertSucceeds(ch(t.as.editor(), 'EXO_1').set(chapter('EXO', 1, E)));
     await assertSucceeds(ch(t.as.editor(), 'MAT_17').set(chapter('MAT', 17, E)));
     await assertSucceeds(ch(t.as.editor(), 'MRK_16').set(chapter('MRK', 16, E)));
@@ -43,6 +48,8 @@ describe('chapters: editors', () => {
     await assertSucceeds(ch(t.as.editor(), '2CO_13').set(chapter('2CO', 13, E)));
     await assertSucceeds(ch(t.as.editor(), 'GAL_6').set(chapter('GAL', 6, E)));
     await assertSucceeds(ch(t.as.editor(), 'COL_4').set(chapter('COL', 4, E)));
+    await assertSucceeds(ch(t.as.editor(), 'HEB_13').set(chapter('HEB', 13, E)));
+    await assertSucceeds(ch(t.as.editor(), '2PE_3').set(chapter('2PE', 3, E)));
     await assertFails(ch(t.as.editor(), 'JHN_1').set(chapter('JHN', 1, E, { hasBase: true })));   // not bundled
   });
   it('the required fields are checked', async () => {
