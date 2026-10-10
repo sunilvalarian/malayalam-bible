@@ -251,6 +251,26 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
+John, the letters of John, Jude and Revelation were typed in full the same way, which completes the New Testament:
+
+| Book | Source files | Pages |
+|---|---|---|
+| John | `tools/sources/JHN` | 114–145 |
+| 1, 2 and 3 John | `1JN`, `2JN`, `3JN` | 314–318, and one photo each for 2 and 3 John |
+| Jude | `JUD` | 322–323 |
+| Revelation | `REV` | 325–342 |
+
+Every verse is there, except John 5:4, which is not in the print (the numbers go from 3 to 5), so the build report lists it as missing. John 7:53 is printed and included. Where the print places a verse number differently from the usual division, the print was followed: John 2:2, 4:5 (the number stands before യാക്കോബ്), 19:2 and 20:4. Headings keep no parallel references (Jude's "2 പത്രോ 2,1-17" is left out).
+
+Obvious misprints corrected: 1 John 2 heading നമ്മുടെമധ്യസ്ഥൻ → നമ്മുടെ മധ്യസ്ഥൻ, John 12:36 പറഞ്ഞശഷം → പറഞ്ഞശേഷം, and missing spaces in John 9:17 (നീഎന്തു) and 12:8 (ദരിദ്രർഎപ്പോഴും).
+
+Worth checking against the book:
+- Revelation 20:10 "അവിടെ അവർ രാപകൽ…": അവർ or അവൻ is not clear in the photo.
+- Revelation 2:12 ends with a comma (പറയുന്നു,) where the other letters have a colon; typed as printed.
+- John 8:57 (കണ്ടെന്നോ?, blurred), 9:13–21 (blurred photo), 12:4 (സ്കറിയോത്താ), 12:33 and 21:19 (സൂചിപ്പിക്കാനാണ്).
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.

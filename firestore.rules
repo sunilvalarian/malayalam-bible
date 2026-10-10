@@ -93,7 +93,13 @@ service cloud.firestore {
         || (b == 'HEB' && c >= 1 && c <= 13)
         || (b == 'JAS' && c >= 1 && c <= 5)
         || (b == '1PE' && c >= 1 && c <= 5)
-        || (b == '2PE' && c >= 1 && c <= 3);
+        || (b == '2PE' && c >= 1 && c <= 3)
+        || (b == 'JHN' && c >= 1 && c <= 21)
+        || (b == '1JN' && c >= 1 && c <= 5)
+        || (b == '2JN' && c == 1)
+        || (b == '3JN' && c == 1)
+        || (b == 'JUD' && c == 1)
+        || (b == 'REV' && c >= 1 && c <= 22);
     }
 
     // ---- shared chapter edits / uploads (id = BOOK_CHAPTER, e.g. GEN_3) ----
