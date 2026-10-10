@@ -306,12 +306,11 @@
       return;
     }
     const nb = neighbours();
-    const badge = b.changed.has(cur.chapter) ? `<span class="ch-badge">${b.base.has(cur.chapter) ? 'തിരുത്തിയത്' : 'അപ്‌ലോഡ് ചെയ്തത്'}</span>` : '';
     const foot = `<div class="ch-foot">
       ${nb.prev ? `<button class="btn ghost" data-go="${nb.prev.b}/${nb.prev.c}"><svg><use href="#i-left"/></svg>${esc(bookName(nb.prev.b))} ${nb.prev.c}</button>` : '<span></span>'}
       ${nb.next ? `<button class="btn ghost" data-go="${nb.next.b}/${nb.next.c}">${esc(bookName(nb.next.b))} ${nb.next.c}<svg><use href="#i-right"/></svg></button>` : '<span></span>'}
     </div>`;
-    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${badge}</header>` +
+    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span></header>` +
       renderItems(items, { book: cur.book, chapter: cur.chapter }) + foot;
     $('#refLabel').textContent = `${b.name} ${cur.chapter}`;
     document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
