@@ -207,13 +207,21 @@ input[type="text"], input[type="search"], input[type="number"], input[type="emai
 }
 textarea { width: 100%; resize: vertical; line-height: 1.7; }
 
-.book-group { margin: 6px 0 16px; }
-.book-group h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; }
-.book-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
-.book-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: start; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); }
-.book-item:hover { background: var(--surface-2); }
-.book-item.cur { border-color: var(--accent); background: var(--accent-soft); }
-.book-item small { color: var(--muted); }
+/* book picker: six short names per row under a coloured band per testament */
+.book-group { margin: 0 0 14px; }
+.book-group h4 { margin: 0; padding: 5px 8px; text-align: center; font-size: 15px; font-weight: 600; background: var(--accent); color: var(--accent-contrast); border-radius: 8px 8px 0 0; }
+.book-grid { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; overflow: hidden; }
+.book-grid button { min-width: 0; min-height: 50px; padding: 4px 1px; border: 0; border-radius: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface); font-size: 15px; font-weight: 700; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.book-grid button:nth-child(6n) { border-right: 0; }
+.book-grid button:hover { background: var(--surface-2); }
+.book-grid button.cur { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+.book-grid button:disabled { color: color-mix(in srgb, var(--muted) 55%, transparent); font-weight: 500; cursor: default; }
+.book-grid button:disabled:hover { background: var(--surface); }
+@media (max-width: 480px) {
+  .book-group { margin-inline: -8px; }   /* use the sheet's side padding: 6 names must fit a phone width */
+  .book-grid button { font-size: 12.5px; font-weight: 600; min-height: 46px; letter-spacing: -.01em; }
+}
+@media (max-width: 340px) { .book-grid button { font-size: 11px; letter-spacing: -.02em; white-space: normal; } }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
 .grid button { aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 16px; }
 .grid button:hover { background: var(--surface-2); }

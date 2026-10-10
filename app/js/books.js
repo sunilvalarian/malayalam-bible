@@ -78,3 +78,23 @@ window.BOOK_CATALOG = [
   id, name, en, chapters, order: i, testament: i < 46 ? 'OT' : 'NT',
   aliases: alias ? alias.split(' ') : [],
 }));
+
+/* Short names for the book picker grid (also accepted in references, e.g. "മത്താ 5:3"). */
+(() => {
+  const SHORT = {
+    GEN: 'ഉത്പ', EXO: 'പുറ', LEV: 'ലേവ്യ', NUM: 'സംഖ്യ', DEU: 'നിയ', JOS: 'ജോഷ്വ',
+    JDG: 'ന്യായാ', RUT: 'റൂത്ത്', '1SA': '1 സാമു', '2SA': '2 സാമു', '1KI': '1 രാജാ', '2KI': '2 രാജാ',
+    '1CH': '1 ദിന', '2CH': '2 ദിന', EZR: 'എസ്രാ', NEH: 'നെഹെ', TOB: 'തോബി', JDT: 'യൂദി',
+    EST: 'എസ്തേ', '1MA': '1 മക്ക', '2MA': '2 മക്ക', JOB: 'ജോബ്', PSA: 'സങ്കീ', PRO: 'സുഭാ',
+    ECC: 'സഭാ', SNG: 'ഉത്ത', WIS: 'ജ്ഞാനം', SIR: 'പ്രഭാ', ISA: 'ഏശ', JER: 'ജറെ',
+    LAM: 'വിലാ', BAR: 'ബാറൂ', EZK: 'എസെ', DAN: 'ദാനി', HOS: 'ഹോസി', JOL: 'ജോയേ',
+    AMO: 'ആമോ', OBA: 'ഒബാ', JON: 'യോനാ', MIC: 'മിക്കാ', NAM: 'നാഹും', HAB: 'ഹബ',
+    ZEP: 'സെഫാ', HAG: 'ഹഗ്ഗാ', ZEC: 'സഖ', MAL: 'മലാ',
+    MAT: 'മത്താ', MRK: 'മർക്കോ', LUK: 'ലൂക്കാ', JHN: 'യോഹ', ACT: 'അപ്പ.', ROM: 'റോമ',
+    '1CO': '1 കോറി', '2CO': '2 കോറി', GAL: 'ഗലാ', EPH: 'എഫേ', PHP: 'ഫിലി', COL: 'കൊളോ',
+    '1TH': '1 തെസ', '2TH': '2 തെസ', '1TI': '1 തിമോ', '2TI': '2 തിമോ', TIT: 'തീത്തോ', PHM: 'ഫിലെ',
+    HEB: 'ഹെബ്രാ', JAS: 'യാക്കോ', '1PE': '1 പത്രോ', '2PE': '2 പത്രോ', '1JN': '1 യോഹ', '2JN': '2 യോഹ',
+    '3JN': '3 യോഹ', JUD: 'യൂദാ', REV: 'വെളി',
+  };
+  for (const b of window.BOOK_CATALOG) b.short = SHORT[b.id] || b.name;
+})();

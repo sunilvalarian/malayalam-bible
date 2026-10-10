@@ -211,7 +211,7 @@
     if (!q) return null;
     const cands = (pool || books).map((b) => {
       const cat = catById.get(b.id) || {};
-      return { id: b.id, keys: [b.name, cat.name, cat.en, b.id, ...(cat.aliases || [])].filter(Boolean).map(squash) };
+      return { id: b.id, keys: [b.name, cat.name, cat.en, b.id, cat.short, ...(cat.aliases || [])].filter(Boolean).map(squash) };
     });
     for (const c of cands) if (c.keys.includes(q)) return c.id;
     if (q.length < 2) return null;
@@ -631,13 +631,17 @@
     const body = $('#pickerBody');
     const b = bookMap.get(picker.book);
     if (tab === 'books') {
+      // every book of the canon by its short name (greyed out until it has text), then uploaded extras
       const groups = { OT: [], NT: [], X: [] };
-      books.forEach((bk) => groups[(catById.get(bk.id) || {}).testament || 'X'].push(bk));
+      CAT.forEach((c) => groups[c.testament].push({ id: c.id, short: c.short, name: (bookMap.get(c.id) || c).name }));
+      books.filter((bk) => !catById.has(bk.id)).forEach((bk) => groups.X.push({ id: bk.id, short: bk.name, name: bk.name }));
       const label = { OT: 'പഴയ നിയമം', NT: 'പുതിയ നിയമം', X: 'മറ്റുള്ളവ' };
+      const cell = (bk) => {
+        const has = bookMap.has(bk.id);
+        return `<button${bk.id === cur.book ? ' class="cur"' : ''} data-book="${bk.id}" title="${esc(bk.name)}${has ? '' : ' · ലഭ്യമല്ല'}"${has ? '' : ' disabled'}>${esc(bk.short)}</button>`;
+      };
       body.innerHTML = Object.entries(groups).filter(([, l]) => l.length).map(([g, l]) => `
-        <div class="book-group"><h4>${label[g]}</h4><div class="book-list">
-          ${l.map((bk) => `<button class="book-item${bk.id === cur.book ? ' cur' : ''}" data-book="${bk.id}"><span>${esc(bk.name)}</span><small>${bk.nums.length}</small></button>`).join('')}
-        </div></div>`).join('') || '<p class="empty-state">പുസ്തകങ്ങൾ ഇല്ല</p>';
+        <div class="book-group"><h4>${label[g]}</h4><div class="book-grid">${l.map(cell).join('')}</div></div>`).join('');
     } else if (tab === 'chapters') {
       if (!b) { renderPicker('books'); return; }
       const max = Math.max((catById.get(b.id) || {}).chapters || 0, b.nums[b.nums.length - 1]);
@@ -661,7 +665,7 @@
     const t = e.target.closest('[data-tab]');
     if (t) { renderPicker(t.dataset.tab); return; }
     const bk = e.target.closest('[data-book]');
-    if (bk) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; renderPicker('chapters'); return; }
+    if (bk && !bk.disabled) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; renderPicker('chapters'); return; }
     const ch = e.target.closest('[data-ch]');
     if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; renderPicker('verses'); return; }
     const vs = e.target.closest('[data-verse]');
