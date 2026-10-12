@@ -216,7 +216,15 @@ node tools/build-data.js            # reads the PDFs in this folder → app/js/d
 ```
 This prints a report per chapter (verses found, headings, missing verse numbers). Several source PDFs have missing verse numbers, e.g. ch 2 (10–22), ch 13 (2–5, 8–9), ch 16, ch 17. These come out in the text without a number; fix them with the editor.
 
-Chapters typed from a photo of the printed Bible (no PDF) are kept in `tools/sources/<BOOK ID>/<chapter>.txt`, in the editor format (`## heading`, `[5]` starts verse 5, one line per paragraph). The same command adds them to `data.js` as their own books. So far: Exodus 1, 2 and 3:1–5 (3:5 unfinished, continues on the next page).
+Chapters typed from a photo of the printed Bible (no PDF) are kept in `tools/sources/<BOOK ID>/<chapter>.txt`, in the editor format (`## heading`, `[5]` starts verse 5, one line per paragraph). The same command adds them to `data.js` as their own books. Exodus (`tools/sources/EXO/1.txt` … `40.txt`) is typed in full: 1–3:5 first, then 3:5 to the end of the book from photos of pages 68–116 (one photo per page). Every verse is there: 1:22, 2:25, 3:22, 4:31, 5:23, 6:30, 7:29, 8:28, 9:35, 10:29, 11:10, 12:51, 13:22, 14:31, 15:27, 16:36, 17:16, 18:27, 19:25, 20:26, 21:37, 22:30, 23:33, 24:18, 25:40, 26:37, 27:21, 28:43, 29:46, 30:38, 31:18, 32:35, 33:23, 34:35, 35:35, 36:38, 37:29, 38:31, 39:43, 40:38 (1213 verses). The verse numbering follows the print, which uses the Hebrew division: the frog plague is 7:26–29 (8:1–4 in many Bibles) and 21:37 is 22:1 elsewhere. The songs in 15, 17:16 and 32:18 are one line per verse, with the poetry on unnumbered lines after the verse's opening words.
+
+Corrections: missing spaces in 21:6 (കൊണ്ട് തുളയ്ക്കണം), 33:20 (തുടർന്ന് അവിടന്നു) and 38:9 (പിരിച്ച ചണംകൊണ്ടുള്ളത്), missing closing quotes in 19:12, 32:24 and 33:5, and missing full stops in 36:32 and 38:1. Odd spellings were kept as printed, for example 16:32 സൂക്ഷത്തിനായി, 6:19 ലേവായകുടുംബങ്ങൾ, 28:3 ജ്ഞാനാരൂപി, ചട്ടടുപ്പ് (27:4, 38:4–5), 35:27 ഉരസ്ത്രാണിനും, and 18:2 "അവർ പറഞ്ഞയച്ചതിനെത്തുടർന്ന്" (അവൻ would fit better).
+
+Worth checking against the book:
+- Blurred spots: 6:14–15 (the names), 7:9 (തരൂ), 14:6–10, 19:5 (എന്റേതാണെങ്കിലും), 27:4, 36:16–19, 38:26 (…മൂവായിരത്തി…) and 39:43.
+- Words split at a line end, where the print does not show whether there is a space: these were joined or spaced to match how the print writes them elsewhere.
+
+The photos are not in the repository.
 
 Other books' chapter PDFs go in the same folder, with the chapter number in the file name (`tools/sources/MAT/അധ്യായം 5.pdf`); their fixes are under the book id in `tools/text-fixes.js`. Matthew 1–16 come from the PDFs (not in them, so missing in the text: 11:23–24 and 14:7). Matthew 17–28 were typed from photos of the printed Bible (pages 24–42), as `17.txt` … `28.txt`: the PDF of chapter 17 was a blank page and the one of chapter 18 stopped at verse 23. Cross-references and footnotes of the print are left out.
 
