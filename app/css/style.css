@@ -329,6 +329,23 @@ textarea { width: 100%; resize: vertical; line-height: 1.7; }
 .modal-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .quote { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 8px 8px 0; font-family: var(--reader-font); font-size: 16px; line-height: 1.7; max-height: 160px; overflow: auto; }
 
+/* share sheet (js/app.js, openShare) */
+.share-link { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+.share-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.share-grid a, .share-grid button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px; min-width: 0;
+  border: 0; border-radius: 10px; background: transparent; color: var(--text); font-size: 12px; text-decoration: none; text-align: center;
+}
+.share-grid a:hover, .share-grid button:hover { background: var(--surface-2); }
+.share-ic {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--c, var(--surface-2)); color: #fff; font: 700 15px/1 system-ui, sans-serif;
+}
+.share-ic:not([style]) { color: var(--text); border: 1px solid var(--line); }
+.share-ic svg { width: 20px; height: 20px; }
+:root[data-theme="dark"] .share-ic[style*="#000"] { box-shadow: inset 0 0 0 1px var(--line); }
+@media (max-width: 380px) { .share-grid { grid-template-columns: repeat(4, 1fr); } }
+
 /* full-screen editor / upload */
 .fullscreen { width: 100%; height: 100dvh; margin: 0; display: none; flex-direction: column; background: var(--bg); }
 .fullscreen[open] { display: flex; }

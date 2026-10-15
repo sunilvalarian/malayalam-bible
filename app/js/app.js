@@ -457,13 +457,15 @@
     $('[data-act="edit"]', bar).disabled = selection.size !== 1;
   }
 
-  function selectedText() {
+  // the selected verses as shown (verse numbers when there are several) and their reference
+  function selectedParts() {
     const ai = shown.ai && shown.book === cur.book && shown.chapter === cur.chapter && aiMode() === 'ai';
     const vm = P.verseMap(ai ? shown.items : bookMap.get(cur.book).chapters.get(cur.chapter));
     const vs = [...selection].sort((a, b) => a - b);
     const body = vs.length === 1 ? vm.get(vs[0]) : vs.map((v) => `${v} ${vm.get(v)}`).join(' ');
-    return `${body}\n— ${refText(cur.book, cur.chapter, vs)}`;
+    return { b: cur.book, c: cur.chapter, vs, body, ref: refText(cur.book, cur.chapter, vs) };
   }
+  function selectedText() { const p = selectedParts(); return `${p.body}\n— ${p.ref}`; }
 
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; } catch (e) {
@@ -532,18 +534,12 @@
     const btn = e.target.closest('[data-act]');
     if (!btn || btn.disabled) return;
     const act = btn.dataset.act;
-    if (act === 'copy' || act === 'share') Usage.track(act, selRef());
     if (act === 'copy') {
+      Usage.track(act, selRef());
       toast((await copyText(selectedText())) ? 'പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
       clearSelection();
     } else if (act === 'share') {
-      const text = selectedText();
-      if (navigator.share) {
-        try { await navigator.share({ title: refText(cur.book, cur.chapter, selection), text }); } catch (err) { /* cancelled */ }
-      } else {
-        toast((await copyText(text)) ? 'പങ്കിടാനായി പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
-      }
-      clearSelection();
+      openShare();   // tracked once a target is picked
     } else if (act === 'bookmark') {
       const keys = [...selection].map((v) => vkey(cur.book, cur.chapter, v));
       const all = keys.every((k) => user.bm[k]);
@@ -561,6 +557,129 @@
       openVerseEdit([...selection][0]);
     }
   });
+
+  // ---------- share ----------
+  // Text apps (WhatsApp, Telegram, X, e-mail, SMS) get the verses + a link to them in this app.
+  // Instagram takes pictures only: it gets the verses drawn on a card, through the phone's share
+  // menu (or the card is saved, to post from the gallery). Facebook's link sharer can't carry
+  // text, so the text is copied first to paste there.
+  let shareCtx = null;
+  const canLink = /^https?:$/.test(location.protocol);
+  const isPhone = matchMedia('(pointer: coarse)').matches;
+
+  function openShare() {
+    const p = selectedParts();
+    shareCtx = Object.assign(p, { link: `${location.origin}${location.pathname}#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}` });
+    shareCtx.img = verseImage(p).catch((err) => { console.warn('share image', err); return null; });
+    $('#shareTitle').textContent = 'പങ്കിടുക · ' + p.ref;
+    $('#shareVerse').textContent = p.body;
+    $('#shareLinkRow').hidden = !canLink;
+    $('[data-to="facebook"]', $('#shareGrid')).hidden = !canLink;
+    $('#shareSms').hidden = !isPhone;
+    $('#shareMore').hidden = !navigator.share;
+    setShareLinks();
+    clearSelection();
+    openDialog($('#dlgShare'));
+  }
+  const shareLink = () => (canLink && $('#shareLink').checked ? shareCtx.link : '');
+  const shareText = () => `${shareCtx.body}\n— ${shareCtx.ref}` + (shareLink() ? '\n' + shareLink() : '');
+
+  function setShareLinks() {
+    const u = encodeURIComponent, t = u(shareText()), link = shareLink();
+    const href = {
+      whatsapp: 'https://wa.me/?text=' + t,
+      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + u(link || location.origin + location.pathname),
+      telegram: link ? `https://t.me/share/url?url=${u(link)}&text=${u(`${shareCtx.body}\n— ${shareCtx.ref}`)}` : 'https://t.me/share/url?url=' + t,
+      x: 'https://twitter.com/intent/tweet?text=' + t,
+      email: `mailto:?subject=${u(shareCtx.ref)}&body=${t}`,
+      sms: 'sms:?&body=' + t,
+    };
+    $$('a[data-to]', $('#shareGrid')).forEach((a) => { a.href = href[a.dataset.to]; });
+  }
+  $('#shareLink').addEventListener('change', () => { if (shareCtx) setShareLinks(); });
+
+  $('#shareGrid').addEventListener('click', async (e) => {
+    const el = e.target.closest('[data-to]');
+    if (!el || !shareCtx) return;
+    const to = el.dataset.to, ctx = shareCtx, dlg = $('#dlgShare');
+    Usage.track('share', { b: ctx.b, c: ctx.c, v: ctx.vs.join(','), to });
+    if (el.tagName === 'A') {   // the link opens the app / site itself
+      if (to === 'facebook') { copyText(shareText()); toast('വാക്യം പകർത്തി — Facebook-ൽ പേസ്റ്റ് ചെയ്യുക', 4000); }
+      setTimeout(() => dlg.close(), 300);
+      return;
+    }
+    if (to === 'copy') {
+      toast((await copyText(shareText())) ? 'പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
+      dlg.close();
+    } else if (to === 'more') {
+      try { await navigator.share({ title: ctx.ref, text: shareText() }); dlg.close(); } catch (err) { /* cancelled */ }
+    } else {   // instagram, image
+      const file = await ctx.img;
+      if (!file) { toast('ചിത്രം ഉണ്ടാക്കാൻ കഴിഞ്ഞില്ല'); return; }
+      if (to === 'instagram' && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); dlg.close(); return; } catch (err) { if (err.name === 'AbortError') return; }
+      }
+      download(file.name, file, 'image/png');
+      toast(to === 'instagram' ? 'ചിത്രം സേവ് ചെയ്തു — Instagram-ൽ ഗാലറിയിൽ നിന്ന് പോസ്റ്റ് ചെയ്യുക' : 'ചിത്രം സേവ് ചെയ്തു', 4000);
+    }
+  });
+
+  // the verses on a 1080 px wide card (square, taller for long passages up to 9:16), as a PNG file
+  async function verseImage(p) {
+    const W = 1080, PAD = 110, FOOT = 120, MAX_H = 1920;
+    const css = getComputedStyle(document.documentElement);
+    const serif = css.getPropertyValue('--reader-font').trim() || 'serif';
+    const sans = css.getPropertyValue('--ui-font').trim() || 'sans-serif';
+    if (document.fonts) {
+      await Promise.all([document.fonts.load(`52px ${serif}`, p.body), document.fonts.load(`700 38px ${sans}`, p.ref + 'പരിഷ്കരിച്ച')]).catch(() => {});
+    }
+    const c = document.createElement('canvas');
+    const g = c.getContext('2d');
+    const wrap = (text, max) => {
+      const lines = [];
+      let line = '';
+      for (const w of text.split(/\s+/)) {
+        const t = line ? line + ' ' + w : w;
+        if (line && g.measureText(t).width > max) { lines.push(line); line = w; } else line = t;
+      }
+      if (line) lines.push(line);
+      return lines;
+    };
+    // the largest font size (52 → 30 px) that fits; past that the end is cut with …
+    const room = MAX_H - 2 * PAD - FOOT - 90;
+    let size = 54, lines;
+    do {
+      size -= 2;
+      g.font = `${size}px ${serif}`;
+      lines = wrap(p.body, W - 2 * PAD);
+    } while (lines.length * size * 1.65 > room && size > 30);
+    const lh = size * 1.65;
+    const fit = Math.floor(room / lh);
+    if (lines.length > fit) { lines = lines.slice(0, fit); lines[fit - 1] += ' …'; }
+    const block = lines.length * lh + 90;   // text + gap + reference
+    c.width = W;
+    c.height = Math.max(W, Math.ceil(block + 2 * PAD + FOOT));
+
+    const bg = g.createLinearGradient(0, 0, 0, c.height);
+    bg.addColorStop(0, '#fbf5e6'); bg.addColorStop(1, '#f1e6cc');
+    g.fillStyle = bg; g.fillRect(0, 0, W, c.height);
+    g.strokeStyle = '#8a3b12'; g.lineWidth = 3;
+    g.strokeRect(40, 40, W - 80, c.height - 80);
+    g.fillStyle = '#e6d5b5'; g.font = `160px Georgia, serif`; g.textAlign = 'left'; g.textBaseline = 'top';
+    g.fillText('“', 70, 50);
+
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    let y = (c.height - FOOT - block) / 2 + lh / 2;
+    g.fillStyle = '#3b2f23'; g.font = `${size}px ${serif}`;
+    for (const line of lines) { g.fillText(line, W / 2, y); y += lh; }
+    g.fillStyle = '#8a3b12'; g.font = `700 38px ${sans}`;
+    g.fillText('— ' + p.ref, W / 2, y - lh / 2 + 70);
+    g.fillStyle = '#7a6a55'; g.font = `600 26px ${sans}`;
+    g.fillText('പരിഷ്കരിച്ച മലയാളം ബൈബിൾ' + (canLink ? ' · ' + location.host : ''), W / 2, c.height - 40 - FOOT / 2);
+
+    const blob = await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/png'));
+    return new File([blob], `${p.b}-${p.c}-${P.compressRanges(p.vs).replace(/[^\d]+/g, '_')}.png`, { type: 'image/png' });
+  }
 
   // ---------- notes ----------
   let noteCtx = null;

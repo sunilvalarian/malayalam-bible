@@ -281,6 +281,7 @@
   }
 
   // -- usage: what everyone does in the app (js/usage.js), also what was done offline --
+  const SHARE_LABEL = { email: 'ഇമെയിൽ', copy: 'പകർത്തി', image: 'ചിത്രം', more: 'മറ്റുള്ളവ', whatsapp: 'WhatsApp', instagram: 'Instagram', facebook: 'Facebook', telegram: 'Telegram', x: 'X', sms: 'SMS' };
   const EVENT_LABEL = {
     open: 'ആപ്പ് തുറന്നു', read: 'വായിച്ചു', search: 'തിരഞ്ഞു', copy: 'പകർത്തി', share: 'പങ്കിട്ടു',
     highlight: 'ഹൈലൈറ്റ് ചെയ്തു', unhighlight: 'ഹൈലൈറ്റ് നീക്കി', bookmark: 'ബുക്ക്മാർക്ക് ചെയ്തു', unbookmark: 'ബുക്ക്മാർക്ക് നീക്കി',
@@ -328,6 +329,7 @@
       case 'admin': return (SECTIONS.find((s) => s.id === e.sec) || {}).title || e.sec || '';
       case 'open': return [e.pg === 'admin' || e.page === 'admin' ? 'പോർട്ടൽ' : 'വായന', e.installed ? 'ഇൻസ്റ്റാൾ ചെയ്ത ആപ്പ്' : 'ബ്രൗസർ', e.ref ? 'വന്നത്: ' + e.ref : ''].filter(Boolean).join(' · ');
       case 'highlight': return ref + (e.col ? ` · ${e.col}` : '');
+      case 'share': return ref + (e.to ? ` · ${SHARE_LABEL[e.to] || e.to}` : '');
       case 'sources': return `${e.b ? bookName(e.b) + (e.c ? ' ' + e.c : '') : ''} · ${e.n || 0} ഫയൽ`;
       case 'note': return ref + (e.len ? ` · ${e.len} അക്ഷരം` : '');
       case 'scan': return `${e.pages || 0} പേജ് · ${e.n || 0} അധ്യായം · ${fmtDur(e.sec)}`;

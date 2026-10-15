@@ -251,6 +251,31 @@
   </form>
 </dialog>
 
+<!-- share the selected verses: WhatsApp, Instagram (as a picture), Facebook, … -->
+<dialog class="modal" id="dlgShare" aria-label="പങ്കിടുക">
+  <form method="dialog">
+    <h2 id="shareTitle">പങ്കിടുക</h2>
+    <blockquote id="shareVerse" class="quote"></blockquote>
+    <label class="share-link" id="shareLinkRow"><input type="checkbox" id="shareLink" checked> ആപ്പിലെ ഈ വാക്യത്തിന്റെ ലിങ്ക് ചേർക്കുക</label>
+    <div class="share-grid" id="shareGrid">
+      <a data-to="whatsapp" target="_blank" rel="noopener"><span class="share-ic" style="--c:#25d366">W</span>WhatsApp</a>
+      <button type="button" data-to="instagram"><span class="share-ic" style="--c:#d62976">IG</span>Instagram</button>
+      <a data-to="facebook" target="_blank" rel="noopener"><span class="share-ic" style="--c:#1877f2">f</span>Facebook</a>
+      <a data-to="telegram" target="_blank" rel="noopener"><span class="share-ic" style="--c:#229ed9">T</span>Telegram</a>
+      <a data-to="x" target="_blank" rel="noopener"><span class="share-ic" style="--c:#000">X</span>X</a>
+      <a data-to="email"><span class="share-ic" style="--c:#6b665e">@</span>ഇമെയിൽ</a>
+      <a data-to="sms" id="shareSms"><span class="share-ic" style="--c:#2e7d32">SMS</span>SMS</a>
+      <button type="button" data-to="copy"><span class="share-ic"><svg><use href="#i-copy"/></svg></span>പകർത്തുക</button>
+      <button type="button" data-to="image"><span class="share-ic"><svg><use href="#i-download"/></svg></span>ചിത്രം</button>
+      <button type="button" data-to="more" id="shareMore"><span class="share-ic"><svg><use href="#i-share"/></svg></span>മറ്റുള്ളവ</button>
+    </div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button value="cancel" class="btn">അടയ്ക്കുക</button>
+    </div>
+  </form>
+</dialog>
+
 <!-- quick verse edit -->
 <!-- chapters that have an AI translation -->
 <dialog class="sheet" id="dlgAiList" aria-label="AI പരിഭാഷകൾ">
