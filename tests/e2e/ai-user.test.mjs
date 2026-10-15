@@ -73,6 +73,19 @@ test('7. AI translation in the reader, per user: an admin switches it on, the us
     assert.ok((await verse2(page)).startsWith(original2.trim().slice(0, 20)), 'the original stays on top');
     assert.ok(await page.$('#reader .v[data-v="2"] .ai-line ins'), 'changed words are marked');
 
+    // with a verse selected, Aa → പാഠം and the switch still change the view every time
+    await page.click('#reader .v[data-v="3"]');
+    await waitFor(page, () => !document.getElementById('actionbar').hidden);
+    await page.click('#btnSettings');
+    await waitFor(page, () => document.getElementById('dlgSettings').open);
+    await page.click('#verSeg [data-v="ai"]');
+    await waitFor(page, () => document.querySelector('#reader .ver-switch [data-ver="ai"]').getAttribute('aria-pressed') === 'true');
+    await page.keyboard.press('Escape');
+    await waitFor(page, () => !document.getElementById('dlgSettings').open);
+    await page.click('#reader .ver-switch [data-ver="orig"]');
+    await waitFor(page, () => document.querySelector('#reader .ver-switch [data-ver="orig"]').getAttribute('aria-pressed') === 'true');
+    assert.equal(await verse2(page), original2, 'Original after AI');
+
     // the user hides it in Aa: back to the original, no switch
     await page.click('#btnSettings');
     await waitFor(page, () => document.getElementById('dlgSettings').open);

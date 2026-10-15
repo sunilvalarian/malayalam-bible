@@ -481,7 +481,8 @@
 
   reader.addEventListener('click', (e) => {
     const verBtn = e.target.closest('.ver-switch button');
-    if (verBtn) { if (verBtn.dataset.ver !== aiMode()) { changeSetting('ver', verBtn.dataset.ver); rerenderKeep(); } return; }
+    // always redraw: the page may still show a view the setting has left (a redraw skipped while a verse was selected)
+    if (verBtn) { changeSetting('ver', verBtn.dataset.ver); rerenderKeep(); return; }
     const goBtn = e.target.closest('[data-go]');
     if (goBtn) { const [b, c] = goBtn.dataset.go.split('/'); go(b, +c); return; }
     const up = e.target.closest('[data-menu-open]');
@@ -947,13 +948,13 @@
     if (seg) {
       const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout', verSeg: 'ver' }[seg.parentElement.id];
       if (k) changeSetting(k, seg.dataset.v);
-      if (k === 'ver' && cur.book && !selection.size) rerenderKeep();
+      if (k === 'ver' && cur.book) rerenderKeep();
     }
   });
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
-  $('#optAiView').addEventListener('change', (e) => { changeSetting('aiView', e.target.checked); if (cur.book && !selection.size) rerenderKeep(); });
+  $('#optAiView').addEventListener('change', (e) => { changeSetting('aiView', e.target.checked); if (cur.book) rerenderKeep(); });
   // ☰ → AI പരിഭാഷകൾ: the chapters that have an AI translation, by book; a tap opens it in the AI view
   async function openAiList() {
     const body = $('#aiListBody');
