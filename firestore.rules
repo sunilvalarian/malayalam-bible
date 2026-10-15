@@ -148,12 +148,17 @@ service cloud.firestore {
 
       function profileOk() {
         let d = request.resource.data;
-        return d.keys().hasOnly(['email', 'name', 'role', 'provider', 'createdAt', 'lastLogin', 'presetApplied', 'redeemedCode'])
+        return d.keys().hasOnly(['email', 'name', 'role', 'provider', 'createdAt', 'lastLogin', 'presetApplied', 'redeemedCode', 'ai'])
           && d.email == myEmail() && d.role in allRoles()
           && d.name is string && d.name.size() <= 100
           && (!('provider' in d) || d.provider in providers())
           && (!('presetApplied' in d) || d.presetApplied == true)
-          && (!('redeemedCode' in d) || codeIdOk(d.redeemedCode));
+          && (!('redeemedCode' in d) || codeIdOk(d.redeemedCode))
+          && (!('ai' in d) || d.ai is bool);
+      }
+      // ai (the AI translation above the editor) is switched on / off by admins only
+      function sameAi() {
+        return request.resource.data.get('ai', false) == resource.data.get('ai', false);
       }
       function sameCode() {
         return request.resource.data.get('redeemedCode', null) == resource.data.get('redeemedCode', null);
@@ -173,6 +178,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.lastLogin == request.time
         && !('redeemedCode' in request.resource.data)
+        && !('ai' in request.resource.data)
         && (request.resource.data.role == 'reader'
             || (request.resource.data.role == 'admin' && isOwner())
             // presetApplied marks the preset as used, so a later demotion by an admin sticks
@@ -189,6 +195,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && (request.resource.data.lastLogin == request.time || request.resource.data.lastLogin == resource.data.lastLogin)
         && (!('presetApplied' in resource.data) || request.resource.data.get('presetApplied', false) == true)
+        && sameAi()
         && ((sameCode()
              && (request.resource.data.role == resource.data.role
                  || (request.resource.data.role in roles() && invitedAs(request.resource.data.role))
@@ -198,7 +205,7 @@ service cloud.firestore {
                      && !('presetApplied' in resource.data) && request.resource.data.get('presetApplied', false) == true)))
             || redeeming());
 
-      // admins change roles or block a user (role 'none'); an owner can never be demoted,
+      // admins change roles or block a user (role 'none') and switch the AI translation on / off; an owner can never be demoted,
       // and an admin can't change their own role. The owner's profile is protected once it is
       // admin (the app makes it admin after the e-mail is verified), so an unverified account that
       // merely claims the owner's address stays a reader that admins can block or remove.
@@ -207,7 +214,8 @@ service cloud.firestore {
       }
       allow update: if isAdmin() && request.auth.uid != uid
         && request.resource.data.role in allRoles()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'ai'])
+        && request.resource.data.get('ai', false) is bool
         && !ownerProfile();
       allow delete: if isAdmin() && request.auth.uid != uid && !ownerProfile();
     }

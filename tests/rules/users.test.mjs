@@ -28,6 +28,11 @@ describe('users: first sign-in (create)', () => {
     await assertFails(users(db).doc('u1').set(profile('u1@example.com', 'admin')));
     await assertFails(users(db).doc('u1').set(profile('u1@example.com', 'none')));
   });
+  it('a new profile can\'t switch the AI translation on for itself', async () => {
+    const ref = users(t.user('u1', 'u1@example.com')).doc('u1');
+    await assertFails(ref.set(profile('u1@example.com', 'reader', { ai: true })));
+    await assertFails(ref.set(profile('u1@example.com', 'reader', { ai: false })));
+  });
   it('bad fields are refused: extra key, redeemedCode, client times, bad provider, long name', async () => {
     const db = t.user('u1', 'u1@example.com');
     const ref = users(db).doc('u1');
@@ -73,6 +78,14 @@ describe('users: updates by the user', () => {
   it('createdAt and lastLogin can\'t be set to a client time', async () => {
     await assertFails(users(t.as.reader()).doc('reader1').update({ createdAt: ts() }));
     await assertFails(users(t.as.reader()).doc('reader1').update({ lastLogin: Timestamp.fromMillis(Date.now() + DAY) }));
+  });
+  it('the AI switch can\'t be changed by the user themselves', async () => {
+    await assertFails(users(t.as.reader()).doc('reader1').update({ ai: true }));
+    await assertFails(users(t.as.editor()).doc('editor1').update({ ai: true }));
+    await t.seed((db) => db.collection('users').doc('editor1').update({ ai: true }));
+    await assertFails(users(t.as.editor()).doc('editor1').update({ ai: false }));
+    // their other updates still work while it is on
+    await assertSucceeds(users(t.as.editor()).doc('editor1').update({ name: 'Still me' }));
   });
   it('no self-promotion (reader → editor / admin, editor → admin)', async () => {
     await assertFails(users(t.as.reader()).doc('reader1').update({ role: 'editor' }));
@@ -122,6 +135,15 @@ describe('users: admins', () => {
     await assertSucceeds(users(t.as.admin()).doc('reader1').update({ role: 'editor' }));
     await assertSucceeds(users(t.as.admin()).doc('editor1').update({ role: 'none' }));
     await assertSucceeds(users(t.as.owner()).doc('admin1').update({ role: 'reader' }));
+  });
+  it('an admin switches the AI translation on / off for others (true / false only)', async () => {
+    await assertSucceeds(users(t.as.admin()).doc('editor1').update({ ai: true }));
+    await assertSucceeds(users(t.as.admin()).doc('editor1').update({ ai: false }));
+    await assertSucceeds(users(t.as.admin()).doc('reader1').update({ ai: true, role: 'editor' }));
+    await assertFails(users(t.as.admin()).doc('editor1').update({ ai: 'yes' }));
+    await assertFails(users(t.as.admin()).doc('editor1').update({ ai: true, name: 'x' }));
+    await assertFails(users(t.as.editor()).doc('reader1').update({ ai: true }));
+    await assertFails(users(t.as.admin()).doc('admin1').update({ ai: true }));
   });
   it('only the role, and only to a known role', async () => {
     await assertFails(users(t.as.admin()).doc('reader1').update({ role: 'superuser' }));

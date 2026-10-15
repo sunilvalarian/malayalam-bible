@@ -213,3 +213,4 @@ body.adm { min-height: 100vh; min-height: 100dvh; }
   .adm-stats { grid-template-columns: minmax(0, 1fr); }
   .adm-brand strong { font-size: 14px; }
 }
+.u-ai-l { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }

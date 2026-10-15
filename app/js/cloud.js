@@ -252,12 +252,15 @@
     mailSender: config && config.authDomain ? 'noreply@' + config.authDomain : '',
     verificationError: null,
     pendingLink: null,   // { email, providerId, methods } while an account-exists conflict waits for sign-in
+    aiOn: false,         // users/{uid}.ai: an admin switched the AI translation on for this user
     _listeners: [],
     on(fn) { this._listeners.push(fn); },
     _emit(type, data) { this._listeners.forEach((fn) => { try { fn(type, data); } catch (e) { console.error(e); } }); },
 
     can(perm) {
       if (!this.user) return false;
+      // the AI translation above the editor: admins, and users an admin switched it on for
+      if (perm === 'ai') return this.role === 'admin' || (this.role !== 'none' && this.aiOn);
       if (ROLE_RANK[this.role] >= ROLE_RANK[PERMS[perm] || 'admin']) return true;
       // opened to everyone by an admin: any signed-in user who isn't blocked
       return this.role !== 'none' && !!OPEN_PERMS[perm] && this.settings[OPEN_PERMS[perm]] === true;
@@ -372,6 +375,7 @@
       if (!u) {
         this.user = null;
         this.role = 'none';
+        this.aiOn = false;
         this.authKnown = true;
         this._emit('auth', null);
         return;
@@ -403,17 +407,26 @@
       if (seq !== authSeq) return;
       this.user = user;
       this.role = role;
+      this.aiOn = false;     // until the profile listener below reads users/{uid}.ai
       this.authKnown = true;
       ls.set('mlb.lastRole', { uid: u.uid, role });
       this._emit('auth', this.user);
       const ownerNow = user.verified && OWNERS.includes(user.email);
-      // role changes by an admin apply immediately
+      // role changes by an admin apply immediately (and the AI switch: changed = not the first load)
+      let aiSeen = false;
       unsubProfile = db.collection('users').doc(u.uid).onSnapshot((snap) => {
         // a write of this page that the server hasn't confirmed yet (e.g. redeeming a code): the new role
         // applies once it has, or the portal would load with a role the rules don't know yet
         if (seq !== authSeq || snap.metadata.hasPendingWrites) return;
         // an admin removed the profile: the rules now treat this account as blocked
         const r = ownerNow ? 'admin' : snap.exists ? snap.data().role : snap.metadata.fromCache ? null : 'none';
+        const ai = snap.exists && snap.data().ai === true;
+        if (ai !== this.aiOn || !aiSeen) {
+          const changed = aiSeen && ai !== this.aiOn;
+          aiSeen = true;
+          this.aiOn = ai;
+          this._emit('ai', { on: ai, changed });
+        }
         if (r && r !== this.role) {
           const wasActive = this.role !== 'none';
           this.role = r;
@@ -854,6 +867,8 @@
       await db.collection('users').doc(uid).update({ role });
       if (email) await db.collection('invites').doc(email.toLowerCase()).delete().catch(() => {});
     },
+    // switch the AI translation above the editor on / off for one user (admins always have it)
+    setAi(uid, on) { return db.collection('users').doc(uid).update({ ai: !!on }); },
     removeUser(uid) { return db.collection('users').doc(uid).delete(); },
     async listInvites() { return docs(await db.collection('invites').get(), 'email'); },
     setInvite(email, role) {

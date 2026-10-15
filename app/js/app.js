@@ -1052,7 +1052,7 @@
     return aiDataP;
   }
   function loadEditorAi() {
-    if (!settings.aiDiff) return;
+    if (!settings.aiDiff || !can('ai')) return;
     const { book, chapter } = editor;
     aiData().then((ab) => {
       const items = ab && ab.books[book] && ab.books[book][chapter];
@@ -1063,7 +1063,7 @@
   }
   // the verses where the AI translation differs from the text in the editor
   function renderAiDiff(items) {
-    const diff = editor.ai && settings.aiDiff ? P.verseDiff(editor.ai, items) : [];
+    const diff = editor.ai && settings.aiDiff && can('ai') ? P.verseDiff(editor.ai, items) : [];
     $('#edAi').hidden = !diff.length;
     if (!diff.length) { $('#edAiList').innerHTML = ''; return; }
     $('#edAiSum').textContent = `AI പരിഭാഷ: ${diff.length} വാക്യത്തിൽ മാറ്റം (${P.compressRanges(diff.map((d) => d.v))})`;
@@ -1788,7 +1788,8 @@ p{margin:0 0 .9em}
   }
 
   function applyPermissions() {
-    $$('[data-perm]').forEach((el) => { el.hidden = !can(el.dataset.perm); });
+    // data-perm="edit ai": every permission listed is needed
+    $$('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split(' ').every(can); });
     // a menu heading disappears when nothing under it is left
     $$('#dlgMenu .menu-label').forEach((label) => {
       let el = label.nextElementSibling, any = false, gated = false;
@@ -2062,6 +2063,13 @@ p{margin:0 0 .9em}
     toast('നിങ്ങളുടെ റോൾ: ' + (ROLE_LABEL[Cloud.role] || Cloud.role));
   }
 
+  // an admin switched the AI translation on / off for this user: the Aa setting and an open editor follow
+  function onAiChanged({ on, changed }) {
+    applyPermissions();
+    if ($('#dlgEditor').open) { updateEditorPreview(); if (on && !editor.ai) loadEditorAi(); }
+    if (changed && Cloud.role !== 'admin') toast(on ? 'AI പരിഭാഷ നിങ്ങൾക്ക് ഓണാക്കി' : 'AI പരിഭാഷ നിങ്ങൾക്ക് ഓഫാക്കി');
+  }
+
   // an admin opened / closed PDF upload or chapter editing to everyone (settings/permissions)
   let openSeen = null;
   function onSettingsChanged() {
@@ -2099,6 +2107,7 @@ p{margin:0 0 .9em}
       if (type === 'chapters') onCloudChapters(data);
       else if (type === 'auth') onAuthChanged();
       else if (type === 'role') onRoleChanged();
+      else if (type === 'ai') onAiChanged(data);
       else if (type === 'settings') onSettingsChanged();
       else if (type === 'verified') toast('ഇമെയിൽ സ്ഥിരീകരിച്ചു', 4000);
       else if (type === 'userdata') applyCloudUserData(data);

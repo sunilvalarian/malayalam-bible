@@ -601,13 +601,13 @@
         <label class="adm-search"><svg><use href="#i-search"/></svg><input type="search" id="userSearch" placeholder="പേര് അല്ലെങ്കിൽ ഇമെയിൽ തിരയുക" aria-label="ഉപയോക്താക്കളെ തിരയുക"></label>
         <span class="hint" id="userCount"></span>
       </div>
-      <p class="hint">റോൾ മാറ്റം ഉടൻ ബാധകമാകും. <b>തടഞ്ഞു</b> = ലോഗിൻ ചെയ്താലും തിരുത്താനോ സിങ്ക് ചെയ്യാനോ അഡ്മിൻ ഉപകരണങ്ങൾ കാണാനോ കഴിയില്ല. നിങ്ങളുടെയും ഉടമയുടെയും റോൾ ഇവിടെ മാറ്റാനാവില്ല.</p>
+      <p class="hint"><b>AI</b> = തിരുത്തുമ്പോൾ എഡിറ്ററിന് മുകളിൽ AI പരിഭാഷയിലെ മാറ്റങ്ങൾ കാണാം (തിരുത്താൻ അനുമതിയുള്ളവർക്ക്; അഡ്മിന് എപ്പോഴും). റോൾ മാറ്റം ഉടൻ ബാധകമാകും. <b>തടഞ്ഞു</b> = ലോഗിൻ ചെയ്താലും തിരുത്താനോ സിങ്ക് ചെയ്യാനോ അഡ്മിൻ ഉപകരണങ്ങൾ കാണാനോ കഴിയില്ല. നിങ്ങളുടെയും ഉടമയുടെയും റോൾ ഇവിടെ മാറ്റാനാവില്ല.</p>
       <div id="userTable"></div>`;
     const draw = () => {
       const q = $('#userSearch').value.trim().toLowerCase();
       const list = users.filter((u) => !q || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
       $('#userCount').textContent = `${list.length} / ${users.length}`;
-      $('#userTable').innerHTML = list.length ? `<table class="adm-table"><thead><tr><th>പേര്</th><th>ഇമെയിൽ</th><th>ലോഗിൻ രീതി</th><th>റോൾ</th><th>ചേർന്നത്</th><th>അവസാന ലോഗിൻ</th><th></th></tr></thead><tbody>
+      $('#userTable').innerHTML = list.length ? `<table class="adm-table"><thead><tr><th>പേര്</th><th>ഇമെയിൽ</th><th>ലോഗിൻ രീതി</th><th>റോൾ</th><th>AI</th><th>ചേർന്നത്</th><th>അവസാന ലോഗിൻ</th><th></th></tr></thead><tbody>
         ${list.map((u) => {
           const self = u.uid === Cloud.user.uid;
           const owner = Cloud.isOwnerEmail(u.email);
@@ -620,6 +620,9 @@
             <td data-label="ഇമെയിൽ" class="adm-wrap">${esc(u.email || '')}</td>
             <td data-label="ലോഗിൻ രീതി">${esc(methodName(u.provider))}</td>
             <td data-label="റോൾ"><select class="u-role" data-uid="${esc(u.uid)}" data-email="${esc(u.email || '')}" aria-label="റോൾ: ${esc(u.email || '')}" ${locked ? 'disabled' : ''}>${roleOptions(u.role, ['reader', 'editor', 'admin', 'none'])}</select></td>
+            <td data-label="AI പരിഭാഷ">${u.role === 'admin'
+              ? '<span class="hint" title="അഡ്മിന് എപ്പോഴും">✓ അഡ്മിൻ</span>'
+              : `<label class="u-ai-l"><input type="checkbox" class="u-ai" data-uid="${esc(u.uid)}" ${u.ai === true ? 'checked' : ''} ${locked ? 'disabled' : ''} aria-label="AI പരിഭാഷ: ${esc(u.email || '')}"> ഓൺ</label>`}</td>
             <td data-label="ചേർന്നത്">${esc(fmtTime(u.createdAt))}</td>
             <td data-label="അവസാന ലോഗിൻ">${esc(fmtTime(u.lastLogin))}</td>
             <td class="adm-act"><a class="btn sm" href="#usage/u:${encodeURIComponent(u.uid)}" title="ഇവർ ആപ്പിൽ ചെയ്തതെല്ലാം"><svg><use href="#i-chart"/></svg><span>ഉപയോഗം</span></a></td></tr>`;
@@ -628,6 +631,16 @@
     draw();
     $('#userSearch').addEventListener('input', draw);
     $('#userTable').addEventListener('change', async (e) => {
+      const box = e.target.closest('.u-ai');
+      if (box) {
+        const u = users.find((x) => x.uid === box.dataset.uid);
+        try {
+          await Cloud.setAi(box.dataset.uid, box.checked);
+          u.ai = box.checked;
+          toast(`AI പരിഭാഷ ${box.checked ? 'ഓൺ' : 'ഓഫ്'}: ${u.email || u.name || ''}`);
+        } catch (err) { cloudError(err); box.checked = u.ai === true; }
+        return;
+      }
       const sel = e.target.closest('.u-role');
       if (!sel) return;
       const u = users.find((x) => x.uid === sel.dataset.uid);
@@ -841,7 +854,7 @@
   RENDER.roles = (body) => {
     const rank = Cloud.ROLE_RANK;
     const cols = [['guest', 'ലോഗിൻ ഇല്ലാതെ', -1], ['none', ROLE_LABEL.none, 0], ['reader', ROLE_LABEL.reader, 1], ['editor', ROLE_LABEL.editor, 2], ['admin', ROLE_LABEL.admin, 3]];
-    const tick = (v) => (v === 'open' ? '<span class="yes open" aria-label="എല്ലാവർക്കും തുറന്നിരിക്കുന്നു" title="ക്രമീകരണങ്ങളിൽ എല്ലാവർക്കും തുറന്നിരിക്കുന്നു">✓*</span>'
+    const tick = (v) => (v === 'user' ? '<span class="yes open" title="അഡ്മിൻ ഓണാക്കിയവർക്ക് മാത്രം">✓†</span>' : v === 'open' ? '<span class="yes open" aria-label="എല്ലാവർക്കും തുറന്നിരിക്കുന്നു" title="ക്രമീകരണങ്ങളിൽ എല്ലാവർക്കും തുറന്നിരിക്കുന്നു">✓*</span>'
       : v ? '<span class="yes" aria-label="അനുവദനീയം">✓</span>' : '<span class="no" aria-label="ഇല്ല">—</span>');
     // opened to everyone in ക്രമീകരണങ്ങൾ: readers get it too (not visitors, not blocked users)
     const openTo = (p) => (r) => (r >= rank[Cloud.PERMS[p]] ? true : Cloud.isOpen(p) && r >= rank.reader ? 'open' : false);
@@ -849,10 +862,13 @@
       ['വായിക്കുക, തിരയുക', () => true],
       ['സ്വന്തം ഹൈലൈറ്റ് / കുറിപ്പ് എല്ലാ ഉപകരണങ്ങളിലും (സിങ്ക്)', (r) => r >= rank.reader],
       ...Object.keys(Cloud.PERMS).map((p) => [PERM_LABEL[p] || p, openTo(p), Cloud.PERMS[p]]),
+      // switched on per user in ഉപയോക്താക്കൾ (admins always)
+      ['എഡിറ്ററിന് മുകളിൽ AI പരിഭാഷ <small class="hint">(ഓരോ ഉപയോക്താവിനും — ഉപയോക്താക്കൾ പേജിൽ)</small>', (r) => (r >= rank.admin ? true : r >= rank.reader ? 'user' : false)],
     ];
     const anyOpen = Object.keys(Cloud.OPEN_PERMS).some((p) => Cloud.isOpen(p));
     body.innerHTML = `<div class="adm-scroll"><table class="adm-matrix"><thead><tr><th>അനുമതി</th>${cols.map((c) => `<th>${c[1]}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r) => `<tr><td>${r[0]}${r[2] ? ` <small class="hint">(${esc(r[2])}+)</small>` : ''}</td>${cols.map((c) => `<td>${tick(r[1](c[2]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <p class="hint">✓† = അഡ്മിൻ <a href="#users">ഉപയോക്താക്കൾ</a> പേജിൽ AI ഓണാക്കിയവർക്ക് മാത്രം (തിരുത്താനുള്ള അനുമതിയും വേണം).</p>
       ${anyOpen ? '<p class="hint">✓* = <a href="#settings">ക്രമീകരണങ്ങളിൽ</a> ലോഗിൻ ചെയ്ത എല്ലാവർക്കും തുറന്നിരിക്കുന്നു.</p>' : ''}
       <p class="hint">ഈ നിയമങ്ങൾ Firebase സെർവറിൽ (firestore.rules) നടപ്പാക്കുന്നു — പേജിന്റെ കോഡ് മാറ്റി മറികടക്കാനാവില്ല. ഉടമയുടെ ഇമെയിൽ (APP_OWNERS) എപ്പോഴും അഡ്മിൻ ആണ്. Firebase ഇല്ലാത്ത ലോക്കൽ മോഡിൽ: ഡിസ്കിൽ നിന്നോ localhost-ൽ നിന്നോ തുറക്കുമ്പോൾ ഉടമയുടെ പാസ്‌കോഡ് നൽകിയാൽ എല്ലാം; പൊതു വെബ്സൈറ്റിൽ എല്ലാവർക്കും വായന മാത്രം.</p>`;
   };
