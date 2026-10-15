@@ -601,7 +601,7 @@
         <label class="adm-search"><svg><use href="#i-search"/></svg><input type="search" id="userSearch" placeholder="പേര് അല്ലെങ്കിൽ ഇമെയിൽ തിരയുക" aria-label="ഉപയോക്താക്കളെ തിരയുക"></label>
         <span class="hint" id="userCount"></span>
       </div>
-      <p class="hint"><b>AI</b> = തിരുത്തുമ്പോൾ എഡിറ്ററിന് മുകളിൽ AI പരിഭാഷയിലെ മാറ്റങ്ങൾ കാണാം (തിരുത്താൻ അനുമതിയുള്ളവർക്ക്; അഡ്മിന് എപ്പോഴും). റോൾ മാറ്റം ഉടൻ ബാധകമാകും. <b>തടഞ്ഞു</b> = ലോഗിൻ ചെയ്താലും തിരുത്താനോ സിങ്ക് ചെയ്യാനോ അഡ്മിൻ ഉപകരണങ്ങൾ കാണാനോ കഴിയില്ല. നിങ്ങളുടെയും ഉടമയുടെയും റോൾ ഇവിടെ മാറ്റാനാവില്ല.</p>
+      <p class="hint"><b>AI</b> = വായനയിൽ Original / AI / താരതമ്യം (AI പരിഭാഷ) കാണാം — അഡ്മിന് എപ്പോഴും; ഓരോരുത്തർക്കും Aa-യിൽ ഇത് മറയ്ക്കാം. റോൾ മാറ്റം ഉടൻ ബാധകമാകും. <b>തടഞ്ഞു</b> = ലോഗിൻ ചെയ്താലും തിരുത്താനോ സിങ്ക് ചെയ്യാനോ അഡ്മിൻ ഉപകരണങ്ങൾ കാണാനോ കഴിയില്ല. നിങ്ങളുടെയും ഉടമയുടെയും റോൾ ഇവിടെ മാറ്റാനാവില്ല.</p>
       <div id="userTable"></div>`;
     const draw = () => {
       const q = $('#userSearch').value.trim().toLowerCase();
@@ -863,12 +863,12 @@
       ['സ്വന്തം ഹൈലൈറ്റ് / കുറിപ്പ് എല്ലാ ഉപകരണങ്ങളിലും (സിങ്ക്)', (r) => r >= rank.reader],
       ...Object.keys(Cloud.PERMS).map((p) => [PERM_LABEL[p] || p, openTo(p), Cloud.PERMS[p]]),
       // switched on per user in ഉപയോക്താക്കൾ (admins always)
-      ['എഡിറ്ററിന് മുകളിൽ AI പരിഭാഷ <small class="hint">(ഓരോ ഉപയോക്താവിനും — ഉപയോക്താക്കൾ പേജിൽ)</small>', (r) => (r >= rank.admin ? true : r >= rank.reader ? 'user' : false)],
+      ['വായനയിൽ AI പരിഭാഷ: Original / AI / താരതമ്യം <small class="hint">(ഓരോ ഉപയോക്താവിനും — ഉപയോക്താക്കൾ പേജിൽ)</small>', (r) => (r >= rank.admin ? true : r >= rank.reader ? 'user' : false)],
     ];
     const anyOpen = Object.keys(Cloud.OPEN_PERMS).some((p) => Cloud.isOpen(p));
     body.innerHTML = `<div class="adm-scroll"><table class="adm-matrix"><thead><tr><th>അനുമതി</th>${cols.map((c) => `<th>${c[1]}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r) => `<tr><td>${r[0]}${r[2] ? ` <small class="hint">(${esc(r[2])}+)</small>` : ''}</td>${cols.map((c) => `<td>${tick(r[1](c[2]))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
-      <p class="hint">✓† = അഡ്മിൻ <a href="#users">ഉപയോക്താക്കൾ</a> പേജിൽ AI ഓണാക്കിയവർക്ക് മാത്രം (തിരുത്താനുള്ള അനുമതിയും വേണം).</p>
+      <p class="hint">✓† = അഡ്മിൻ <a href="#users">ഉപയോക്താക്കൾ</a> പേജിൽ AI ഓണാക്കിയവർക്ക് മാത്രം.</p>
       ${anyOpen ? '<p class="hint">✓* = <a href="#settings">ക്രമീകരണങ്ങളിൽ</a> ലോഗിൻ ചെയ്ത എല്ലാവർക്കും തുറന്നിരിക്കുന്നു.</p>' : ''}
       <p class="hint">ഈ നിയമങ്ങൾ Firebase സെർവറിൽ (firestore.rules) നടപ്പാക്കുന്നു — പേജിന്റെ കോഡ് മാറ്റി മറികടക്കാനാവില്ല. ഉടമയുടെ ഇമെയിൽ (APP_OWNERS) എപ്പോഴും അഡ്മിൻ ആണ്. Firebase ഇല്ലാത്ത ലോക്കൽ മോഡിൽ: ഡിസ്കിൽ നിന്നോ localhost-ൽ നിന്നോ തുറക്കുമ്പോൾ ഉടമയുടെ പാസ്‌കോഡ് നൽകിയാൽ എല്ലാം; പൊതു വെബ്സൈറ്റിൽ എല്ലാവർക്കും വായന മാത്രം.</p>`;
   };

@@ -366,36 +366,6 @@
     return map;
   }
 
-  // Verses whose text differs between two versions of a chapter → [{v, a, b}] in verse order
-  // (a / b is '' when the verse is missing from that version)
-  function verseDiff(aItems, bItems) {
-    const a = verseMap(aItems), b = verseMap(bItems);
-    const nums = [...new Set([...a.keys(), ...b.keys()])].sort((x, y) => x - y);
-    return nums.map((v) => ({ v, a: normalize(a.get(v) || ''), b: normalize(b.get(v) || '') }))
-      .filter((d) => d.a !== d.b);
-  }
-
-  // items with verse v taken from src (its paragraph start kept from items; added in verse order
-  // when items doesn't have it, before the heading just above the next verse)
-  function replaceVerse(items, src, v) {
-    const add = src.filter((it) => it.v === v).map((it) => Object.assign({}, it));
-    const at = items.findIndex((it) => it.v === v);
-    const rest = items.filter((it) => it.v !== v);
-    if (at >= 0) {
-      if (add.length) {
-        if (items[at].p) add[0].p = 1; else delete add[0].p;
-      }
-      rest.splice(at, 0, ...add);
-      return rest;
-    }
-    let i = rest.findIndex((it) => it.v > v);
-    if (i < 0) i = rest.length;
-    while (i > 0 && rest[i - 1].h !== undefined) i--;
-    if (add.length) add[0].p = 1;
-    rest.splice(i, 0, ...add);
-    return rest;
-  }
-
   // Word-level diff of two texts: [[word, same], ...] for each side
   function wordDiff(a, b) {
     const x = String(a).split(/\s+/).filter(Boolean), y = String(b).split(/\s+/).filter(Boolean);
@@ -425,7 +395,7 @@
   const api = {
     normalize, searchKey, parsePdfParagraphs, parseEditorText, toEditorText,
     validate, verseMap, chapterFromFilename, compressRanges, addToLexicon, shouldGlue,
-    verseDiff, replaceVerse, wordDiff,
+    wordDiff,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BibleParser = api;

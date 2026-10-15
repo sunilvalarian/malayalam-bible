@@ -259,7 +259,7 @@
 
     can(perm) {
       if (!this.user) return false;
-      // the AI translation above the editor: admins, and users an admin switched it on for
+      // the AI translation in the reader: admins, and users an admin switched it on for
       if (perm === 'ai') return this.role === 'admin' || (this.role !== 'none' && this.aiOn);
       if (ROLE_RANK[this.role] >= ROLE_RANK[PERMS[perm] || 'admin']) return true;
       // opened to everyone by an admin: any signed-in user who isn't blocked
@@ -867,7 +867,7 @@
       await db.collection('users').doc(uid).update({ role });
       if (email) await db.collection('invites').doc(email.toLowerCase()).delete().catch(() => {});
     },
-    // switch the AI translation above the editor on / off for one user (admins always have it)
+    // switch the AI translation in the reader on / off for one user (admins always have it)
     setAi(uid, on) { return db.collection('users').doc(uid).update({ ai: !!on }); },
     removeUser(uid) { return db.collection('users').doc(uid).delete(); },
     async listInvites() { return docs(await db.collection('invites').get(), 'email'); },

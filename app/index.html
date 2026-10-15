@@ -119,6 +119,7 @@
     <button data-menu="notes"><svg><use href="#i-note"/></svg>കുറിപ്പുകൾ <span class="count" id="cntNotes"></span></button>
     <button data-menu="history"><svg><use href="#i-history"/></svg>വായനാ ചരിത്രം</button>
     <div class="menu-label">ഉള്ളടക്കം</div>
+    <button data-menu="aiList" data-perm="ai"><svg><use href="#i-book"/></svg><span class="m-text">AI പരിഭാഷകൾ<small>AI പരിഭാഷയുള്ള അധ്യായങ്ങൾ</small></span></button>
     <button data-menu="upload" data-perm="upload"><svg><use href="#i-upload"/></svg>PDF / Word അപ്‌ലോഡ് ചെയ്യുക</button>
     <button data-menu="scan" data-perm="upload"><svg><use href="#i-camera"/></svg><span class="m-text">ക്യാമറയിൽ സ്കാൻ ചെയ്യുക<small>അച്ചടിച്ച ബൈബിൾ പേജിന്റെ ഫോട്ടോ എടുത്ത് ചേർക്കാം</small></span></button>
     <button data-menu="sources" data-perm="upload"><svg><use href="#i-file"/></svg><span class="m-text">ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക<small>പുസ്തകം തിരിച്ച് PDF / Word / ഫോട്ടോ — പിന്നീട് ടെക്സ്റ്റ് ആക്കി ചേർക്കാൻ</small></span></button>
@@ -170,6 +171,14 @@
 
 <!-- reading settings -->
 <dialog class="popover" id="dlgSettings" aria-label="വായനാ ക്രമീകരണം">
+  <div class="set-row col" id="verRow" hidden>
+    <span>പാഠം</span>
+    <div class="seg" id="verSeg">
+      <button data-v="orig" title="ഈ ആപ്പിലെ മലയാളം പരിഭാഷ">Original</button>
+      <button data-v="ai" title="Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ">AI</button>
+      <button data-v="cmp" title="ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ">താരതമ്യം</button>
+    </div>
+  </div>
   <div class="set-row">
     <span>അക്ഷര വലിപ്പം</span>
     <div class="stepper">
@@ -209,7 +218,7 @@
   </div>
   <label class="set-row chk"><input type="checkbox" id="optNumbers"> വാക്യ നമ്പറുകൾ കാണിക്കുക</label>
   <label class="set-row chk"><input type="checkbox" id="optHeadings"> തലക്കെട്ടുകൾ കാണിക്കുക</label>
-  <label class="set-row chk" data-perm="edit ai"><input type="checkbox" id="optAiDiff"> തിരുത്തുമ്പോൾ AI പരിഭാഷയിലെ മാറ്റങ്ങൾ കാണിക്കുക</label>
+  <label class="set-row chk" data-perm="ai"><input type="checkbox" id="optAiView"> AI പരിഭാഷ കാണിക്കുക (Original / AI / താരതമ്യം)</label>
   <p class="set-note hint" id="usageNote" hidden>ഇന്റർനെറ്റ് ഇല്ലാതെയും ആപ്പ് പ്രവർത്തിക്കും. ആപ്പിന്റെ ഉപയോഗ വിവരങ്ങൾ (വായിച്ച അധ്യായങ്ങൾ, തിരയലുകൾ, ഉപകരണം, ഏകദേശ സ്ഥലം) അഡ്മിന് കാണാനായി സൂക്ഷിക്കുന്നു.</p>
 </dialog>
 
@@ -243,6 +252,15 @@
 </dialog>
 
 <!-- quick verse edit -->
+<!-- chapters that have an AI translation -->
+<dialog class="sheet" id="dlgAiList" aria-label="AI പരിഭാഷകൾ">
+  <div class="sheet-head">
+    <h2 class="sheet-title">AI പരിഭാഷയുള്ള അധ്യായങ്ങൾ</h2>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="sheet-body" id="aiListBody"></div>
+</dialog>
+
 <dialog class="modal" id="dlgVerseEdit" aria-label="വാക്യം തിരുത്തുക">
   <form method="dialog" id="verseEditForm">
     <h2 id="verseEditTitle">വാക്യം തിരുത്തുക</h2>
@@ -275,11 +293,6 @@
       <button data-v="split">രണ്ടും</button><button data-v="text">പാഠം</button><button data-v="preview">പ്രിവ്യൂ</button>
     </div>
   </div>
-  <details class="ed-ai" id="edAi" hidden open>
-    <summary><span id="edAiSum"></span><button class="btn sm" id="edAiAll" type="button">എല്ലാം ഉപയോഗിക്കുക</button></summary>
-    <p class="hint">Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് ചെയ്ത AI പരിഭാഷ ഈ പാഠത്തിൽ നിന്ന് വ്യത്യസ്തമാകുന്ന വാക്യങ്ങൾ. പച്ച = AI പരിഭാഷയിൽ മാത്രം, ചുവപ്പ് = ഇപ്പോഴത്തെ പാഠത്തിൽ മാത്രം. വേണ്ടത് “ഉപയോഗിക്കുക” വഴി എടുത്ത് സേവ് ചെയ്യുക.</p>
-    <div class="ed-ai-list" id="edAiList"></div>
-  </details>
   <div class="ed-warn" id="edWarn" hidden></div>
   <div class="ed-panes" id="edPanes">
     <textarea id="edText" spellcheck="false" aria-label="അധ്യായത്തിന്റെ പാഠം"></textarea>

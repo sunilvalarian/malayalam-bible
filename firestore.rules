@@ -156,7 +156,7 @@ service cloud.firestore {
           && (!('redeemedCode' in d) || codeIdOk(d.redeemedCode))
           && (!('ai' in d) || d.ai is bool);
       }
-      // ai (the AI translation above the editor) is switched on / off by admins only
+      // ai (the AI translation in the reader) is switched on / off by admins only
       function sameAi() {
         return request.resource.data.get('ai', false) == resource.data.get('ai', false);
       }

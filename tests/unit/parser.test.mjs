@@ -19,7 +19,7 @@ const plain = (x) => JSON.parse(JSON.stringify(x));
 
 describe('parser.js: loading', () => {
   test('sets window.BibleParser with the public API', () => {
-    for (const fn of ['normalize', 'searchKey', 'parsePdfParagraphs', 'parseEditorText', 'toEditorText', 'validate', 'verseMap', 'chapterFromFilename', 'compressRanges', 'addToLexicon', 'shouldGlue', 'verseDiff', 'replaceVerse', 'wordDiff']) {
+    for (const fn of ['normalize', 'searchKey', 'parsePdfParagraphs', 'parseEditorText', 'toEditorText', 'validate', 'verseMap', 'chapterFromFilename', 'compressRanges', 'addToLexicon', 'shouldGlue', 'wordDiff']) {
       assert.equal(typeof P[fn], 'function', fn);
     }
   });
@@ -200,26 +200,7 @@ describe('parser.js: OCR lines (wrapped / wholeWords)', () => {
   });
 });
 
-describe('parser.js: bundled text vs. an edit (verseDiff / replaceVerse / wordDiff)', () => {
-  const base = P.parseEditorText('## തലക്കെട്ട്\n[1] ഒന്ന് രണ്ട് മൂന്ന്. [2] നാല്.\n## രണ്ടാം\n[3] അഞ്ച്.\n[4] ആറ്.');
-  const edit = P.parseEditorText('## തലക്കെട്ട്\n[1] ഒന്ന് രണ്ട് മുന്ന്. [2] നാല്.\n[4] ആറ്.\n[5] ഏഴ്.');
-  test('lists the verses that differ, missing ones as empty text', () => {
-    assert.deepEqual(plain(P.verseDiff(base, edit)), [
-      { v: 1, a: 'ഒന്ന് രണ്ട് മൂന്ന്.', b: 'ഒന്ന് രണ്ട് മുന്ന്.' },
-      { v: 3, a: 'അഞ്ച്.', b: '' },
-      { v: 5, a: '', b: 'ഏഴ്.' },
-    ]);
-  });
-  test('replaces a verse in place, keeping whether it starts a paragraph', () => {
-    const r = plain(P.replaceVerse(edit, base, 1));
-    assert.deepEqual(r[1], { v: 1, t: 'ഒന്ന് രണ്ട് മൂന്ന്.', p: 1 });
-    assert.equal(P.toEditorText(r), '## തലക്കെട്ട്\n[1] ഒന്ന് രണ്ട് മൂന്ന്. [2] നാല്.\n[4] ആറ്.\n[5] ഏഴ്.');
-  });
-  test('a missing verse goes in verse order, above the heading over the next verse', () => {
-    const withHead = P.parseEditorText('[1] a\n[2] b\n## h\n[4] d');
-    assert.equal(P.toEditorText(P.replaceVerse(withHead, base, 3)), '[1] a\n[2] b\n[3] അഞ്ച്.\n## h\n[4] d');
-    assert.equal(P.toEditorText(P.replaceVerse(P.parseEditorText('[1] a'), base, 4)), '[1] a\n[4] ആറ്.');
-  });
+describe('parser.js: wordDiff (the reader\'s താരതമ്യം view)', () => {
   test('wordDiff marks the words only one side has', () => {
     assert.deepEqual(plain(P.wordDiff('a b c d', 'a x c d e')), {
       a: [['a', true], ['b', false], ['c', true], ['d', true]],

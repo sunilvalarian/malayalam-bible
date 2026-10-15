@@ -41,7 +41,7 @@
   const user = Object.assign({ hl: {}, bm: {}, notes: {} }, LS.get('user', {}));
   const settings = Object.assign({
     fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'verse',
-    numbers: true, headings: true, aiDiff: true, last: null, recent: [], history: [], whole: false, scope: 'all',
+    numbers: true, headings: true, aiView: true, ver: 'orig', last: null, recent: [], history: [], whole: false, scope: 'all',
   }, LS.get('settings', {}));
   // one verse per line is now the default — switch readers who still have the old saved default
   if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
@@ -241,6 +241,8 @@
   const reader = $('#reader');
 
   // ---------- rendering ----------
+  // ctx = { book, chapter } for highlights / marks; ctx.ai = Map(verse → HTML) prints the AI
+  // translation under each verse (the താരതമ്യം view)
   function renderItems(items, ctx) {
     ctx = ctx || {};
     const lastSeg = new Map();
@@ -266,7 +268,8 @@
           if (marks) marks = `<span class="mark-icons">${marks}</span>`;
         }
       }
-      html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}</span> `;
+      const aiLine = ctx.ai && lastSeg.get(it.v) === i && ctx.ai.has(it.v) ? `<span class="ai-line">${ctx.ai.get(it.v)}</span>` : '';
+      html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}${aiLine}</span> `;
     });
     close();
     return html;
@@ -306,12 +309,21 @@
       return;
     }
     const nb = neighbours();
+    const aiItems = aiChapter(cur.book, cur.chapter);
+    const mode = aiItems ? aiMode() : 'orig';
+    reader.classList.toggle('compare', mode === 'cmp');
+    shown = { book: cur.book, chapter: cur.chapter, items: mode === 'ai' ? aiItems : items, ai: mode !== 'orig' };
+    const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
+    const verSwitch = aiItems ? `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('cmp', 'താരതമ്യം', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ, മാറിയ വാക്കുകൾ അടയാളപ്പെടുത്തി')}</div>` : '';
+    const ctx = { book: cur.book, chapter: cur.chapter };
+    if (mode === 'cmp') ctx.ai = aiUnderVerses(items, aiItems);
+    const aiFoot = mode === 'orig' ? '' : `<div class="ai-note">AI പരിഭാഷ: Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.${mode === 'cmp' ? ' <ins>പച്ച</ins> = Original-ൽ ഇല്ലാത്ത വാക്കുകൾ.' : ''}</div>`;
     const foot = `<div class="ch-foot">
       ${nb.prev ? `<button class="btn ghost" data-go="${nb.prev.b}/${nb.prev.c}"><svg><use href="#i-left"/></svg>${esc(bookName(nb.prev.b))} ${nb.prev.c}</button>` : '<span></span>'}
       ${nb.next ? `<button class="btn ghost" data-go="${nb.next.b}/${nb.next.c}">${esc(bookName(nb.next.b))} ${nb.next.c}<svg><use href="#i-right"/></svg></button>` : '<span></span>'}
     </div>`;
-    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span></header>` +
-      renderItems(items, { book: cur.book, chapter: cur.chapter }) + foot;
+    reader.innerHTML = `<header class="ch-title"><small>${esc(b.name)}</small><span>അധ്യായം <b class="ch-num">${cur.chapter}</b></span>${verSwitch}</header>` +
+      renderItems(shown.items, ctx) + aiFoot + foot;
     $('#refLabel').textContent = `${b.name} ${cur.chapter}`;
     document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
     $('#btnPrev').disabled = !nb.prev;
@@ -324,6 +336,57 @@
     if (opts.keepScroll != null) window.scrollTo(0, opts.keepScroll);
     else if (opts.verse) scrollToVerse(opts.verse, opts.verseEnd, true);
     else window.scrollTo(0, 0);
+  }
+
+  // ---------- AI translation ----------
+  // Claude's translation from the Hebrew / Greek original (js/ai-data.js, ~3 MB, built by
+  // tools/build-ai-data.js). Original | AI | താരതമ്യം under the chapter title, only for people an
+  // admin switched it on for (Cloud.can('ai'); admins always) who haven't hidden it in Aa, and only
+  // on chapters that have a translation. Loaded the first time it is needed; offline after that.
+  let shown = { book: null, chapter: null, items: [], ai: false };   // what the reader shows (copy uses it)
+  const aiOk = () => can('ai') && settings.aiView;
+  const aiMode = () => (['ai', 'cmp'].includes(settings.ver) ? settings.ver : 'orig');
+  let aiDataP = null;
+  function aiData() {
+    if (!aiDataP) {
+      aiDataP = new Promise((resolve) => {
+        if (window.AI_BIBLE) { resolve(window.AI_BIBLE); return; }
+        const s = document.createElement('script');
+        s.src = 'js/ai-data.js';
+        s.onload = () => resolve(window.AI_BIBLE || null);
+        s.onerror = () => { aiDataP = null; s.remove(); resolve(null); };   // offline before it was ever loaded: try again later
+        document.head.appendChild(s);
+      });
+    }
+    return aiDataP;
+  }
+  // the AI translation of a chapter, or null (not allowed, none, or still loading: shown once loaded)
+  function aiChapter(b, c) {
+    if (!aiOk()) return null;
+    if (!window.AI_BIBLE) {
+      aiData().then((ab) => {
+        if (ab && ab.books[b] && ab.books[b][c] && cur.book === b && cur.chapter === c && aiOk() && !selection.size) rerenderKeep();
+      });
+      return null;
+    }
+    const chs = window.AI_BIBLE.books[b];
+    return (chs && chs[c]) || null;
+  }
+  // verse → HTML of the AI translation printed under it (താരതമ്യം): words the app's text doesn't
+  // have are marked. An AI verse whose number the app's text lacks goes under the verse before it.
+  function aiUnderVerses(items, aiItems) {
+    const mine = P.verseMap(items);
+    const own = [...mine.keys()].sort((x, y) => x - y);
+    const out = new Map();
+    for (const [v, t] of P.verseMap(aiItems)) {
+      const has = mine.has(v);
+      const at = has ? v : own.filter((x) => x < v).pop() ?? own[0];
+      if (at === undefined) continue;
+      const words = P.wordDiff(t, has ? mine.get(v) : '').a.map(([w, same]) => (same ? esc(w) : `<ins>${esc(w)}</ins>`)).join(' ');
+      const html = has ? words : `<sup class="vn">${v}</sup>${words}`;
+      out.set(at, out.has(at) ? out.get(at) + ' ' + html : html);
+    }
+    return out;
   }
 
   function scrollToVerse(v, ve, flash) {
@@ -395,7 +458,8 @@
   }
 
   function selectedText() {
-    const vm = P.verseMap(bookMap.get(cur.book).chapters.get(cur.chapter));
+    const ai = shown.ai && shown.book === cur.book && shown.chapter === cur.chapter && aiMode() === 'ai';
+    const vm = P.verseMap(ai ? shown.items : bookMap.get(cur.book).chapters.get(cur.chapter));
     const vs = [...selection].sort((a, b) => a - b);
     const body = vs.length === 1 ? vm.get(vs[0]) : vs.map((v) => `${v} ${vm.get(v)}`).join(' ');
     return `${body}\n— ${refText(cur.book, cur.chapter, vs)}`;
@@ -416,6 +480,8 @@
   function rerenderKeep() { render({ keepScroll: window.scrollY }); }
 
   reader.addEventListener('click', (e) => {
+    const verBtn = e.target.closest('.ver-switch button');
+    if (verBtn) { if (verBtn.dataset.ver !== aiMode()) { changeSetting('ver', verBtn.dataset.ver); rerenderKeep(); } return; }
     const goBtn = e.target.closest('[data-go]');
     if (goBtn) { const [b, c] = goBtn.dataset.go.split('/'); go(b, +c); return; }
     const up = e.target.closest('[data-menu-open]');
@@ -861,11 +927,13 @@
     $('#lineHeight').value = settings.lineHeight;
     $('#optNumbers').checked = settings.numbers;
     $('#optHeadings').checked = settings.headings;
-    $('#optAiDiff').checked = settings.aiDiff;
+    $('#optAiView').checked = settings.aiView;
     const segOn = (sel, v) => $$(sel + ' button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
     segOn('#fontSeg', settings.font);
     segOn('#themeSeg', settings.theme);
     segOn('#layoutSeg', settings.layout);
+    segOn('#verSeg', aiMode());
+    $('#verRow').hidden = !aiOk();
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     $('meta[name="theme-color"]').content = dark ? '#121212' : settings.theme === 'sepia' ? '#f4ecd8' : '#fbfaf7';
   }
@@ -877,16 +945,45 @@
     if (f) changeSetting('fontSize', Math.min(FONT_MAX, Math.max(FONT_MIN, settings.fontSize + +f.dataset.font)));
     const seg = e.target.closest('.seg button');
     if (seg) {
-      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout' }[seg.parentElement.id];
+      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout', verSeg: 'ver' }[seg.parentElement.id];
       if (k) changeSetting(k, seg.dataset.v);
+      if (k === 'ver' && cur.book && !selection.size) rerenderKeep();
     }
   });
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
-  $('#optAiDiff').addEventListener('change', (e) => {
-    changeSetting('aiDiff', e.target.checked);
-    if ($('#dlgEditor').open) { updateEditorPreview(); if (!editor.ai) loadEditorAi(); }
+  $('#optAiView').addEventListener('change', (e) => { changeSetting('aiView', e.target.checked); if (cur.book && !selection.size) rerenderKeep(); });
+  // ☰ → AI പരിഭാഷകൾ: the chapters that have an AI translation, by book; a tap opens it in the AI view
+  async function openAiList() {
+    const body = $('#aiListBody');
+    body.innerHTML = '<p class="ai-list-sum"><span class="spin"></span> ലോഡ് ചെയ്യുന്നു…</p>';
+    openDialog($('#dlgAiList'));
+    const ab = await aiData();
+    if (!ab) { body.innerHTML = `<div class="empty-state"><p>${navigator.onLine === false ? 'ഓഫ്‌ലൈൻ — AI പരിഭാഷ ഈ ഉപകരണത്തിൽ ഇതുവരെ ഇല്ല.' : 'AI പരിഭാഷ ലോഡ് ചെയ്യാനായില്ല.'}</p></div>`; return; }
+    // only chapters the reader has
+    const byBook = new Map();
+    let chapters = 0, verses = 0;
+    for (const b of books) {
+      const chs = ab.books[b.id];
+      if (!chs) continue;
+      const nums = Object.keys(chs).map(Number).filter((n) => b.chapters.has(n)).sort((x, y) => x - y);
+      if (!nums.length) continue;
+      byBook.set(b.id, nums);
+      chapters += nums.length;
+      nums.forEach((n) => { verses += P.verseMap(chs[n]).size; });
+    }
+    body.innerHTML = `<p class="ai-list-sum">${chapters} അധ്യായം · ${verses} വാക്യം — Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് ചെയ്ത പരിഭാഷ. അധ്യായം തൊട്ടാൽ AI പരിഭാഷയിൽ തുറക്കും.</p>` +
+      [...byBook].map(([id, nums]) => `<div class="book-group"><h4>${esc(bookName(id))} <small>${nums.length} / ${bookMap.get(id).nums.length}</small></h4><div class="book-grid">` +
+        nums.map((n) => `<button data-ai-go="${esc(id)}/${n}"${id === cur.book && n === cur.chapter ? ' class="cur"' : ''}>${n}</button>`).join('') + '</div></div>').join('');
+  }
+  $('#aiListBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-ai-go]');
+    if (!btn) return;
+    const [b, c] = btn.dataset.aiGo.split('/');
+    $('#dlgAiList').close();
+    if (aiMode() === 'orig') changeSetting('ver', 'ai');
+    if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c);
   });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
 
@@ -991,7 +1088,7 @@
   $('#verseEditFull').addEventListener('click', () => { $('#dlgVerseEdit').close('full'); if (can('edit')) openEditor(cur.book, cur.chapter); });
 
   // ---------- chapter editor ----------
-  const editor = { book: null, chapter: null, original: '', dirty: false, ai: null };
+  const editor = { book: null, chapter: null, original: '', dirty: false };
   const editorDirty = () => editor.dirty && $('#edText').value !== editor.original;
 
   function openEditor(bookId, ch) {
@@ -999,8 +1096,7 @@
     const b = bookMap.get(bookId);
     if (!b || !b.chapters.has(ch)) { toast('തിരുത്താൻ ഒരു അധ്യായം തുറക്കുക'); return; }
     clearSelection();
-    Object.assign(editor, { book: bookId, chapter: ch, dirty: false, ai: null });
-    loadEditorAi();
+    Object.assign(editor, { book: bookId, chapter: ch, dirty: false });
     editor.original = P.toEditorText(b.chapters.get(ch));
     $('#edText').value = editor.original;
     $('#editorTitle').textContent = `${b.name} ${ch} · തിരുത്തുക`;
@@ -1032,66 +1128,8 @@
     const w = editorWarnings(items);
     $('#edWarn').hidden = !w.length;
     $('#edWarn').textContent = w.join(' · ');
-    renderAiDiff(items);
     return items;
   }
-  // Claude's translation from the Hebrew / Greek original (js/ai-data.js, ~3 MB): loaded the first
-  // time the editor opens with the setting on; also offline once loaded
-  let aiDataP = null;
-  function aiData() {
-    if (!aiDataP) {
-      aiDataP = new Promise((resolve) => {
-        if (window.AI_BIBLE) { resolve(window.AI_BIBLE); return; }
-        const s = document.createElement('script');
-        s.src = 'js/ai-data.js';
-        s.onload = () => resolve(window.AI_BIBLE || null);
-        s.onerror = () => { aiDataP = null; s.remove(); resolve(null); };   // offline before it was ever loaded: try again later
-        document.head.appendChild(s);
-      });
-    }
-    return aiDataP;
-  }
-  function loadEditorAi() {
-    if (!settings.aiDiff || !can('ai')) return;
-    const { book, chapter } = editor;
-    aiData().then((ab) => {
-      const items = ab && ab.books[book] && ab.books[book][chapter];
-      if (!items || editor.book !== book || editor.chapter !== chapter || !$('#dlgEditor').open) return;
-      editor.ai = items;
-      updateEditorPreview();
-    });
-  }
-  // the verses where the AI translation differs from the text in the editor
-  function renderAiDiff(items) {
-    const diff = editor.ai && settings.aiDiff && can('ai') ? P.verseDiff(editor.ai, items) : [];
-    $('#edAi').hidden = !diff.length;
-    if (!diff.length) { $('#edAiList').innerHTML = ''; return; }
-    $('#edAiSum').textContent = `AI പരിഭാഷ: ${diff.length} വാക്യത്തിൽ മാറ്റം (${P.compressRanges(diff.map((d) => d.v))})`;
-    const words = (ws, tag) => ws.map(([w, same]) => (same ? esc(w) : `<${tag}>${esc(w)}</${tag}>`)).join(' ');
-    $('#edAiList').innerHTML = diff.map((d) => {
-      const wd = P.wordDiff(d.a, d.b);
-      return `<div class="ed-ai-row"><b>${d.v}</b>
-        <div class="t"><small>AI പരിഭാഷ</small>${d.a ? words(wd.a, 'ins') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
-        <div class="t cur"><small>ഇപ്പോൾ</small>${d.b ? words(wd.b, 'del') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
-        ${d.a ? `<button class="btn sm" type="button" data-v="${d.v}">ഉപയോഗിക്കുക</button>` : ''}</div>`;
-    }).join('');
-  }
-  function setEditorText(items) {
-    const ta = $('#edText'), top = ta.scrollTop;
-    ta.value = P.toEditorText(items);
-    ta.scrollTop = top;
-    editor.dirty = true;
-    updateEditorPreview();
-  }
-  $('#edAiList').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-v]');
-    if (!btn || !editor.ai) return;
-    setEditorText(P.replaceVerse(P.parseEditorText($('#edText').value), editor.ai, +btn.dataset.v));
-  });
-  $('#edAiAll').addEventListener('click', (e) => {
-    e.preventDefault();   // inside <summary>: don't fold the panel
-    if (editor.ai) setEditorText(editor.ai);
-  });
   const updateEditorPreviewDebounced = debounce(updateEditorPreview, 300);
   $('#edText').addEventListener('input', () => { editor.dirty = true; updateEditorPreviewDebounced(); });
   $('#edViewSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setEditorView(b.dataset.v); });
@@ -1650,7 +1688,7 @@ p{margin:0 0 .9em}
 
   // ---------- menu ----------
   // every item of the ഉള്ളടക്കം and ഡാറ്റ sections (same keys as data-perm in index.html)
-  const MENU_PERM = { upload: 'upload', scan: 'upload', sources: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
+  const MENU_PERM = { aiList: 'ai', upload: 'upload', scan: 'upload', sources: 'upload', edit: 'edit', exportHtml: 'export', admin: 'users', exportData: 'export', backup: 'export', restore: 'restore', reset: 'reset' };
   async function menuAction(a) {
     const m = $('#dlgMenu');
     if (m.open) m.close();
@@ -1673,6 +1711,7 @@ p{margin:0 0 .9em}
     else if (a === 'scan') { openUpload(); $('#upCamera').click(); }
     else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
+    else if (a === 'aiList') { if (!settings.aiView) changeSetting('aiView', true); openAiList(); }
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();
     else if (a === 'backup') exportBackup();
@@ -1790,6 +1829,7 @@ p{margin:0 0 .9em}
   function applyPermissions() {
     // data-perm="edit ai": every permission listed is needed
     $$('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split(' ').every(can); });
+    $('#verRow').hidden = !aiOk();
     // a menu heading disappears when nothing under it is left
     $$('#dlgMenu .menu-label').forEach((label) => {
       let el = label.nextElementSibling, any = false, gated = false;
@@ -2066,7 +2106,7 @@ p{margin:0 0 .9em}
   // an admin switched the AI translation on / off for this user: the Aa setting and an open editor follow
   function onAiChanged({ on, changed }) {
     applyPermissions();
-    if ($('#dlgEditor').open) { updateEditorPreview(); if (on && !editor.ai) loadEditorAi(); }
+    if (cur.book && !selection.size) rerenderKeep();
     if (changed && Cloud.role !== 'admin') toast(on ? 'AI പരിഭാഷ നിങ്ങൾക്ക് ഓണാക്കി' : 'AI പരിഭാഷ നിങ്ങൾക്ക് ഓഫാക്കി');
   }
 
