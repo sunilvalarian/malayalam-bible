@@ -884,7 +884,10 @@
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
-  $('#optAiDiff').addEventListener('change', (e) => { changeSetting('aiDiff', e.target.checked); if ($('#dlgEditor').open) updateEditorPreview(); });
+  $('#optAiDiff').addEventListener('change', (e) => {
+    changeSetting('aiDiff', e.target.checked);
+    if ($('#dlgEditor').open) { updateEditorPreview(); if (!editor.ai) loadEditorAi(); }
+  });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
 
   // ---------- library lists ----------
@@ -988,7 +991,7 @@
   $('#verseEditFull').addEventListener('click', () => { $('#dlgVerseEdit').close('full'); if (can('edit')) openEditor(cur.book, cur.chapter); });
 
   // ---------- chapter editor ----------
-  const editor = { book: null, chapter: null, original: '', dirty: false, base: null };
+  const editor = { book: null, chapter: null, original: '', dirty: false, ai: null };
   const editorDirty = () => editor.dirty && $('#edText').value !== editor.original;
 
   function openEditor(bookId, ch) {
@@ -996,17 +999,8 @@
     const b = bookMap.get(bookId);
     if (!b || !b.chapters.has(ch)) { toast('തിരുത്താൻ ഒരു അധ്യായം തുറക്കുക'); return; }
     clearSelection();
-    // an online edit of a bundled chapter: the bundled text (typed by Claude from the uploaded
-    // source, or from the PDF) is shown above the editor where it differs
-    const orig = b.changed.has(ch) ? baseChapter(bookId, ch) : null;
-    Object.assign(editor, { book: bookId, chapter: ch, dirty: false, base: orig });
-    if (orig) {
-      const typed = isTyped(bookId, ch);
-      $('#edBaseHint').textContent = typed
-        ? 'അപ്‌ലോഡ് ചെയ്ത ഫയലിൽ നിന്ന് AI ടൈപ്പ് ചെയ്ത പാഠം ഈ അധ്യായത്തിന്റെ ഓൺലൈൻ തിരുത്തലിൽ നിന്ന് വ്യത്യസ്തമാണ്. പച്ച = AI പാഠത്തിൽ മാത്രം, ചുവപ്പ് = ഇപ്പോഴത്തെ പാഠത്തിൽ മാത്രം. ശരിയായത് “ഉപയോഗിക്കുക” വഴി എടുത്ത് സേവ് ചെയ്യുക.'
-        : 'PDF-ലെ യഥാർത്ഥ പാഠം ഈ അധ്യായത്തിന്റെ ഓൺലൈൻ തിരുത്തലിൽ നിന്ന് വ്യത്യസ്തമാണ്. പച്ച = യഥാർത്ഥ പാഠത്തിൽ മാത്രം, ചുവപ്പ് = ഇപ്പോഴത്തെ പാഠത്തിൽ മാത്രം.';
-      $('#edBase').dataset.typed = typed ? '1' : '';
-    }
+    Object.assign(editor, { book: bookId, chapter: ch, dirty: false, ai: null });
+    loadEditorAi();
     editor.original = P.toEditorText(b.chapters.get(ch));
     $('#edText').value = editor.original;
     $('#editorTitle').textContent = `${b.name} ${ch} · തിരുത്തുക`;
@@ -1038,26 +1032,46 @@
     const w = editorWarnings(items);
     $('#edWarn').hidden = !w.length;
     $('#edWarn').textContent = w.join(' · ');
-    renderBaseDiff(items);
+    renderAiDiff(items);
     return items;
   }
-  function isTyped(id, n) {
-    const b = base.books.find((x) => x.id === id);
-    return !!(b && b.typed && b.typed.includes(n));
+  // Claude's translation from the Hebrew / Greek original (js/ai-data.js, ~3 MB): loaded the first
+  // time the editor opens with the setting on; also offline once loaded
+  let aiDataP = null;
+  function aiData() {
+    if (!aiDataP) {
+      aiDataP = new Promise((resolve) => {
+        if (window.AI_BIBLE) { resolve(window.AI_BIBLE); return; }
+        const s = document.createElement('script');
+        s.src = 'js/ai-data.js';
+        s.onload = () => resolve(window.AI_BIBLE || null);
+        s.onerror = () => { aiDataP = null; s.remove(); resolve(null); };   // offline before it was ever loaded: try again later
+        document.head.appendChild(s);
+      });
+    }
+    return aiDataP;
   }
-  // the verses where the bundled text differs from the text in the editor
-  function renderBaseDiff(items) {
-    const box = $('#edBase');
-    const diff = editor.base && settings.aiDiff ? P.verseDiff(editor.base, items) : [];
-    box.hidden = !diff.length;
-    if (!diff.length) { $('#edBaseList').innerHTML = ''; return; }
-    const src = box.dataset.typed ? 'AI ടൈപ്പ് ചെയ്ത പാഠം' : 'PDF-ലെ പാഠം';
-    $('#edBaseSum').textContent = `${box.dataset.typed ? 'AI പാഠം' : 'PDF പാഠം'}: ${diff.length} വാക്യം വ്യത്യസ്തം (${P.compressRanges(diff.map((d) => d.v))})`;
+  function loadEditorAi() {
+    if (!settings.aiDiff) return;
+    const { book, chapter } = editor;
+    aiData().then((ab) => {
+      const items = ab && ab.books[book] && ab.books[book][chapter];
+      if (!items || editor.book !== book || editor.chapter !== chapter || !$('#dlgEditor').open) return;
+      editor.ai = items;
+      updateEditorPreview();
+    });
+  }
+  // the verses where the AI translation differs from the text in the editor
+  function renderAiDiff(items) {
+    const diff = editor.ai && settings.aiDiff ? P.verseDiff(editor.ai, items) : [];
+    $('#edAi').hidden = !diff.length;
+    if (!diff.length) { $('#edAiList').innerHTML = ''; return; }
+    $('#edAiSum').textContent = `AI പരിഭാഷ: ${diff.length} വാക്യത്തിൽ മാറ്റം (${P.compressRanges(diff.map((d) => d.v))})`;
     const words = (ws, tag) => ws.map(([w, same]) => (same ? esc(w) : `<${tag}>${esc(w)}</${tag}>`)).join(' ');
-    $('#edBaseList').innerHTML = diff.map((d) => {
+    $('#edAiList').innerHTML = diff.map((d) => {
       const wd = P.wordDiff(d.a, d.b);
-      return `<div class="ed-base-row"><b>${d.v}</b>
-        <div class="t"><small>${esc(src)}</small>${d.a ? words(wd.a, 'ins') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
+      return `<div class="ed-ai-row"><b>${d.v}</b>
+        <div class="t"><small>AI പരിഭാഷ</small>${d.a ? words(wd.a, 'ins') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
         <div class="t cur"><small>ഇപ്പോൾ</small>${d.b ? words(wd.b, 'del') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
         ${d.a ? `<button class="btn sm" type="button" data-v="${d.v}">ഉപയോഗിക്കുക</button>` : ''}</div>`;
     }).join('');
@@ -1069,14 +1083,14 @@
     editor.dirty = true;
     updateEditorPreview();
   }
-  $('#edBaseList').addEventListener('click', (e) => {
+  $('#edAiList').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-v]');
-    if (!btn || !editor.base) return;
-    setEditorText(P.replaceVerse(P.parseEditorText($('#edText').value), editor.base, +btn.dataset.v));
+    if (!btn || !editor.ai) return;
+    setEditorText(P.replaceVerse(P.parseEditorText($('#edText').value), editor.ai, +btn.dataset.v));
   });
-  $('#edBaseAll').addEventListener('click', (e) => {
+  $('#edAiAll').addEventListener('click', (e) => {
     e.preventDefault();   // inside <summary>: don't fold the panel
-    if (editor.base) setEditorText(editor.base);
+    if (editor.ai) setEditorText(editor.ai);
   });
   const updateEditorPreviewDebounced = debounce(updateEditorPreview, 300);
   $('#edText').addEventListener('input', () => { editor.dirty = true; updateEditorPreviewDebounced(); });
@@ -1582,11 +1596,7 @@
   function mergedData() {
     return {
       version: new Date().toISOString().slice(0, 10),
-      books: books.map((b) => {
-        const typed = ((base.books.find((x) => x.id === b.id) || {}).typed || []).filter((n) => b.chapters.has(n));
-        return Object.assign({ id: b.id, name: b.name, chapters: Object.fromEntries(b.nums.map((n) => [n, b.chapters.get(n)])) },
-          typed.length ? { typed } : {});
-      }),
+      books: books.map((b) => ({ id: b.id, name: b.name, chapters: Object.fromEntries(b.nums.map((n) => [n, b.chapters.get(n)])) })),
     };
   }
   function exportDataJs() {
