@@ -209,6 +209,7 @@
   </div>
   <label class="set-row chk"><input type="checkbox" id="optNumbers"> വാക്യ നമ്പറുകൾ കാണിക്കുക</label>
   <label class="set-row chk"><input type="checkbox" id="optHeadings"> തലക്കെട്ടുകൾ കാണിക്കുക</label>
+  <label class="set-row chk" data-perm="edit"><input type="checkbox" id="optAiDiff"> തിരുത്തുമ്പോൾ AI ടൈപ്പ് ചെയ്ത പാഠത്തിലെ വ്യത്യാസങ്ങൾ കാണിക്കുക</label>
   <p class="set-note hint" id="usageNote" hidden>ഇന്റർനെറ്റ് ഇല്ലാതെയും ആപ്പ് പ്രവർത്തിക്കും. ആപ്പിന്റെ ഉപയോഗ വിവരങ്ങൾ (വായിച്ച അധ്യായങ്ങൾ, തിരയലുകൾ, ഉപകരണം, ഏകദേശ സ്ഥലം) അഡ്മിന് കാണാനായി സൂക്ഷിക്കുന്നു.</p>
 </dialog>
 
@@ -274,6 +275,11 @@
       <button data-v="split">രണ്ടും</button><button data-v="text">പാഠം</button><button data-v="preview">പ്രിവ്യൂ</button>
     </div>
   </div>
+  <details class="ed-base" id="edBase" hidden open>
+    <summary><span id="edBaseSum"></span><button class="btn sm" id="edBaseAll" type="button">എല്ലാം ഉപയോഗിക്കുക</button></summary>
+    <p class="hint" id="edBaseHint"></p>
+    <div class="ed-base-list" id="edBaseList"></div>
+  </details>
   <div class="ed-warn" id="edWarn" hidden></div>
   <div class="ed-panes" id="edPanes">
     <textarea id="edText" spellcheck="false" aria-label="അധ്യായത്തിന്റെ പാഠം"></textarea>

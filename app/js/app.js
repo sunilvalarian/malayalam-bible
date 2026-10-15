@@ -41,7 +41,7 @@
   const user = Object.assign({ hl: {}, bm: {}, notes: {} }, LS.get('user', {}));
   const settings = Object.assign({
     fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'verse',
-    numbers: true, headings: true, last: null, recent: [], history: [], whole: false, scope: 'all',
+    numbers: true, headings: true, aiDiff: true, last: null, recent: [], history: [], whole: false, scope: 'all',
   }, LS.get('settings', {}));
   // one verse per line is now the default — switch readers who still have the old saved default
   if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
@@ -861,6 +861,7 @@
     $('#lineHeight').value = settings.lineHeight;
     $('#optNumbers').checked = settings.numbers;
     $('#optHeadings').checked = settings.headings;
+    $('#optAiDiff').checked = settings.aiDiff;
     const segOn = (sel, v) => $$(sel + ' button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
     segOn('#fontSeg', settings.font);
     segOn('#themeSeg', settings.theme);
@@ -883,6 +884,7 @@
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
+  $('#optAiDiff').addEventListener('change', (e) => { changeSetting('aiDiff', e.target.checked); if ($('#dlgEditor').open) updateEditorPreview(); });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
 
   // ---------- library lists ----------
@@ -986,7 +988,7 @@
   $('#verseEditFull').addEventListener('click', () => { $('#dlgVerseEdit').close('full'); if (can('edit')) openEditor(cur.book, cur.chapter); });
 
   // ---------- chapter editor ----------
-  const editor = { book: null, chapter: null, original: '', dirty: false };
+  const editor = { book: null, chapter: null, original: '', dirty: false, base: null };
   const editorDirty = () => editor.dirty && $('#edText').value !== editor.original;
 
   function openEditor(bookId, ch) {
@@ -994,7 +996,17 @@
     const b = bookMap.get(bookId);
     if (!b || !b.chapters.has(ch)) { toast('തിരുത്താൻ ഒരു അധ്യായം തുറക്കുക'); return; }
     clearSelection();
-    Object.assign(editor, { book: bookId, chapter: ch, dirty: false });
+    // an online edit of a bundled chapter: the bundled text (typed by Claude from the uploaded
+    // source, or from the PDF) is shown above the editor where it differs
+    const orig = b.changed.has(ch) ? baseChapter(bookId, ch) : null;
+    Object.assign(editor, { book: bookId, chapter: ch, dirty: false, base: orig });
+    if (orig) {
+      const typed = isTyped(bookId, ch);
+      $('#edBaseHint').textContent = typed
+        ? 'അപ്‌ലോഡ് ചെയ്ത ഫയലിൽ നിന്ന് AI ടൈപ്പ് ചെയ്ത പാഠം ഈ അധ്യായത്തിന്റെ ഓൺലൈൻ തിരുത്തലിൽ നിന്ന് വ്യത്യസ്തമാണ്. പച്ച = AI പാഠത്തിൽ മാത്രം, ചുവപ്പ് = ഇപ്പോഴത്തെ പാഠത്തിൽ മാത്രം. ശരിയായത് “ഉപയോഗിക്കുക” വഴി എടുത്ത് സേവ് ചെയ്യുക.'
+        : 'PDF-ലെ യഥാർത്ഥ പാഠം ഈ അധ്യായത്തിന്റെ ഓൺലൈൻ തിരുത്തലിൽ നിന്ന് വ്യത്യസ്തമാണ്. പച്ച = യഥാർത്ഥ പാഠത്തിൽ മാത്രം, ചുവപ്പ് = ഇപ്പോഴത്തെ പാഠത്തിൽ മാത്രം.';
+      $('#edBase').dataset.typed = typed ? '1' : '';
+    }
     editor.original = P.toEditorText(b.chapters.get(ch));
     $('#edText').value = editor.original;
     $('#editorTitle').textContent = `${b.name} ${ch} · തിരുത്തുക`;
@@ -1026,8 +1038,46 @@
     const w = editorWarnings(items);
     $('#edWarn').hidden = !w.length;
     $('#edWarn').textContent = w.join(' · ');
+    renderBaseDiff(items);
     return items;
   }
+  function isTyped(id, n) {
+    const b = base.books.find((x) => x.id === id);
+    return !!(b && b.typed && b.typed.includes(n));
+  }
+  // the verses where the bundled text differs from the text in the editor
+  function renderBaseDiff(items) {
+    const box = $('#edBase');
+    const diff = editor.base && settings.aiDiff ? P.verseDiff(editor.base, items) : [];
+    box.hidden = !diff.length;
+    if (!diff.length) { $('#edBaseList').innerHTML = ''; return; }
+    const src = box.dataset.typed ? 'AI ടൈപ്പ് ചെയ്ത പാഠം' : 'PDF-ലെ പാഠം';
+    $('#edBaseSum').textContent = `${box.dataset.typed ? 'AI പാഠം' : 'PDF പാഠം'}: ${diff.length} വാക്യം വ്യത്യസ്തം (${P.compressRanges(diff.map((d) => d.v))})`;
+    const words = (ws, tag) => ws.map(([w, same]) => (same ? esc(w) : `<${tag}>${esc(w)}</${tag}>`)).join(' ');
+    $('#edBaseList').innerHTML = diff.map((d) => {
+      const wd = P.wordDiff(d.a, d.b);
+      return `<div class="ed-base-row"><b>${d.v}</b>
+        <div class="t"><small>${esc(src)}</small>${d.a ? words(wd.a, 'ins') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
+        <div class="t cur"><small>ഇപ്പോൾ</small>${d.b ? words(wd.b, 'del') : '<em>(ഈ വാക്യം ഇല്ല)</em>'}</div>
+        ${d.a ? `<button class="btn sm" type="button" data-v="${d.v}">ഉപയോഗിക്കുക</button>` : ''}</div>`;
+    }).join('');
+  }
+  function setEditorText(items) {
+    const ta = $('#edText'), top = ta.scrollTop;
+    ta.value = P.toEditorText(items);
+    ta.scrollTop = top;
+    editor.dirty = true;
+    updateEditorPreview();
+  }
+  $('#edBaseList').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-v]');
+    if (!btn || !editor.base) return;
+    setEditorText(P.replaceVerse(P.parseEditorText($('#edText').value), editor.base, +btn.dataset.v));
+  });
+  $('#edBaseAll').addEventListener('click', (e) => {
+    e.preventDefault();   // inside <summary>: don't fold the panel
+    if (editor.base) setEditorText(editor.base);
+  });
   const updateEditorPreviewDebounced = debounce(updateEditorPreview, 300);
   $('#edText').addEventListener('input', () => { editor.dirty = true; updateEditorPreviewDebounced(); });
   $('#edViewSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setEditorView(b.dataset.v); });
@@ -1532,7 +1582,11 @@
   function mergedData() {
     return {
       version: new Date().toISOString().slice(0, 10),
-      books: books.map((b) => ({ id: b.id, name: b.name, chapters: Object.fromEntries(b.nums.map((n) => [n, b.chapters.get(n)])) })),
+      books: books.map((b) => {
+        const typed = ((base.books.find((x) => x.id === b.id) || {}).typed || []).filter((n) => b.chapters.has(n));
+        return Object.assign({ id: b.id, name: b.name, chapters: Object.fromEntries(b.nums.map((n) => [n, b.chapters.get(n)])) },
+          typed.length ? { typed } : {});
+      }),
     };
   }
   function exportDataJs() {

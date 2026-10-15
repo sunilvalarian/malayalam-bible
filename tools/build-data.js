@@ -105,8 +105,10 @@ async function sourceBooks(report) {
   const books = [];
   for (const id of ids) {
     const chapters = await pdfChapters(path.join(dir, id), id, catalog.get(id).name, report, id + ' ');
+    const typed = [];
     fs.readdirSync(path.join(dir, id)).filter((f) => /^\d+\.txt$/.test(f)).map((f) => parseInt(f, 10))
       .forEach((n) => {
+        typed.push(n);
         const items = P.parseEditorText(fs.readFileSync(path.join(dir, id, n + '.txt'), 'utf8'));
         const warnings = P.validate(items);
         chapters[n] = items;
@@ -114,7 +116,9 @@ async function sourceBooks(report) {
       });
     const sorted = {};
     Object.keys(chapters).map(Number).sort((a, b) => a - b).forEach((k) => { sorted[k] = chapters[k]; });
-    books.push({ id, name: catalog.get(id).name, chapters: sorted });
+    // typed = chapters Claude typed from uploaded photos / files (the editor shows how an online edit differs)
+    books.push(Object.assign({ id, name: catalog.get(id).name, chapters: sorted },
+      typed.length ? { typed: typed.sort((a, b) => a - b) } : {}));
   }
   return books;
 }
