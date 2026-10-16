@@ -114,7 +114,7 @@ async function sourceBooks(report) {
       });
     const sorted = {};
     Object.keys(chapters).map(Number).sort((a, b) => a - b).forEach((k) => { sorted[k] = chapters[k]; });
-    books.push({ id, name: catalog.get(id).name, chapters: sorted });
+    if (Object.keys(sorted).length) books.push({ id, name: catalog.get(id).name, chapters: sorted });   // e.g. only partial/ chapters so far
   }
   return books;
 }

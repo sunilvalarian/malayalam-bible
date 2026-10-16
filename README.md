@@ -291,6 +291,23 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
+1 Samuel (`tools/sources/1SA/1.txt` … `31.txt`) is typed in full from photos of pages 327–368 (one photo per page; the photo of page 327 shows only the lower part, without the page number). Every verse is there: 1:28, 2:36, 3:21, 4:22, 5:12, 6:21, 7:17, 8:22, 9:27, 10:27, 11:15, 12:25, 13:23, 14:52, 15:35, 16:23, 17:58, 18:30, 19:24, 20:42, 21:16, 22:23, 23:28, 24:23, 25:44, 26:25, 27:12, 28:25, 29:11, 30:31, 31:13 (810 verses). The numbering follows the Hebrew division: the second half of 20:42 in many Bibles is 21:1 here, and 23:29 is 24:1 here. Hannah's song (2:1–10) is one line per verse; 15:22–23 and 16:12 have an unnumbered line where the print starts a new paragraph inside the verse. Kept as printed: 2:8 ധൂളിയിൽനിന്ന്എഴുന്നേല്പിക്കുന്നവൻ, 3:16 ending "ഇതാ, ഞാൻ" with no punctuation, 4:3 ഉടമ്പടിപ്പേടകം but 4:4–5 ഉടമ്പടിപേടകം, 15:5 വാഗ്വാദത്തിലേർപ്പെട്ടു, 16:1 ബേത്ലെഹംകാരനായ, 23:27 യാത്രയാകു, 24:1 എൻഗേദി but 24:2 ഏൻഗേദി.
+
+Worth checking against the book (1 Samuel):
+- 17:28–30, at the top of page 350, is out of focus: 17:29 "ഇത് ഒരു പ്രധാനകാര്യമല്ലേ?" was read from the letter shapes.
+- Page 348 is soft at the top: 16:9 ഷമ്മായെയാണ്, 16:20 ഒരു ഓമർ അപ്പം.
+- 21:8: the verse number is only a faint mark in a low-resolution photo (page 356).
+- Words split across a page break were joined without a space where the print splits a word (3:1 അക്കാലത്ത്, 9:24, 13:3 സൈനികാസ്ഥാനം, 15:6, 20:41, 26:1, 26:20, 28:2, 30:23).
+
+Joshua and Judges came in the same batch of photos, but with many pages missing, so only whole chapters are in the app. Joshua 1, 2, 7, 16, 17, 20 and 21 are complete (pages 259–261, 264–266, 276–278, 281–284), and Joshua 3 lacks only verse 17 (page 262 is missing). The typed parts of other chapters are kept in `tools/sources/JOS/partial/` and `tools/sources/JDG/partial/` (build-data ignores them; `…` marks where a page is missing), ready to be completed when the missing pages come:
+- Joshua: pages 262–263, 267–268, 270–272, 274–275, 279–280 and 285–286 are missing. So chapters 4, 5, 11, 14 and 23 are missing entirely. The partial ones are 6 (from 6:5), 8 (to 8:10), 9–10 (9:18–10:11), 12–13 (12:4–13:14), 15 (from 15:9), 18 (to 18:10), 19 (from 19:48), 22 (to 22:27) and 24 (from 24:8).
+- Judges: only pages 299 (6:32–7:10), 308 (12:5–13:10) and 316–317 (19:3–20:14).
+- Ruth: no photos yet.
+
+Worth checking against the book (Joshua): 16:5 അഥ്റോത്ത് (could be അത്റോത്ത്); kept as printed: 2:22 കണ്ടത്താനായില്ല, 7:4 മൂവായിരിത്തോളംപേർ, 7:15 ഇസ്രയേലിൽ, 17:2 അബിയേര്യർ, and 21:9 ending with no full stop. Names printed with a visible chandrakkala keep a zero-width non-joiner (ആയ്‌, യാർമുത്‌രാജാവ്, ലാകീഷ്‌രാജാവ്).
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
