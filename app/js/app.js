@@ -567,8 +567,14 @@
   const canLink = /^https?:$/.test(location.protocol);
   const isPhone = matchMedia('(pointer: coarse)').matches;
 
-  function openShare() {
+  async function openShare() {
     const p = selectedParts();
+    if (!$('#dlgShare')) {   // an older cached index.html without the share sheet: the old way
+      const text = `${p.body}\n— ${p.ref}`;
+      clearSelection();
+      if (navigator.share) { try { await navigator.share({ title: p.ref, text }); } catch (err) { /* cancelled */ } } else toast((await copyText(text)) ? 'പങ്കിടാനായി പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
+      return;
+    }
     shareCtx = Object.assign(p, { link: `${location.origin}${location.pathname}#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}` });
     shareCtx.img = verseImage(p).catch((err) => { console.warn('share image', err); return null; });
     $('#shareTitle').textContent = 'പങ്കിടുക · ' + p.ref;
@@ -596,9 +602,9 @@
     };
     $$('a[data-to]', $('#shareGrid')).forEach((a) => { a.href = href[a.dataset.to]; });
   }
-  $('#shareLink').addEventListener('change', () => { if (shareCtx) setShareLinks(); });
+  $('#shareLink')?.addEventListener('change', () => { if (shareCtx) setShareLinks(); });
 
-  $('#shareGrid').addEventListener('click', async (e) => {
+  $('#shareGrid')?.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-to]');
     if (!el || !shareCtx) return;
     const to = el.dataset.to, ctx = shareCtx, dlg = $('#dlgShare');
