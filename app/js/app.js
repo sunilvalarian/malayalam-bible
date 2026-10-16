@@ -573,19 +573,25 @@
   const canLink = /^https?:$/.test(location.protocol);
   const isPhone = matchMedia('(pointer: coarse)').matches;
 
-  async function openShare() {
-    const p = selectedParts();
+  // app: a link to the app itself (☰ → ആപ്പ് പങ്കിടുക), no picture
+  async function openShare(app) {
+    const chapter = !!app;
+    const p = app
+      ? { b: cur.book, c: cur.chapter, vs: [], ref: 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ', chapter: true,
+        body: 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ — ഫോണിലും കമ്പ്യൂട്ടറിലും വായിക്കാം, ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്താൽ ഓഫ്‌ലൈനിലും.' }
+      : selectedParts();
     if (!$('#dlgShare')) {   // an older cached index.html without the share sheet: the old way
       const text = `${p.body}\n— ${p.ref}`;
       clearSelection();
       if (navigator.share) { try { await navigator.share({ title: p.ref, text }); } catch (err) { /* cancelled */ } } else toast((await copyText(text)) ? 'പങ്കിടാനായി പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
       return;
     }
-    shareCtx = Object.assign(p, { link: `${location.origin}${location.pathname}#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}` });
-    shareCtx.img = verseImage(p).catch((err) => { console.warn('share image', err); return null; });
+    shareCtx = Object.assign(p, { link: location.origin + location.pathname + (app ? '' : `#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}`) });
+    shareCtx.img = chapter ? Promise.resolve(null) : verseImage(p).catch((err) => { console.warn('share image', err); return null; });
     $('#shareTitle').textContent = 'പങ്കിടുക · ' + p.ref;
     $('#shareVerse').textContent = p.body;
-    $('#shareLinkRow').hidden = !canLink;
+    $('#shareLinkRow').hidden = !canLink || chapter;   // the app is shared as its link
+    $$('[data-to="instagram"], [data-to="image"]', $('#shareGrid')).forEach((el) => { el.hidden = !!chapter; });
     $('[data-to="facebook"]', $('#shareGrid')).hidden = !canLink;
     $('#shareSms').hidden = !isPhone;
     $('#shareMore').hidden = !navigator.share;
@@ -593,15 +599,15 @@
     clearSelection();
     openDialog($('#dlgShare'));
   }
-  const shareLink = () => (canLink && $('#shareLink').checked ? shareCtx.link : '');
-  const shareText = () => `${shareCtx.body}\n— ${shareCtx.ref}` + (shareLink() ? '\n' + shareLink() : '');
+  const shareLink = () => (canLink && (shareCtx.chapter || $('#shareLink').checked) ? shareCtx.link : '');
+  const shareText = () => (shareCtx.chapter ? shareCtx.body : `${shareCtx.body}\n— ${shareCtx.ref}`) + (shareLink() ? '\n' + shareLink() : '');
 
   function setShareLinks() {
     const u = encodeURIComponent, t = u(shareText()), link = shareLink();
     const href = {
       whatsapp: 'https://wa.me/?text=' + t,
       facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + u(link || location.origin + location.pathname),
-      telegram: link ? `https://t.me/share/url?url=${u(link)}&text=${u(`${shareCtx.body}\n— ${shareCtx.ref}`)}` : 'https://t.me/share/url?url=' + t,
+      telegram: link ? `https://t.me/share/url?url=${u(link)}&text=${u(shareCtx.chapter ? shareCtx.body : `${shareCtx.body}\n— ${shareCtx.ref}`)}` : 'https://t.me/share/url?url=' + t,
       x: 'https://twitter.com/intent/tweet?text=' + t,
       email: `mailto:?subject=${u(shareCtx.ref)}&body=${t}`,
       sms: 'sms:?&body=' + t,
@@ -1840,6 +1846,7 @@ p{margin:0 0 .9em}
     else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
     else if (a === 'aiList') openAiList();
+    else if (a === 'share') openShare(true);
     else if (a === 'normalView') { aiOn = false; if (cur.book) rerenderKeep(); }
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();
