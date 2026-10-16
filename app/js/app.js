@@ -342,8 +342,8 @@
   // Claude's translation from the Hebrew / Greek original (js/ai-data.js, ~3 MB, built by
   // tools/build-ai-data.js). Not in the normal view: ☰ → AI പരിഭാഷകൾ (only for people an admin
   // switched it on for, Cloud.can('ai'); admins always) opens it, and from then on
-  // Original | AI | താരതമ്യം | ✕ sits under the title of chapters that have a translation, until ✕
-  // or a reload. Loaded the first time it is needed; offline after that.
+  // Original | AI | താരതമ്യം | ✕ sits under the title of chapters that have a translation, until ✕,
+  // ☰ → സാധാരണ വായന or a reload. Loaded the first time it is needed; offline after that.
   let shown = { book: null, chapter: null, items: [], ai: false };   // what the reader shows (copy uses it)
   let aiOn = false;   // opened from ☰ → AI പരിഭാഷകൾ in this visit
   const aiOk = () => can('ai') && aiOn;
@@ -1840,6 +1840,7 @@ p{margin:0 0 .9em}
     else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
     else if (a === 'aiList') openAiList();
+    else if (a === 'normalView') { aiOn = false; if (cur.book) rerenderKeep(); }
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();
     else if (a === 'backup') exportBackup();
@@ -1863,7 +1864,11 @@ p{margin:0 0 .9em}
   $('#dlgMenu').addEventListener('click', (e) => { const b = e.target.closest('[data-menu]'); if (b) menuAction(b.dataset.menu); });
 
   // ---------- top-level controls ----------
-  $('#btnMenu').addEventListener('click', () => { updateCounts(); openDialog($('#dlgMenu')); });
+  $('#btnMenu').addEventListener('click', () => {
+    updateCounts();
+    $('#menuNormal').hidden = !aiOk();   // സാധാരണ വായന: only while the AI view is open
+    openDialog($('#dlgMenu'));
+  });
   $('#btnRef').addEventListener('click', () => openPicker('books'));
   $('#btnSearch').addEventListener('click', openSearch);
   $('#btnSettings').addEventListener('click', () => { const d = $('#dlgSettings'); if (d.open) d.close(); else openDialog(d); });

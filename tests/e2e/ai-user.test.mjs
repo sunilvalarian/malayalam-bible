@@ -104,14 +104,32 @@ test('7. AI translation in the reader, per user: an admin switches it on, only �
     assert.deepEqual(await state(page), ON, 'a reload starts in the normal view');
     assert.equal(await verse2(page), original2);
 
+    // ☰ → സാധാരണ വായന is only in the menu while the AI view is open, and closes it
+    const openMenu = async () => {
+      await page.click('#btnMenu');
+      await waitFor(page, () => document.getElementById('dlgMenu').open);
+      await sleep(500);   // the drawer slides in
+    };
+    const openAi = async () => {
+      await openMenu();
+      await page.click('#dlgMenu [data-menu="aiList"]');
+      await waitFor(page, () => !!document.querySelector('#aiListBody [data-ai-go="GEN/1"]'), { timeout: 20000 });
+      await page.click('#aiListBody [data-ai-go="GEN/1"]');
+      await waitFor(page, () => !!document.querySelector('#reader .ver-switch'));
+    };
+    await openMenu();
+    assert.equal(await page.$eval('#menuNormal', (b) => b.hidden), true, 'no സാധാരണ വായന in the normal view');
+    await page.keyboard.press('Escape');
+    await waitFor(page, () => !document.getElementById('dlgMenu').open);
+    await openAi();
+    await openMenu();
+    assert.equal(await page.$eval('#menuNormal', (b) => b.hidden), false, 'സാധാരണ വായന in the AI view');
+    await page.click('#menuNormal');
+    await waitFor(page, () => !document.querySelector('#reader .ver-switch'));
+    assert.equal(await verse2(page), original2);
+
     // into the AI view again, for the admin's switch-off below
-    await page.click('#btnMenu');
-    await waitFor(page, () => document.getElementById('dlgMenu').open);
-    await sleep(500);
-    await page.click('#dlgMenu [data-menu="aiList"]');
-    await waitFor(page, () => !!document.querySelector('#aiListBody [data-ai-go="GEN/1"]'), { timeout: 20000 });
-    await page.click('#aiListBody [data-ai-go="GEN/1"]');
-    await waitFor(page, () => !!document.querySelector('#reader .ver-switch'));
+    await openAi();
 
     // the admin switches it off again
     await admin.click(box);
