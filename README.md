@@ -299,10 +299,14 @@ Worth checking against the book (1 Samuel):
 - 21:8: the verse number is only a faint mark in a low-resolution photo (page 356).
 - Words split across a page break were joined without a space where the print splits a word (3:1 അക്കാലത്ത്, 9:24, 13:3 സൈനികാസ്ഥാനം, 15:6, 20:41, 26:1, 26:20, 28:2, 30:23).
 
-Joshua and Judges came in the same batch of photos, but with many pages missing, so only whole chapters are in the app. Joshua 1, 2, 7, 16, 17, 20 and 21 are complete (pages 259–261, 264–266, 276–278, 281–284), and Joshua 3 lacks only verse 17 (page 262 is missing). The typed parts of other chapters are kept in `tools/sources/JOS/partial/` and `tools/sources/JDG/partial/` (build-data ignores them; `…` marks where a page is missing), ready to be completed when the missing pages come:
-- Joshua: pages 262–263, 267–268, 270–272, 274–275, 279–280 and 285–286 are missing. So chapters 4, 5, 11, 14 and 23 are missing entirely. The partial ones are 6 (from 6:5), 8 (to 8:10), 9–10 (9:18–10:11), 12–13 (12:4–13:14), 15 (from 15:9), 18 (to 18:10), 19 (from 19:48), 22 (to 22:27) and 24 (from 24:8).
-- Judges: only pages 299 (6:32–7:10), 308 (12:5–13:10) and 316–317 (19:3–20:14).
-- Ruth: no photos yet.
+Joshua came with many pages missing, so only whole chapters are in the app. Joshua 1, 2, 7, 16, 17, 20 and 21 are complete (pages 259–261, 264–266, 276–278, 281–284), and Joshua 3 lacks only verse 17 (page 262 is missing). The typed parts of other chapters are kept in `tools/sources/JOS/partial/` (build-data ignores it; `…` marks where a page is missing), ready to be completed when the missing pages come: pages 262–263, 267–268, 270–272, 274–275, 279–280 and 285–286 are missing. So chapters 4, 5, 11, 14 and 23 are missing entirely. The partial ones are 6 (from 6:5), 8 (to 8:10), 9–10 (9:18–10:11), 12–13 (12:4–13:14), 15 (from 15:9), 18 (to 18:10), 19 (from 19:48), 22 (to 22:27) and 24 (from 24:8). Ruth: no photos yet.
+
+Judges (`tools/sources/JDG/1.txt` … `21.txt`) is typed in full from photos of pages 290–320 (the photo of page 290 has the page number cut off; pages 299, 308 and 316–317 were typed twice, from both batches, and the two readings agree). Every verse is there: 1:36, 2:23, 3:31, 4:24, 5:31, 6:40, 7:25, 8:35, 9:57, 10:18, 11:40, 12:15, 13:25, 14:20, 15:20, 16:31, 17:13, 18:31, 19:30, 20:48, 21:25 (618 verses). The poems (Deborah's song 5:2–31, Jotham's fable 9:7–20, the riddles 14:14 and 14:18, Samson's songs 15:16 and 16:23–24) are one line per verse; 6:22 and 7:5 have an unnumbered line where the print starts a new paragraph inside the verse. Kept as printed: ദബോറാ / ദെബോറാ, ഹറോഷെത്ത് (4:2) / ഹറോഷേത്ത് (4:13), 6:11 ഒഫ്രായിൽ but 6:24 ഓഫ്രായിൽ, 10:6 മൊവാബ്, 11:32 ഏല്പ്പിക്കുകയും, 14:4 മാതാപിതാന്മാർ, 15:5 മുളമുതൽ, 16:22 മുളക്കാൻ, 16:24 നിഹിതരെ and 20:31 നിഹിതരായി, 20:10 ഗിബയാ, 20:15 എഴുനൂറുപേർ next to 20:16 എഴുന്നൂറ്.
+
+Worth checking against the book (Judges):
+- 8:32: the verse number covers the first letter; read as യോവാഷിന്റെ (as in 8:29), the print may show യാവാഷിന്റെ.
+- 15:19 ഏൻ-ഹക്കോറേ (old-style ോ around ക്ക), 16:20 ഏഴുന്നേറ്റുപോകും (with ഏ), 9:29 the mark after പറഞ്ഞു (typed as a comma).
+- Where a line break falls between two words the print does not show the space; joined: 3:1 പരീക്ഷിക്കാൻവേണ്ടി, 3:3 ബാൽഹെർമോൻമല, 7:22 അബൽമെഹോലവരെയും, 9:16 പ്രവൃത്തിഫലംപോലെ; kept apart: 7:5 മാറ്റി നിർത്തണം, 8:26 ആയിരത്തി എഴുന്നൂറു, 12:11 പത്തു വർഷം, 12:14 എട്ടു വർഷം.
 
 Worth checking against the book (Joshua): 16:5 അഥ്റോത്ത് (could be അത്റോത്ത്); kept as printed: 2:22 കണ്ടത്താനായില്ല, 7:4 മൂവായിരിത്തോളംപേർ, 7:15 ഇസ്രയേലിൽ, 17:2 അബിയേര്യർ, and 21:9 ending with no full stop. Names printed with a visible chandrakkala keep a zero-width non-joiner (ആയ്‌, യാർമുത്‌രാജാവ്, ലാകീഷ്‌രാജാവ്).
 
