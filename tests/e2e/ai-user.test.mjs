@@ -1,5 +1,6 @@
 // Scenario 7: the AI translation in the reader (Original | AI | താരതമ്യം under the chapter title) is
-// switched on per user by an admin (portal → ഉപയോക്താക്കൾ → AI); the user can hide it in Aa.
+// switched on per user by an admin (portal → ഉപയോക്താക്കൾ → AI). It is not in the normal view: only
+// ☰ → AI പരിഭാഷകൾ opens it, and its ✕ closes it again.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -18,15 +19,14 @@ before(async () => {
 
 const state = (page) => page.evaluate(() => ({
   switch: !!document.querySelector('#reader .ver-switch'),
-  aaRow: !document.getElementById('verRow').hidden,
-  aaHide: !document.getElementById('optAiView').closest('label').hidden,
   menu: !document.querySelector('[data-menu="aiList"]').hidden,
 }));
-const OFF = { switch: false, aaRow: false, aaHide: false, menu: false };
-const ON = { switch: true, aaRow: true, aaHide: true, menu: true };
+const OFF = { switch: false, menu: false };
+const ON = { switch: false, menu: true };   // allowed, but the normal view stays as it is
+const AI_VIEW = { switch: true, menu: true };
 const verse2 = (page) => page.$eval('#reader .v[data-v="2"]', (e) => e.textContent);
 
-test('7. AI translation in the reader, per user: an admin switches it on, the user can hide it', async (t) => {
+test('7. AI translation in the reader, per user: an admin switches it on, only ☰ → AI പരിഭാഷകൾ shows it', async (t) => {
   const rb = await launch();
   const ab = await launch();   // a second browser profile: the admin's sign-in mustn't replace the reader's
   try {
@@ -57,13 +57,21 @@ test('7. AI translation in the reader, per user: an admin switches it on, the us
     for (let i = 0; i < 50 && (await getDoc(`users/${reader.uid}`)).ai !== true; i++) await sleep(200);
     assert.equal((await getDoc(`users/${reader.uid}`)).ai, true, 'users/{uid}.ai saved');
 
-    // live, without a reload: the switch under the title, Aa → പാഠം and the hide box, ☰ → AI പരിഭാഷകൾ
-    await waitFor(page, () => !!document.querySelector('#reader .ver-switch'), { timeout: 20000 });
+    // live, without a reload: ☰ → AI പരിഭാഷകൾ appears, the chapter itself stays the normal view
+    await waitFor(page, () => !document.querySelector('[data-menu="aiList"]').hidden, { timeout: 20000 });
+    await sleep(1000);
     assert.deepEqual(await state(page), ON);
+    assert.equal(await page.$('#dlgSettings #verRow'), null, 'nothing about AI in Aa');
 
-    // AI: the AI translation in place of the text, with the note below
-    await page.click('#reader .ver-switch [data-ver="ai"]');
-    await waitFor(page, () => document.querySelector('#reader .ver-switch [data-ver="ai"]').getAttribute('aria-pressed') === 'true');
+    // ☰ → AI പരിഭാഷകൾ → Genesis 1: the AI translation in place of the text, with the note below
+    await page.click('#btnMenu');
+    await waitFor(page, () => document.getElementById('dlgMenu').open);
+    await sleep(500);   // the drawer slides in
+    await page.click('#dlgMenu [data-menu="aiList"]');
+    await waitFor(page, () => !!document.querySelector('#aiListBody [data-ai-go="GEN/1"]'), { timeout: 20000 });
+    await page.click('#aiListBody [data-ai-go="GEN/1"]');
+    await waitFor(page, () => !!document.querySelector('#reader .ver-switch [data-ver="ai"][aria-pressed="true"]'));
+    assert.deepEqual(await state(page), AI_VIEW);
     assert.notEqual(await verse2(page), original2, 'verse 2 is the AI translation');
     assert.ok(await page.$('#reader .ai-note'), 'AI note below the text');
 
@@ -73,29 +81,37 @@ test('7. AI translation in the reader, per user: an admin switches it on, the us
     assert.ok((await verse2(page)).startsWith(original2.trim().slice(0, 20)), 'the original stays on top');
     assert.ok(await page.$('#reader .v[data-v="2"] .ai-line ins'), 'changed words are marked');
 
-    // with a verse selected, Aa → പാഠം and the switch still change the view every time
+    // with a verse selected, the switch still changes the view every time
     await page.click('#reader .v[data-v="3"]');
     await waitFor(page, () => !document.getElementById('actionbar').hidden);
-    await page.click('#btnSettings');
-    await waitFor(page, () => document.getElementById('dlgSettings').open);
-    await page.click('#verSeg [data-v="ai"]');
+    await page.click('#reader .ver-switch [data-ver="ai"]');
     await waitFor(page, () => document.querySelector('#reader .ver-switch [data-ver="ai"]').getAttribute('aria-pressed') === 'true');
-    await page.keyboard.press('Escape');
-    await waitFor(page, () => !document.getElementById('dlgSettings').open);
     await page.click('#reader .ver-switch [data-ver="orig"]');
     await waitFor(page, () => document.querySelector('#reader .ver-switch [data-ver="orig"]').getAttribute('aria-pressed') === 'true');
     assert.equal(await verse2(page), original2, 'Original after AI');
 
-    // the user hides it in Aa: back to the original, no switch
-    await page.click('#btnSettings');
-    await waitFor(page, () => document.getElementById('dlgSettings').open);
-    await page.click('#optAiView');
+    // ✕: back to the normal view, no switch, also after a reload
+    await page.click('#reader .ver-switch [data-ver="cmp"]');
+    await waitFor(page, () => !!document.querySelector('#reader .ai-line'));
+    await page.click('#reader .ver-switch [data-ver="off"]');
     await waitFor(page, () => !document.querySelector('#reader .ver-switch'));
     assert.equal(await page.$('#reader .ai-line'), null);
     assert.equal(await verse2(page), original2);
-    await page.click('#optAiView');
+    await page.reload({ waitUntil: 'load' });
+    await waitVerses(page);
+    await waitFor(page, () => window.Cloud.user && !document.querySelector('[data-menu="aiList"]').hidden, { timeout: 20000 });
+    await sleep(1000);
+    assert.deepEqual(await state(page), ON, 'a reload starts in the normal view');
+    assert.equal(await verse2(page), original2);
+
+    // into the AI view again, for the admin's switch-off below
+    await page.click('#btnMenu');
+    await waitFor(page, () => document.getElementById('dlgMenu').open);
+    await sleep(500);
+    await page.click('#dlgMenu [data-menu="aiList"]');
+    await waitFor(page, () => !!document.querySelector('#aiListBody [data-ai-go="GEN/1"]'), { timeout: 20000 });
+    await page.click('#aiListBody [data-ai-go="GEN/1"]');
     await waitFor(page, () => !!document.querySelector('#reader .ver-switch'));
-    await page.keyboard.press('Escape');
 
     // the admin switches it off again
     await admin.click(box);

@@ -41,7 +41,7 @@
   const user = Object.assign({ hl: {}, bm: {}, notes: {} }, LS.get('user', {}));
   const settings = Object.assign({
     fontSize: 20, lineHeight: 1.9, font: 'noto-serif', theme: 'light', layout: 'verse',
-    numbers: true, headings: true, aiView: true, ver: 'orig', last: null, recent: [], history: [], whole: false, scope: 'all',
+    numbers: true, headings: true, ver: 'orig', last: null, recent: [], history: [], whole: false, scope: 'all',
   }, LS.get('settings', {}));
   // one verse per line is now the default — switch readers who still have the old saved default
   if (!settings.layoutV) { settings.layout = 'verse'; settings.layoutV = 2; LS.set('settings', settings); }
@@ -314,7 +314,7 @@
     reader.classList.toggle('compare', mode === 'cmp');
     shown = { book: cur.book, chapter: cur.chapter, items: mode === 'ai' ? aiItems : items, ai: mode !== 'orig' };
     const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
-    const verSwitch = aiItems ? `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('cmp', 'താരതമ്യം', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ, മാറിയ വാക്കുകൾ അടയാളപ്പെടുത്തി')}</div>` : '';
+    const verSwitch = aiItems ? `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('cmp', 'താരതമ്യം', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ, മാറിയ വാക്കുകൾ അടയാളപ്പെടുത്തി')}<button data-ver="off" class="ver-off" title="AI അടയ്ക്കുക — സാധാരണ വായന" aria-label="AI അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button></div>` : '';
     const ctx = { book: cur.book, chapter: cur.chapter };
     if (mode === 'cmp') ctx.ai = aiUnderVerses(items, aiItems);
     const aiFoot = mode === 'orig' ? '' : `<div class="ai-note">AI പരിഭാഷ: Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.${mode === 'cmp' ? ' <ins>പച്ച</ins> = Original-ൽ ഇല്ലാത്ത വാക്കുകൾ.' : ''}</div>`;
@@ -340,11 +340,13 @@
 
   // ---------- AI translation ----------
   // Claude's translation from the Hebrew / Greek original (js/ai-data.js, ~3 MB, built by
-  // tools/build-ai-data.js). Original | AI | താരതമ്യം under the chapter title, only for people an
-  // admin switched it on for (Cloud.can('ai'); admins always) who haven't hidden it in Aa, and only
-  // on chapters that have a translation. Loaded the first time it is needed; offline after that.
+  // tools/build-ai-data.js). Not in the normal view: ☰ → AI പരിഭാഷകൾ (only for people an admin
+  // switched it on for, Cloud.can('ai'); admins always) opens it, and from then on
+  // Original | AI | താരതമ്യം | ✕ sits under the title of chapters that have a translation, until ✕
+  // or a reload. Loaded the first time it is needed; offline after that.
   let shown = { book: null, chapter: null, items: [], ai: false };   // what the reader shows (copy uses it)
-  const aiOk = () => can('ai') && settings.aiView;
+  let aiOn = false;   // opened from ☰ → AI പരിഭാഷകൾ in this visit
+  const aiOk = () => can('ai') && aiOn;
   const aiMode = () => (['ai', 'cmp'].includes(settings.ver) ? settings.ver : 'orig');
   let aiDataP = null;
   function aiData() {
@@ -484,7 +486,11 @@
   reader.addEventListener('click', (e) => {
     const verBtn = e.target.closest('.ver-switch button');
     // always redraw: the page may still show a view the setting has left (a redraw skipped while a verse was selected)
-    if (verBtn) { changeSetting('ver', verBtn.dataset.ver); rerenderKeep(); return; }
+    if (verBtn) {
+      if (verBtn.dataset.ver === 'off') aiOn = false; else changeSetting('ver', verBtn.dataset.ver);
+      rerenderKeep();
+      return;
+    }
     const goBtn = e.target.closest('[data-go]');
     if (goBtn) { const [b, c] = goBtn.dataset.go.split('/'); go(b, +c); return; }
     const up = e.target.closest('[data-menu-open]');
@@ -1053,13 +1059,10 @@
     $('#lineHeight').value = settings.lineHeight;
     $('#optNumbers').checked = settings.numbers;
     $('#optHeadings').checked = settings.headings;
-    $('#optAiView').checked = settings.aiView;
     const segOn = (sel, v) => $$(sel + ' button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
     segOn('#fontSeg', settings.font);
     segOn('#themeSeg', settings.theme);
     segOn('#layoutSeg', settings.layout);
-    segOn('#verSeg', aiMode());
-    $('#verRow').hidden = !aiOk();
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     $('meta[name="theme-color"]').content = dark ? '#121212' : settings.theme === 'sepia' ? '#f4ecd8' : '#fbfaf7';
   }
@@ -1071,15 +1074,13 @@
     if (f) changeSetting('fontSize', Math.min(FONT_MAX, Math.max(FONT_MIN, settings.fontSize + +f.dataset.font)));
     const seg = e.target.closest('.seg button');
     if (seg) {
-      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout', verSeg: 'ver' }[seg.parentElement.id];
+      const k = { fontSeg: 'font', themeSeg: 'theme', layoutSeg: 'layout' }[seg.parentElement.id];
       if (k) changeSetting(k, seg.dataset.v);
-      if (k === 'ver' && cur.book) rerenderKeep();
     }
   });
   $('#lineHeight').addEventListener('input', (e) => changeSetting('lineHeight', +e.target.value));
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
-  $('#optAiView').addEventListener('change', (e) => { changeSetting('aiView', e.target.checked); if (cur.book) rerenderKeep(); });
   // ☰ → AI പരിഭാഷകൾ: the chapters that have an AI translation, by book; a tap opens it in the AI view
   async function openAiList() {
     const body = $('#aiListBody');
@@ -1108,6 +1109,7 @@
     if (!btn) return;
     const [b, c] = btn.dataset.aiGo.split('/');
     $('#dlgAiList').close();
+    aiOn = true;
     if (aiMode() === 'orig') changeSetting('ver', 'ai');
     if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c);
   });
@@ -1837,7 +1839,7 @@ p{margin:0 0 .9em}
     else if (a === 'scan') { openUpload(); $('#upCamera').click(); }
     else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
-    else if (a === 'aiList') { if (!settings.aiView) changeSetting('aiView', true); openAiList(); }
+    else if (a === 'aiList') openAiList();
     else if (a === 'exportHtml') exportHtmlBook();
     else if (a === 'exportData') exportDataJs();
     else if (a === 'backup') exportBackup();
@@ -1955,7 +1957,6 @@ p{margin:0 0 .9em}
   function applyPermissions() {
     // data-perm="edit ai": every permission listed is needed
     $$('[data-perm]').forEach((el) => { el.hidden = !el.dataset.perm.split(' ').every(can); });
-    $('#verRow').hidden = !aiOk();
     // a menu heading disappears when nothing under it is left
     $$('#dlgMenu .menu-label').forEach((label) => {
       let el = label.nextElementSibling, any = false, gated = false;

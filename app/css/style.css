@@ -153,6 +153,8 @@ main { padding: 8px 16px 140px; }
 }
 .reader .ver-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-contrast); }
 .reader .ver-switch button:not([aria-pressed="true"]):hover { color: var(--text); }
+.reader .ver-switch .ver-off { display: inline-flex; align-items: center; padding: 6px 10px; }
+.reader .ver-switch .ver-off svg { width: 16px; height: 16px; }
 .reader.compare p { margin: 0; }
 .reader.compare .v { display: block; margin-bottom: .8em; }
 .reader.compare .v.cont { margin-top: -.8em; }
