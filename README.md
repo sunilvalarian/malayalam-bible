@@ -312,6 +312,30 @@ Worth checking against the book (Joshua): 16:5 അഥ്റോത്ത് (coul
 
 The photos are not in the repository.
 
+2 Samuel, 1 and 2 Kings, 1 and 2 Chronicles, Ezra and Nehemiah were typed in full the same way, one photo per page, with every page there:
+
+| Book | Source files | Pages | Last verses | Verses |
+|---|---|---|---|---|
+| 2 Samuel | `tools/sources/2SA` | 369–403 | 1:27, 2:32, 3:39, 4:12, 5:25, 6:23, 7:29, 8:18, 9:13, 10:19, 11:27, 12:31, 13:39, 14:33, 15:37, 16:23, 17:29, 18:32, 19:44, 20:26, 21:22, 22:51, 23:39, 24:25 | 695 |
+| 1 Kings | `1KI` | 405–444 | 1:53, 2:46, 3:28, 4:20, 5:32, 6:38, 7:51, 8:66, 9:28, 10:29, 11:43, 12:33, 13:34, 14:31, 15:34, 16:34, 17:24, 18:46, 19:21, 20:43, 21:29, 22:54 | 817 |
+| 2 Kings | `2KI` | 445–481 | 1:18, 2:25, 3:27, 4:44, 5:27, 6:33, 7:20, 8:29, 9:37, 10:36, 11:20, 12:22, 13:25, 14:29, 15:38, 16:20, 17:41, 18:37, 19:37, 20:21, 21:26, 22:20, 23:37, 24:20, 25:30 | 719 |
+| 1 Chronicles | `1CH` | 483–518 | 1:54, 2:55, 3:24, 4:43, 5:41, 6:66, 7:40, 8:40, 9:44, 10:14, 11:47, 12:41, 13:14, 14:17, 15:29, 16:43, 17:27, 18:17, 19:19, 20:8, 21:30, 22:19, 23:32, 24:31, 25:31, 26:32, 27:34, 28:21, 29:30 | 943 |
+| 2 Chronicles | `2CH` | 519–561 | 1:18, 2:17, 3:17, 4:22, 5:14, 6:42, 7:22, 8:18, 9:31, 10:19, 11:23, 12:16, 13:23, 14:14, 15:19, 16:14, 17:19, 18:34, 19:11, 20:37, 21:20, 22:12, 23:21, 24:27, 25:28, 26:23, 27:9, 28:27, 29:36, 30:27, 31:21, 32:33, 33:25, 34:33, 35:27, 36:23 | 822 |
+| Ezra | `EZR` | 563–574 | 1:11, 2:70, 3:13, 4:24, 5:17, 6:22, 7:28, 8:36, 9:15, 10:44 | 280 |
+| Nehemiah | `NEH` | 576–593 | 1:11, 2:20, 3:38, 4:17, 5:19, 6:19, 7:72, 8:18, 9:37, 10:40, 11:36, 12:47, 13:31 | 405 |
+
+The numbering follows the print's Hebrew division: 2 Samuel 18:33 elsewhere is 19:1 here; 1 Kings 4:21–34 is 5:1–14 and 5:1–18 is 5:15–32, and 22:43 is split (22:44 begins എങ്കിലും പൂജാഗിരികൾ); 2 Kings 11:21 is 12:1; 1 Chronicles 6:1–15 is 5:27–41 and 6:16–81 is 6:1–66, and 12:4 is split into 12:4–5; 2 Chronicles 2:1 is 1:18 and 14:1 is 13:23; Nehemiah 4:1–6 is 3:33–38 and 9:38 is 10:1, and 7:73 is 7:72 plus an unnumbered paragraph. The poems (2 Samuel 1:19–27, 3:33–34, 12:1–4, 22, 23:1–7; 2 Kings 19:21–28; 1 Chronicles 16:8–36; Nehemiah 9:5 onwards) and the printed name lists are one line per verse. Headings keep no parallel references.
+
+Obvious misprints corrected: 2 Samuel 14:19 യജമാനായ → യജമാനനായ; 1 Kings 1:20 ഇസ്രായലിന്റെ → ഇസ്രായേലിന്റെ, 2:20 തിരസ്കരിക്കുകുകയില്ല → തിരസ്കരിക്കുകയില്ല; 2 Kings 15:6 ചെയ്തതൊക്കയും → ചെയ്തതൊക്കെയും, 20:3 വിശ്വസ്തയിലും → വിശ്വസ്തതയിലും, 23:4 കാവൽല്ക്കാരോടും → കാവല്ക്കാരോടും, 23:16 a gap inside പ്രഖ്യാപിച്ചിരുന്ന; 1 Chronicles 10:6 മൃന്നു → മൂന്നു, 12:12 എഴാമൻ → ഏഴാമൻ, 19:8 ദാവിദ് → ദാവീദ്, 27:8 ഇരൂപത്തിനാലായിരം → ഇരുപത്തിനാലായിരം; Ezra 2:26 അറന്നൂറ്റി… → അറുന്നൂറ്റിയിരുപത്തൊന്ന്, 6:7 ദേവലായനിർമാണത്തിൽ → ദേവാലയനിർമാണത്തിൽ, and a stray second "42" before the names in 10:43. Kept as printed, though they look like misprints: 1 Kings 21:22 നാബോത്തിന്റെ പുത്രൻ ജറോബോവാം (elsewhere നെബാത്തിന്റെ), 16:20 ദിനവൃത്താന്തപുസ്തത്തിൽ, 11:42 ഇസ്രായേൽമുഴുന്റെയുംമേൽ, 2 Kings 2:10 ദുഷ്കരയതാണ്, 3:7 മൊബാവിലേക്ക്, 2 Chronicles 1:12 ഉണ്ടാവുകയില്ലയില്ലാത്തതുമായ, 36:16 ശമിപ്പിക്കാനാവത്തവിധം, 1 Chronicles 25:3 (five names, "ആറുപേർ"). 2 Chronicles 36:11 gives Zedekiah's age as പതിനൊന്നു (most Bibles: 21), as printed. Names spelt differently in different places were kept (for example ബെൻഹദാദ് / ബൻഹദാദ്, അഹിഥോഫെൽ / അഹിതോഫെൽ, ലേവ്യർ / ലേവായർ). Names joined with a visible chandrakkala keep a zero-width non-joiner (ദാവീദ്‌രാജാവ്, സൈറസ്‌രാജാവ്).
+
+Worth checking against the book:
+- Blurred or faint: 2 Samuel 3:17–25 (page 373), 5:16 (verse number), 15:12, 17:9, 21:16, 23:8, 23:31 (names); 1 Kings 1:48, 18:3 ദൈവത്ത എറെ, 21:5 and 22:24 അരൂപി; 1 Chronicles 7:8, 9:4 and 9:8 (verse numbers), 27:13–21 (page 515, column edge cut), 29:3 (verse number); 2 Chronicles 29:12–14, 34:8–17 and 34:22–24 (names); Ezra 2:4 ഷെഫാത്യർ, 2:26, 8:2 ഇത്താമാര്യരിൽനിന്ന്.
+- The long name lists in 1 Chronicles 1–3 (1:5–23, 2:42–55, 3:17–24).
+- Words split at a line end, where the print does not show the space, were joined or spaced to match how the print writes them elsewhere (for example 2 Samuel 3:26 ബോർഹസ്സീറായിൽനിന്ന്, 2 Kings 19:24 ഉണക്കി കളഞ്ഞു, 1 Chronicles 29:2 അഞ്ജനവർണക്കല്ലുകൾ, Nehemiah 7:59 പൊക്കെരെത്ഹസ്ബായിമ്യർ).
+- Paragraph breaks where a verse starts at the top of a column, which a photo cannot show (1 Kings 20:4, 22:4, 22:14, 22:48; Ezra 4:6; Nehemiah 13:15).
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
