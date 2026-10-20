@@ -336,6 +336,25 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
+Tobit, Judith and Esther were typed in full the same way, one photo per page, with every page there (the first page of Tobit and of Judith only partly in the photo; pages 608 and 628, the book introductions, were not photographed):
+
+| Book | Source files | Pages | Last verses | Verses |
+|---|---|---|---|---|
+| Tobit | `tools/sources/TOB` | 594–607 | 1:22, 2:14, 3:17, 4:21, 5:23, 6:19, 7:17, 8:21, 9:6, 10:14, 11:19, 12:22, 13:18, 14:15 | 248 |
+| Judith | `JDT` | 609–627 | 1:16, 2:28, 3:10, 4:15, 5:24, 6:21, 7:32, 8:36, 9:14, 10:23, 11:23, 12:20, 13:20, 14:19, 15:14, 16:25 | 340 |
+| Esther | `EST` | 629–642 | 1:22, 2:23, 3:15, 4:17, 5:14, 6:14, 7:10, 8:17, 9:32, 10:13, 11:12, 12:6, 13:18, 14:19, 15:16, 16:24 | 272 |
+
+Esther: the print has the Greek additions as chapters 11–16, placed inside the story: 11:2–12 and 12:1–6 before chapter 1, 13:1–7 after 3:13, 13:8–18 and 14 after 4:17, 15 after 5:2, 16 after 8:12, and 10:4–13 with 11:1 at the end. Each chapter file holds all of its chapter in verse order, so `13.txt` has both parts, and 11:1 stands before the heading and 11:2 in `11.txt`. The book list now gives Esther 16 chapters. The prayers in Tobit 3, 8 and 13 and Judith's song (16:1–17) are one line per verse; the prayers in Judith 9 and Esther 13–14 are printed as prose.
+
+Obvious misprints corrected: Judith 14:11 പ്രഭാതമായപ്പാൾ → പ്രഭാതമായപ്പോൾ, 12:3 "അവളോടു പറഞ്ഞു." → "പറഞ്ഞു:", and a missing full stop at 16:15. Kept as printed: Tobit 14:4 "നീ മിദിയാനിലേക്കു പോവുക" (the story means Media, മേദിയാ, as in the same verse), 1:14 ഗബ്രിയാസിന്റെ സഹോദരൻ but 4:20 ഗബ്രിയാസിന്റെ പുത്രൻ, നിനെവ / നിനവേ next to നിനെവേ, 10:9 "പറഞ്ഞു." before the speech, 11:8 അവൻകണ്ണു; Judith 4:6 ബത്തൊമെസ്ത്തായിമിലും but 15:4 ബത്തോമസ്തായിം, 16:23 ബത്തുലിയായിൽ (elsewhere ബത്തൂലിയാ), 2:1 അസ്സീറിയരാജാവായ; Esther 15:9 ധൈര്യമായിരിക്കു, ഹമ്മെദാതാ / ഹമ്മെദാഥാ / ഹമ്മേദാഥാ, 2:5 യായീർ but 11:2 ജായീർ, 2:21 ബിഗ്താൻ, തെറെഷ് but 6:2 ബിഗ്താനാ, തെരെഷ്, പുരീം with a short u throughout.
+
+Worth checking against the book:
+- Tobit 10:13–14 (faded, read as ഭരമേല്പിക്കപ്പെട്ടവളെ) and Judith 14:15–19 (page 625 is soft; 14:18 വിഡ്ഢികളാക്കിയിരിക്കുന്നു).
+- Readings that look odd but seem to be printed: Judith 2:19 പശ്ചിമഘട്ടത്തിലുള്ള, 2:28 വസിച്ചിരുന്നവരുടെയുംമേലും, 5:14 കാദെഷ്ബർണയ, 10:18 ഇളകിവശായി.
+- Words split at a line end, where the print does not show the space: joined in Tobit 1:4 and 14:5 (തലമുറകൾക്കുംവേണ്ടി), Judith 16:5 തകിടംമറിച്ചു, 16:23 ബത്തുലിയായിൽവച്ചു, Esther 3:12 രാജമോതിരംകൊണ്ട്, 12:1 കാവൽനിന്നിരുന്ന; kept apart in Esther 16:24 അടുക്കാനാകാത്തതായി തീരുന്നത്.
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
