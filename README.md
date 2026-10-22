@@ -355,6 +355,22 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
+1 and 2 Maccabees were typed in full the same way, one photo per page, with every page there (the first page of each book only partly in the photo, from the heading down):
+
+| Book | Source files | Pages | Last verses | Verses |
+|---|---|---|---|---|
+| 1 Maccabees | `tools/sources/1MA` | 643–680 | 1:64, 2:70, 3:60, 4:61, 5:68, 6:63, 7:50, 8:32, 9:73, 10:89, 11:74, 12:53, 13:53, 14:49, 15:41, 16:24 | 924 |
+| 2 Maccabees | `2MA` | 681–707 | 1:36, 2:32, 3:40, 4:50, 5:27, 6:31, 7:42, 8:36, 9:29, 10:38, 11:38, 12:45, 13:26, 14:46, 15:39 | 555 |
+
+Headings keep no parallel references. Obvious misprints corrected: 2 Maccabees 2:19 മഹാദേവാലത്തിന്റെ → മഹാദേവാലയത്തിന്റെ, 3:6 വിവധതലങ്ങളിൽ… → വിവിധതലങ്ങളിൽ…, 4:4 a missing space in മൂർച്ചകൂട്ടുന്നെന്നുംഓനിയാസ്, 12:2 a missing space after the dash, 1 Maccabees 9:47 a missing space after a full stop; the old-style സൈ്വ in 2 Maccabees 12:11–12 is typed സ്വൈര, as in the other books. Kept as printed: 1 Maccabees 5:28 ബൊസ്രാവഴിയിലേക്ക് (split over the page break as ബൊസ്രാവഴി / യിലേക്ക്), 5:36 കാസ്ഫോ മാക്കെദും, 9:20 ദുഖമാചരിച്ച്, 9:9 നമുക്കതിനു ഒട്ടും, 12:48 ടോളമിയാസിലുള്ളവർ (elsewhere ടോളമായിസ്), 14:18 പിച്ചള but 14:26 പിത്തള, ബത്സൂർ / ബേത്സൂർ / ബേത്ത്സൂർ, 7:37 അവിടത്തെ നാമത്തിൽ in a prayer to God; 2 Maccabees 1:21 നെഹമിയാ (elsewhere നെഹെമിയാ), 5:5 മെനെലാവുസ് next to മെനെലാവൂസ്, 5:8 കുറ്റരോപിതനാക്കപ്പെട്ട, 6:30 (the sentence seems to lack its opening words), 13:22 ഗ്രസിക്കുകയും, 14:17 പെട്ടന്നുള്ള, 14:29 നിർവത്തിയാക്കാനാവുമോ, 14:43 തള്ളിക്കയറിക്കൊണ്ടിരുപ്പോൾ, 15:17 പൗരുഷപൂർണതമായ. Names written with and without a space before രാജാവ് (ദമെത്രിയൂസ് രാജാവ് / ദമെത്രിയൂസ്‌രാജാവ്) are kept as printed; the joined ones with a visible chandrakkala keep a zero-width non-joiner.
+
+Worth checking against the book:
+- 1 Maccabees 5:26 കാസ്ഫോ മാക്കെദ് (no comma between the two towns at the line break), 2:37–40 (verse numbers faint in the inner margin), 9:44 കൂടെയുണ്ടായിരുന്നവരോടു (faint ū), 3:52 തൂത്തെറിയാൻ; 2 Maccabees 2:5 ധൂപപീഠവും (the ū looks short), 5:7 കഴിഞ്ഞുള്ളൂ, 10:7 തരുരോഹിണീചക്രങ്ങളാൽ, 12:22 വന്നുഭവിച്ചു (faint).
+- Words split at a line end, where the print does not show the space: joined in 1 Maccabees 10:11 സീയോൻമലയും, 7:33 സീയോൻമലയിലേക്കു, 10:13 സ്വദേശത്തേക്കുമടങ്ങി, 8:8 ഇന്ത്യൻപ്രവിശ്യയും, 2 Maccabees 7:38 സഹോദരന്മാരുംവഴി, 7:39 കോപാവേശംപൂണ്ട; kept apart in 1 Maccabees 11:26 ചെയ്തതുപോലെ തന്നെ, 2 Maccabees 5:18 സെല്യൂക്കസ് രാജാവിനാൽ.
+- Paragraph breaks where a verse starts at the left margin or the top of a column, which a photo cannot show (1 Maccabees 2:43, 8:3–10; 2 Maccabees 3:4, 4:4, 5:3, 7:12–19, 9:18, 9:23, 10:15, 10:23, 14:36, 15:31).
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
