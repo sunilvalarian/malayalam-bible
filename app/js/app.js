@@ -571,10 +571,9 @@
   // text, so the text is copied first to paste there.
   let shareCtx = null;
   const canLink = /^https?:$/.test(location.protocol);
-  // on the published site links go out as is.gd/penuel (it redirects there, and the browser keeps
-  // the #/BOOK/chapter/verse part); elsewhere (local copy, test server) the page's own address
-  const SITE = 'https://sunilvalarian.github.io/malayalam-bible/app/', SHORT = 'https://is.gd/penuel';
-  const appLink = () => { const here = (location.origin + location.pathname).replace(/index\.html$/, ''); return here === SITE ? SHORT : location.origin + location.pathname; };
+  // the app's own address, not the short link is.gd/penuel: on Android a link inside the app's scope
+  // opens the installed app itself, without the browser (a redirect from is.gd stays in the browser)
+  const appLink = () => location.origin + location.pathname.replace(/index\.html$/, '');
   const isPhone = matchMedia('(pointer: coarse)').matches;
 
   // app: a link to the app itself (☰ → ആപ്പ് പങ്കിടുക), no picture
