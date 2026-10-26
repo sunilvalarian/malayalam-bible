@@ -91,6 +91,16 @@
   <button class="fab" id="btnNext" aria-label="അടുത്ത അധ്യായം" title="അടുത്ത അധ്യായം (→)"><svg><use href="#i-right"/></svg></button>
 </nav>
 
+<!-- "install as app" bar for phone browsers (☰ has the same item); js/app.js decides when it shows -->
+<div class="install-bar" id="installBar" hidden>
+  <img src="icons/icon-192.png" alt="" width="40" height="40">
+  <div class="install-text"><strong id="installTitle">Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യുക</strong><small id="installHint">ഹോം സ്ക്രീനിൽ നിന്ന് തുറക്കാം — ബ്രൗസർ ഇല്ലാതെ, ഓഫ്‌ലൈനിലും</small></div>
+  <div class="install-actions">
+    <button class="btn ghost sm" id="installLater">പിന്നീട്</button>
+    <button class="btn primary sm" id="installGo">ഇൻസ്റ്റാൾ</button>
+  </div>
+</div>
+
 <!-- verse action bar -->
 <div class="actionbar" id="actionbar" hidden>
   <div class="actionbar-head">

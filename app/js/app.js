@@ -2314,18 +2314,71 @@ p{margin:0 0 .9em}
     e.preventDefault();
     installEvt = e;
     $('#menuInstall').hidden = false;
+    showInstallBar('prompt');
   });
   window.addEventListener('appinstalled', () => {
     installEvt = null;
     $('#menuInstall').hidden = true;
+    hideInstallBar();
     toast('ആപ്പ് ഇൻസ്റ്റാൾ ചെയ്തു — ഹോം സ്ക്രീനിൽ നോക്കുക');
   });
   if (isIOS && !isStandalone && /^https?:/.test(location.protocol)) $('#menuInstall').hidden = false;
+
+  // The install bar, on phones in a browser (not in the installed app): one tap to install where
+  // the browser allows it (Android Chrome), the steps on an iPhone, and "open in Chrome / Safari"
+  // inside WhatsApp / Facebook / Instagram's own browser, which can't install. പിന്നീട് hides it
+  // for two weeks. Not in automated browsers (the e2e tests), where it would cover what they tap.
+  const inAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|Snapchat|; wv\)/i.test(navigator.userAgent);
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const INSTALL_LATER_MS = 14 * 864e5;
+  function showInstallBar(mode) {
+    const bar = $('#installBar');
+    if (!bar || !isPhone || isStandalone || navigator.webdriver || !/^https?:/.test(location.protocol)) return;
+    if (settings.installLater && Date.now() - settings.installLater < INSTALL_LATER_MS) return;
+    bar.dataset.mode = mode;
+    const go = $('#installGo');
+    go.hidden = false;
+    if (mode === 'inapp') {
+      $('#installTitle').textContent = isAndroid ? 'Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യാൻ Chrome-ൽ തുറക്കുക' : 'Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യാൻ Safari-യിൽ തുറക്കുക';
+      $('#installHint').textContent = isAndroid ? 'ഈ ബ്രൗസറിൽ നിന്ന് ഇൻസ്റ്റാൾ ചെയ്യാൻ കഴിയില്ല' : 'മുകളിലെ ⋯ മെനുവിൽ "Open in Safari" / "Open in browser" തിരഞ്ഞെടുക്കുക';
+      go.textContent = 'Chrome-ൽ തുറക്കുക';
+      go.hidden = !isAndroid;
+    } else {
+      $('#installTitle').textContent = 'Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യുക';
+      $('#installHint').textContent = 'ഹോം സ്ക്രീനിൽ നിന്ന് തുറക്കാം — ബ്രൗസർ ഇല്ലാതെ, ഓഫ്‌ലൈനിലും';
+      go.textContent = mode === 'ios' ? 'എങ്ങനെ?' : 'ഇൻസ്റ്റാൾ';
+    }
+    clearTimeout(showInstallBar.timer);
+    // let the chapter show first
+    showInstallBar.timer = setTimeout(() => {
+      bar.hidden = false;
+      document.body.classList.add('has-install');   // the chapter buttons go above it
+      document.body.style.setProperty('--install-h', bar.offsetHeight + 'px');
+    }, mode === 'inapp' ? 1500 : 4000);
+  }
+  function hideInstallBar() {
+    clearTimeout(showInstallBar.timer);
+    const bar = $('#installBar');
+    if (bar) bar.hidden = true;
+    document.body.classList.remove('has-install');
+  }
+  const installLater = () => { settings.installLater = Date.now(); saveSettings(); hideInstallBar(); };
+  $('#installLater')?.addEventListener('click', installLater);
+  $('#installGo')?.addEventListener('click', () => {
+    const mode = $('#installBar').dataset.mode;
+    if (mode === 'inapp') {   // Android: an intent link opens this page in Chrome (the #verse part can't go along)
+      location.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+    } else if (mode === 'ios') installApp().then(hideInstallBar);   // the steps are shown: no need to keep asking
+    else installApp();
+  });
+  if (inAppBrowser) showInstallBar('inapp');
+  else if (isIOS) showInstallBar('ios');
+
   async function installApp() {
     if (installEvt) {
       installEvt.prompt();
       const choice = await installEvt.userChoice.catch(() => null);
-      if (choice && choice.outcome === 'accepted') $('#menuInstall').hidden = true;
+      if (choice && choice.outcome === 'accepted') { $('#menuInstall').hidden = true; hideInstallBar(); } else if ($('#installBar') && !$('#installBar').hidden) installLater();
       installEvt = null;
     } else if (isIOS) {
       await confirmBox('ഹോം സ്ക്രീനിൽ ചേർക്കുക', 'Safari-യിൽ താഴെയുള്ള "Share" ബട്ടൺ (⬆︎) അമർത്തി "Add to Home Screen" തിരഞ്ഞെടുക്കുക.', 'ശരി');
