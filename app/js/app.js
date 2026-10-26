@@ -571,6 +571,10 @@
   // text, so the text is copied first to paste there.
   let shareCtx = null;
   const canLink = /^https?:$/.test(location.protocol);
+  // on the published site links go out as is.gd/penuel (it redirects there, and the browser keeps
+  // the #/BOOK/chapter/verse part); elsewhere (local copy, test server) the page's own address
+  const SITE = 'https://sunilvalarian.github.io/malayalam-bible/app/', SHORT = 'https://is.gd/penuel';
+  const appLink = () => { const here = (location.origin + location.pathname).replace(/index\.html$/, ''); return here === SITE ? SHORT : location.origin + location.pathname; };
   const isPhone = matchMedia('(pointer: coarse)').matches;
 
   // app: a link to the app itself (☰ → ആപ്പ് പങ്കിടുക), no picture
@@ -586,7 +590,7 @@
       if (navigator.share) { try { await navigator.share({ title: p.ref, text }); } catch (err) { /* cancelled */ } } else toast((await copyText(text)) ? 'പങ്കിടാനായി പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
       return;
     }
-    shareCtx = Object.assign(p, { link: location.origin + location.pathname + (app ? '' : `#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}`) });
+    shareCtx = Object.assign(p, { link: appLink() + (app ? '' : `#/${encodeURIComponent(p.b)}/${p.c}/${p.vs[0]}`) });
     shareCtx.img = chapter ? Promise.resolve(null) : verseImage(p).catch((err) => { console.warn('share image', err); return null; });
     $('#shareTitle').textContent = 'പങ്കിടുക · ' + p.ref;
     $('#shareVerse').textContent = p.body;
@@ -606,7 +610,7 @@
     const u = encodeURIComponent, t = u(shareText()), link = shareLink();
     const href = {
       whatsapp: 'https://wa.me/?text=' + t,
-      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + u(link || location.origin + location.pathname),
+      facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + u(link || appLink()),
       telegram: link ? `https://t.me/share/url?url=${u(link)}&text=${u(shareCtx.chapter ? shareCtx.body : `${shareCtx.body}\n— ${shareCtx.ref}`)}` : 'https://t.me/share/url?url=' + t,
       x: 'https://twitter.com/intent/tweet?text=' + t,
       email: `mailto:?subject=${u(shareCtx.ref)}&body=${t}`,

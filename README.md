@@ -39,6 +39,8 @@ One-time Cloudflare setup:
 
 A shared link shows a card titled **Penuel** with the app icon: the `og:` meta tags in `app/index.html` (and the root `index.html`). WhatsApp and Facebook need full URLs there, so update `og:url` and `og:image` if the site's address changes.
 
+On the published site, shared links use the short link **https://is.gd/penuel**, which redirects to `https://sunilvalarian.github.io/malayalam-bible/app/` (a verse link adds `#/GEN/1/1`, which survives the redirect). It is `SITE` / `SHORT` in `app/js/app.js`; anywhere else (a local copy, tests) the page's own address is shared. An is.gd link can't be edited or deleted: if the site moves, make a new short link and change `SITE` / `SHORT`.
+
 The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`). Pages deploys them automatically; they need the secrets described under *Passkey* below and return "not configured" until then.
 
 ## Login and permissions
