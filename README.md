@@ -37,6 +37,8 @@ One-time Cloudflare setup:
 
 `app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
 
+A shared link shows a card titled **Penuel** with the app icon: the `og:` meta tags in `app/index.html` (and the root `index.html`). WhatsApp and Facebook need full URLs there, so update `og:url` and `og:image` if the site's address changes.
+
 The `functions/` folder (at the repository root, next to `app/`) holds the Cloudflare Pages Functions for passkey sign-in (`/api/passkey/challenge`, `/api/passkey/verify`). Pages deploys them automatically; they need the secrets described under *Passkey* below and return "not configured" until then.
 
 ## Login and permissions
