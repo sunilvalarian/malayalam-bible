@@ -5,9 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KnownDevices } from 'puppeteer-core';
-import { BASE, READER, launch, watch, waitVerses, sleep, badErrors, debugErrors, tap } from './helpers.mjs';
+import { READER, launch, watch, waitVerses, sleep, badErrors, debugErrors, tap } from './helpers.mjs';
 
-const APP_LINK = BASE + '/';
+const APP_LINK = 'https://penuel.pages.dev/';   // the public address, wherever the app runs
 const APP_NAME = 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ';
 
 async function openReader(b, phone) {
@@ -110,7 +110,7 @@ for (const phone of [false, true]) {
       await page.click('#shareLink');
       await sleep(100);
       const { wa } = await sheet(page);
-      assert.ok(wa.endsWith('— ഉത്പത്തി 15:1') && !wa.includes(BASE), 'unticking the link leaves it out: ' + wa);
+      assert.ok(wa.endsWith('— ഉത്പത്തി 15:1') && !wa.includes(APP_LINK), 'unticking the link leaves it out: ' + wa);
 
       if (phone) {
         await tap(page, '#shareGrid [data-to="instagram"]');

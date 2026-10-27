@@ -572,8 +572,10 @@
   let shareCtx = null;
   const canLink = /^https?:$/.test(location.protocol);
   // the app's own address, not the short link is.gd/penuel: on Android a link inside the app's scope
-  // opens the installed app itself, without the browser (a redirect from is.gd stays in the browser)
-  const appLink = () => location.origin + location.pathname.replace(/index\.html$/, '');
+  // opens the installed app itself, without the browser (a redirect from is.gd stays in the browser).
+  // Always the public address, also from the app installed at the old github.io one (README → Hosting)
+  const SITE = 'penuel.pages.dev';
+  const appLink = () => `https://${SITE}/`;
   const isPhone = matchMedia('(pointer: coarse)').matches;
 
   // app: a link to the app itself (☰ → ആപ്പ് പങ്കിടുക), no picture
@@ -696,7 +698,7 @@
     g.fillStyle = '#8a3b12'; g.font = `700 38px ${sans}`;
     g.fillText('— ' + p.ref, W / 2, y - lh / 2 + 70);
     g.fillStyle = '#7a6a55'; g.font = `600 26px ${sans}`;
-    g.fillText('പരിഷ്കരിച്ച മലയാളം ബൈബിൾ' + (canLink ? ' · ' + location.host : ''), W / 2, c.height - 40 - FOOT / 2);
+    g.fillText('പരിഷ്കരിച്ച മലയാളം ബൈബിൾ' + (canLink ? ' · ' + SITE : ''), W / 2, c.height - 40 - FOOT / 2);
 
     const blob = await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('toBlob'))), 'image/png'));
     return new File([blob], `${p.b}-${p.c}-${P.compressRanges(p.vs).replace(/[^\d]+/g, '_')}.png`, { type: 'image/png' });
@@ -2373,7 +2375,7 @@ p{margin:0 0 .9em}
     if (mode === 'inapp') {   // Android: an intent link opens this page in Chrome (the #verse part can't go along)
       location.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
     } else if (mode === 'moved') {   // the new address in Chrome itself, which can install it
-      location.href = 'intent://penuel.pages.dev/#Intent;scheme=https;package=com.android.chrome;end';
+      location.href = `intent://${SITE}/#Intent;scheme=https;package=com.android.chrome;end`;
     } else if (mode === 'ios') installApp().then(hideInstallBar);   // the steps are shown: no need to keep asking
     else installApp();
   });
