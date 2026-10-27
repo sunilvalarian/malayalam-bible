@@ -375,6 +375,19 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
+Job (`tools/sources/JOB/1.txt` … `42.txt`) is typed from photos of pages 709–749, one photo per page (the photo of page 709 has the page number and the left edge cut off, the one of page 723 its page number). **Page 714 is missing**, so chapter 6 has only verses 1–4: it is kept in `tools/sources/JOB/partial/6.txt` (build-data ignores it) and is not in the app until that page comes. Every other verse is there: 1:22, 2:13, 3:26, 4:21, 5:27, 7:21, 8:22, 9:35, 10:22, 11:20, 12:25, 13:28, 14:22, 15:35, 16:22, 17:16, 18:21, 19:29, 20:29, 21:34, 22:30, 23:17, 24:25, 25:6, 26:14, 27:23, 28:28, 29:25, 30:31, 31:40, 32:22, 33:33, 34:37, 35:16, 36:33, 37:24, 38:41, 39:30, 40:32, 41:26, 42:17 (1040 verses in 41 chapters). The numbering follows the Hebrew division: 40:25–32 here are 41:1–8 in many Bibles. The prose (1:1–2:12, 32:1–5, 42:7–17) is one line per paragraph and the speeches one line per verse; 1:14 has the messenger's words on an unnumbered line, and 31:40 ends with ജോബിന്റെ വാക്കുകൾ സമാപിച്ചു. Chapters 7, 10, 14, 17, 27, 30 and 37 have no heading in the print.
+
+Obvious misprints corrected: 15:24 അവ് അവനെ → അവ അവനെ, 40:7 a space before the full stop; the old-style ൻെറ (32:6, 38:6) and കൺഠ with a chillu (31:30, 33:2) are typed ന്റെ and കണ്ഠ, as in the other books. Kept as printed: 2:11 ഷുവഹ്കാരൻ but 42:9 ഷൂവഹ്കാരനായ, 32:2 ബറകേലിന്റെ but 32:6 ബറാകേലിന്റെ, 16:2 സാന്ത്വകരാണ്, 21:4 അക്ഷമം ആകാതിരിക്കണം, 22:24 അയിര് next to 22:25 അയിർശേഖരവും, 24:23 സുരക്ഷിതത്വംനല്കുന്നു, 40:29 ഭൃത്യകൾക്കുവേണ്ടി, 42:12 ആയിരം ഏർ കന്നുകാലികളും, the questions ending in "!" in 11:7 and 13:25, 9:27, 12:9 and 40:25 ending with no punctuation, and 7:4 with an opening quote but no closing one.
+
+Worth checking against the book (Job):
+- 1:1–6: the left edge of page 709 is cut off; the first letters of those lines were read from the sense.
+- Blurred or cut: 2:9–10, 3:12 (bottom line, എന്തിനായി തന്നു?), 5:5 കെണി, 7:11–13, 11:10–14, 13:7 തിന്മ, 13:18–21, 30:11 ഞാൺ / കടിഞ്ഞാൺ.
+- Readings that look odd: 7:5 ചർമമാലിന്യവും (or ചർമ്മ…), 23:13 അദ്വിതീയനാണ് (or അദിതീയനാണ്) and തന്റെ സ്വത്വം, 32:8 അവൾ (twice).
+- ു or ൂ is hard to tell in ‑ള്ളു / ‑ള്ളൂ and the imperatives: typed long in 1:15–19, 11:12, 15:15, 35:5, 42:5, short in 11:16, 27:17, 28:22, 29:18.
+- Words split at a line end, where the print does not show the space: joined, for example, 3:26 വന്നുകൊണ്ടുമിരിക്കുന്നു, 4:7 നാശമടഞ്ഞിട്ടുള്ളത്, 12:18 അയവുചെയ്യുന്നു, 12:20 എടുത്തുകളയുന്നു, 16:13 വലയംചെയ്യുന്നു, 19:4 തെറ്റുചെയ്തെങ്കിൽത്തന്നെ, 31:18 വഴിനടത്തിയിട്ടുമുണ്ടല്ലോ, 37:3 അതിർത്തികൾവരെയും, 41:4 ശക്തിപ്രാഭവത്തെയും; kept apart 13:12 കളിമൺ പ്രതിരോധങ്ങൾപോലെ, 22:18 നല്ല വണ്ണം, 24:6 കാലാ പെറുക്കും, 31:15 ഉളവാക്കിയവൻ തന്നെയല്ലേ.
+
+The photos are not in the repository.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
