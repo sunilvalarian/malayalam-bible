@@ -22,24 +22,22 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
   - OCR needs a lot of memory, so it is freed again when the upload dialog closes.
 
 ## Hosting
-The GitHub repository is **private**: nobody can download the source, the PDFs or the history. The website is published by **Cloudflare Pages**, which serves only the `app/` folder and redeploys automatically on every `git push` to `main`.
+The GitHub repository is **private**: nobody can download the source, the PDFs or the history. The website is **https://penuel.pages.dev**, published by **Cloudflare Pages** (project `penuel`), which serves only the `app/` folder plus the `functions/`. The address doesn't show the GitHub account name, unlike the older GitHub Pages copy at `sunilvalarian.github.io/malayalam-bible/app/`, which still serves the repository root on every push to `main`.
 
-One-time Cloudflare setup:
-1. Sign in at https://dash.cloudflare.com (free account).
-2. Go to **Workers & Pages → Create → Pages → Connect to Git**. If you only see Workers, click the "Looking to deploy Pages? Get started" link.
-3. Authorize GitHub and allow access to **only** the `malayalam-bible` repository.
-4. Select the repository, then enter:
-   - Production branch: `main`
-   - Framework preset: `None`
-   - Build command: *(leave empty)*
-   - Build output directory: `app`
-5. Click **Save and Deploy**. The site appears at `https://<project-name>.pages.dev`.
+The `penuel` project was created with Wrangler (Cloudflare's command-line tool), so it is **not** connected to Git: a push doesn't update it. To publish, from the repository root:
+```
+npx wrangler@3 login          # once per computer, opens the browser
+npx wrangler@3 pages deploy app --project-name penuel --branch main
+```
+(Wrangler 4 needs Node 22; version 3 works with Node 20. Run it from the repository root so the `functions/` folder is deployed too.) Each deploy also gets its own preview address (`https://<id>.penuel.pages.dev`).
+
+Firebase console → **Authentication → Settings → Authorized domains** must list `penuel.pages.dev`, or sign-in fails there.
 
 `app/_headers` sets the response headers (the service worker is never cached, so updates reach installed phones).
 
 A shared link shows a card titled **Penuel** with the app icon: the `og:` meta tags in `app/index.html` (and the root `index.html`). WhatsApp and Facebook need full URLs there, so update `og:url` and `og:image` if the site's address changes.
 
-Shared links are the app's own address (`https://sunilvalarian.github.io/malayalam-bible/app/`, a verse adds `#/GEN/1/1`): on Android a link inside the app's scope opens the installed app directly, without the browser (on some phones only once *Open supported links* is on in the app's settings); without the app it opens in the browser, which offers to install it (below). iPhones always open links in Safari. The short link **https://is.gd/penuel** also leads to the app (a verse link survives the redirect), but it is not what the app shares: a redirect stays in the browser. An is.gd link can't be edited or deleted.
+Shared links are the app's own address (`https://penuel.pages.dev/`, a verse adds `#/GEN/1/1`): on Android a link inside the app's scope opens the installed app directly, without the browser (on some phones only once *Open supported links* is on in the app's settings); without the app it opens in the browser, which offers to install it (below). iPhones always open links in Safari. The short link **https://is.gd/penuel** also leads to the app (a verse link survives the redirect), but it is not what the app shares: a redirect stays in the browser. An is.gd link can't be edited or deleted.
 
 On a phone browser (not in the installed app) a bar at the bottom offers to install the app, 4 seconds after it opens: one tap on Android Chrome (the browser's own install box), the *Add to Home Screen* steps on an iPhone, and *Chrome-ൽ തുറക്കുക* inside WhatsApp / Facebook / Instagram's own browser, which can't install. *പിന്നീട്* hides it for two weeks. Browsers never install without that tap. It doesn't show in automated browsers, so the e2e tests don't see it.
 
@@ -169,7 +167,7 @@ Without a Firebase config the app runs in **local mode**, and edits stay in that
 - **On a public web address**: read-only for everyone, and the login screen says that login hasn't been set up yet.
 
 ### One-time Firebase setup
-Already done for this site: Firebase project **`malayalam-bible-app`** (owner sunilvalarian@gmail.com), Firestore in `asia-south1` with `firestore.rules` deployed, web app config in `app/js/firebase-config.js`. To redeploy the rules after changing them: `firebase deploy --only firestore:rules` (the project is set in `.firebaserc`). Sign-in providers are also set up from this repo: the `auth` block in `firebase.json` (Email/Password + Google), applied with `firebase deploy --only auth`; no billing needed. E-mail link and the authorized domains (`sunilvalarian.github.io`, `localhost`) are already on. The project runs on the free Spark plan, so Firebase's daily free limits apply ([limits](https://firebase.google.com/docs/auth/limits)): e-mail sign-in links **5/day** (project-wide), verification e-mails 1000/day, password-reset e-mails 150/day. That's why the login screen puts e-mail + password first. Firebase's e-mails come from `noreply@malayalam-bible-app.firebaseapp.com` (sender name "Malayalam Bible") and often land in Spam / Promotions; the screen tells users to look there. Request logging (Cloud Logging of sign-in calls) needs billing, so it's off. Optional, still free: in Authentication → Templates → SMTP settings, send through your own mailbox (e.g. a Gmail app password or a free SMTP service) for better delivery (the 5/day e-mail-link limit may still apply).
+Already done for this site: Firebase project **`malayalam-bible-app`** (owner sunilvalarian@gmail.com), Firestore in `asia-south1` with `firestore.rules` deployed, web app config in `app/js/firebase-config.js`. To redeploy the rules after changing them: `firebase deploy --only firestore:rules` (the project is set in `.firebaserc`). Sign-in providers are also set up from this repo: the `auth` block in `firebase.json` (Email/Password + Google), applied with `firebase deploy --only auth`; no billing needed. E-mail link and the authorized domains (`penuel.pages.dev`, `sunilvalarian.github.io`, `localhost`) are already on. The project runs on the free Spark plan, so Firebase's daily free limits apply ([limits](https://firebase.google.com/docs/auth/limits)): e-mail sign-in links **5/day** (project-wide), verification e-mails 1000/day, password-reset e-mails 150/day. That's why the login screen puts e-mail + password first. Firebase's e-mails come from `noreply@malayalam-bible-app.firebaseapp.com` (sender name "Malayalam Bible") and often land in Spam / Promotions; the screen tells users to look there. Request logging (Cloud Logging of sign-in calls) needs billing, so it's off. Optional, still free: in Authentication → Templates → SMTP settings, send through your own mailbox (e.g. a Gmail app password or a free SMTP service) for better delivery (the 5/day e-mail-link limit may still apply).
 
 1. Go to https://console.firebase.google.com and create a project (Google Analytics can be off).
 2. **Build → Authentication → Get started**.

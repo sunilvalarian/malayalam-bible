@@ -1,6 +1,6 @@
 # Notes for Claude
 
-Malayalam Bible reader: a static site in `app/` (Cloudflare Pages), Firebase for login and shared edits. The README describes everything; the user writes in Malayalam / Manglish.
+Malayalam Bible reader: a static site in `app/` (Cloudflare Pages, https://penuel.pages.dev), Firebase for login and shared edits. A push does not update penuel.pages.dev: after pushing, deploy with `npx wrangler@3 pages deploy app --project-name penuel --branch main` from the repository root (README → *Hosting*). The README describes everything; the user writes in Malayalam / Manglish.
 
 ## Processing uploaded source files
 "Process the uploads" means the files people sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക*. They are in `tools/uploads/<BOOK ID>/<chapter>/<UTC time>-<name>` (no chapter folder = chapter not given). Everything still in `tools/uploads/` is waiting.
