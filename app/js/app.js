@@ -2332,12 +2332,17 @@ p{margin:0 0 .9em}
   const INSTALL_LATER_MS = 14 * 864e5;
   function showInstallBar(mode) {
     const bar = $('#installBar');
-    if (!bar || !isPhone || isStandalone || navigator.webdriver || !/^https?:/.test(location.protocol)) return;
+    if (!bar || !isPhone || (isStandalone && mode !== 'moved') || navigator.webdriver || !/^https?:/.test(location.protocol)) return;
     if (settings.installLater && Date.now() - settings.installLater < INSTALL_LATER_MS) return;
     bar.dataset.mode = mode;
     const go = $('#installGo');
     go.hidden = false;
-    if (mode === 'inapp') {
+    if (mode === 'moved') {
+      $('#installTitle').textContent = 'Penuel-ന് പുതിയ വിലാസം: penuel.pages.dev';
+      $('#installHint').textContent = isAndroid ? 'അവിടെ നിന്ന് ആപ്പ് വീണ്ടും ഇൻസ്റ്റാൾ ചെയ്ത് ഈ പഴയ ആപ്പ് നീക്കം ചെയ്യുക' : 'Safari-യിൽ penuel.pages.dev തുറന്ന് "Add to Home Screen" ചെയ്യുക, ഈ പഴയ ആപ്പ് നീക്കം ചെയ്യുക';
+      go.textContent = 'Chrome-ൽ തുറക്കുക';
+      go.hidden = !isAndroid;
+    } else if (mode === 'inapp') {
       $('#installTitle').textContent = isAndroid ? 'Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യാൻ Chrome-ൽ തുറക്കുക' : 'Penuel ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യാൻ Safari-യിൽ തുറക്കുക';
       $('#installHint').textContent = isAndroid ? 'ഈ ബ്രൗസറിൽ നിന്ന് ഇൻസ്റ്റാൾ ചെയ്യാൻ കഴിയില്ല' : 'മുകളിലെ ⋯ മെനുവിൽ "Open in Safari" / "Open in browser" തിരഞ്ഞെടുക്കുക';
       go.textContent = 'Chrome-ൽ തുറക്കുക';
@@ -2367,10 +2372,14 @@ p{margin:0 0 .9em}
     const mode = $('#installBar').dataset.mode;
     if (mode === 'inapp') {   // Android: an intent link opens this page in Chrome (the #verse part can't go along)
       location.href = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+    } else if (mode === 'moved') {   // the new address in Chrome itself, which can install it
+      location.href = 'intent://penuel.pages.dev/#Intent;scheme=https;package=com.android.chrome;end';
     } else if (mode === 'ios') installApp().then(hideInstallBar);   // the steps are shown: no need to keep asking
     else installApp();
   });
-  if (inAppBrowser) showInstallBar('inapp');
+  // the app installed from the old GitHub Pages address, which index.html leaves there
+  if (isStandalone && location.hostname === 'sunilvalarian.github.io') showInstallBar('moved');
+  else if (inAppBrowser) showInstallBar('inapp');
   else if (isIOS) showInstallBar('ios');
 
   async function installApp() {

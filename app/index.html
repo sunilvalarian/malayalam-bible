@@ -20,8 +20,10 @@
 <meta property="og:image:height" content="512">
 <meta name="twitter:card" content="summary">
 <script>
-  // the old GitHub Pages address sends everyone to the site's own address (README → Hosting)
-  if (location.hostname === 'sunilvalarian.github.io') location.replace('https://penuel.pages.dev/' + location.search + location.hash);
+  // the old GitHub Pages address sends everyone to the site's own address (README → Hosting), but
+  // not the app installed from there: another site shows the browser's address bar at its top, so
+  // it stays and asks for the app from the new address instead (js/app.js, install bar 'moved')
+  if (location.hostname === 'sunilvalarian.github.io' && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone === true)) location.replace('https://penuel.pages.dev/' + location.search + location.hash);
 </script>
 <script>
   // browsers can't load a manifest from file://, so add it only when served over the web
