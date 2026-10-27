@@ -22,7 +22,7 @@ Open **`app/index.html`** in Chrome or Edge (double-click works, no server neede
   - OCR needs a lot of memory, so it is freed again when the upload dialog closes.
 
 ## Hosting
-The GitHub repository is **private**: nobody can download the source, the PDFs or the history. The website is **https://penuel.pages.dev**, published by **Cloudflare Pages** (project `penuel`), which serves only the `app/` folder plus the `functions/`. The address doesn't show the GitHub account name, unlike the older GitHub Pages copy at `sunilvalarian.github.io/malayalam-bible/app/`, which still serves the repository root on every push to `main`.
+The GitHub repository is **private**: nobody can download the source, the PDFs or the history. The website is **https://penuel.pages.dev**, published by **Cloudflare Pages** (project `penuel`), which serves only the `app/` folder plus the `functions/`. The address doesn't show the GitHub account name, unlike the older GitHub Pages copy at `sunilvalarian.github.io/malayalam-bible/app/`. GitHub Pages still serves the repository root on every push to `main`, but both its pages (`index.html` and `app/index.html`) send visitors straight on to penuel.pages.dev, keeping a verse link's `#/GEN/1/1`. An app installed from the old address opens the new site; it has to be installed again from there, and highlights and settings saved without logging in stay behind.
 
 The `penuel` project was created with Wrangler (Cloudflare's command-line tool), so it is **not** connected to Git: a push doesn't update it. To publish, from the repository root:
 ```
