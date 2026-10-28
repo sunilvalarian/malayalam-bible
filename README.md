@@ -388,6 +388,16 @@ Worth checking against the book (Job):
 
 The photos are not in the repository.
 
+Psalms (`tools/sources/PSA/1.txt` … `51.txt`) is typed from 37 photos of pages 752–788, one photo per page. Psalms 1–51 have every verse (770). Page 789 was not photographed, so Psalm 52 has only its headings and verse 1, in `tools/sources/PSA/partial/52.txt`. The numbering is the print's: the titles have no number, so verse 1 is the first line after the title (as in English Bibles), and Psalm 13 has 5 verses (13:5 holds what is 13:5–6 elsewhere). Each psalm starts with its bold heading as `##` and then its italic title (ഗായകനേതാവിന്. ദാവീദിന്റെ കീർത്തനം. …) as a second `##` line, so that verse 1 is only the verse; Psalms 1, 2, 10, 33 and 43 have no title. The book divisions ഒന്നാംപുസ്തകം (1-41) and രണ്ടാംപുസ്തകം (42-72) are one more heading above Psalms 1 and 42. One line per verse; സെലാ / ഹിഗ്ഗായോൻ സെലാ from the right margin end the verse. Left out: the cross-reference (സങ്കീ 53) after Psalm 14's heading.
+
+Obvious misprints corrected: 44:1 a missing space after a comma, 19:11 a space before the semicolon; ദു:ഖ with a colon is typed ദുഃഖ (30:5, 35:12, 35:14). Kept as printed: 16:1 and 40:16 അങ്ങിൽ, 18:15 and 18:35 അങ്ങേ (for അങ്ങയുടെ), 19:9 കർതൃഭയം, 24:2 സമുദ്രങ്ങൾക്കുമീതെ next to പ്രവാഹങ്ങൾക്കുമീതേ, 24:7 രാജാവ് but 24:9 രാജാവു, 41:6 സ്വരുപിച്ച്, 49:18 നന്നായിചെയ്യുന്നു, 51:14 രക്തപാതകത്തിൽ നിന്ന്; 12:4 ending with no punctuation, 14:4 ending in "!", 2:6 and 41:8 with the full stop after the closing quote, and 17:3, 25:8 and 44:15 ending with a comma.
+
+Worth checking against the book (Psalms):
+- Blurred or cut: 3:3, 3:7, 7:6–9, 9:12 (end), 20:5 ആരവമുതിർക്കട്ടെ, 21:5 വലുതായിരുന്നു (or വലുതായിരിക്കുന്നു), 27:9–11, 34:22 പരിത്രാണംചെയ്യുന്നു (right edge cut), 35:2, 49:8–9, 50:10, 51:3 (comma or semicolon after ഞാനറിയുന്നു), the end of Psalm 41's title.
+- 19:9 has no visible verse number; [9] is put at കർതൃഭയം by the sense.
+- Readings that look odd: 7:9 പ്രതിഷ്ഠനല്കുകയും (perhaps പ്രതിഷ്ഠ നല്കുകയും), 33:5 typed കാരുണ്യംകൊണ്ട് where the print looks like കാരുണ്യകൊണ്ട്, 37:8 ഉതകുകയുള്ളൂ (ു or ൂ).
+- Words split at a line end: joined, for example, 21:12 വില്ലുകുലച്ച്, 33:22 കാത്തിരിക്കുന്നപോലെതന്നെ, 35:24 ന്യായംവിധിക്കണമേ (as 26:1), 38:6 കഴിഞ്ഞുകൂടുന്നു, 39:12 മൗനമവലംബിക്കരുതേ, 40:6 തുറന്നുതന്നു, 41:2 ദീർഘായുസ്സുള്ളവനാക്കുകയും; kept apart 39:1 കാത്തു സൂക്ഷിക്കും, 49:15 പരിത്രാണം ചെയ്യും.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
