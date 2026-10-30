@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KnownDevices } from 'puppeteer-core';
-import { READER, launch, watch, waitVerses, sleep, badErrors, debugErrors, tap } from './helpers.mjs';
+import { READER, launch, watch, waitCloud, waitVerses, sleep, badErrors, debugErrors, tap } from './helpers.mjs';
 
 const APP_LINK = 'https://penuel.pages.dev/';   // the public address, wherever the app runs
 const APP_NAME = 'പരിഷ്കരിച്ച മലയാളം ബൈബിൾ';
@@ -24,6 +24,7 @@ async function openReader(b, phone) {
   }, phone);
   await page.goto(READER + '#/GEN/15', { waitUntil: 'load' });
   await waitVerses(page);
+  await waitCloud(page);   // signing-in state known: the reader is drawn again then, which would detach a verse mid-click
   return { page, w };
 }
 

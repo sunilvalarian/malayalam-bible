@@ -1,24 +1,20 @@
 // firestore.rules → chapters/{id}, settings/{id}, changes/{id}
 import { describe, it, beforeEach } from 'node:test';
-import { setup, assertSucceeds, assertFails, ts, Timestamp, OWNER } from './helpers.mjs';
+import vm from 'node:vm';
+import fs from 'node:fs';
+import path from 'node:path';
+import { setup, assertSucceeds, assertFails, ts, Timestamp, OWNER, RULES_PATH } from './helpers.mjs';
+
+const ROOT = path.dirname(RULES_PATH);
 
 const t = setup();
 const ITEMS = [{ v: 1, t: 'ആദിയിൽ ദൈവം ആകാശവും ഭൂമിയും സൃഷ്ടിച്ചു.' }, { v: 2, t: 'text' }];
-// the chapters in app/js/data.js — same as isBundled() in firestore.rules
-const isBundled = (b, c) => (b === 'GEN' && c >= 1 && c <= 50) || (b === 'EXO' && c >= 1 && c <= 3)
-  || (b === 'MAT' && c >= 1 && c <= 28) || (b === 'MRK' && c >= 1 && c <= 16)
-  || (b === 'LUK' && c >= 1 && c <= 24) || (b === 'ACT' && c >= 1 && c <= 28)
-  || (b === 'ROM' && c >= 1 && c <= 16) || (b === '1CO' && c >= 1 && c <= 16) || (b === '2CO' && c >= 1 && c <= 13)
-  || (b === 'GAL' && c >= 1 && c <= 6) || (b === 'EPH' && c >= 1 && c <= 6)
-  || (b === 'PHP' && c >= 1 && c <= 4) || (b === 'COL' && c >= 1 && c <= 4)
-  || (b === '1TH' && c >= 1 && c <= 5) || (b === '2TH' && c >= 1 && c <= 3)
-  || (b === '1TI' && c >= 1 && c <= 6) || (b === '2TI' && c >= 1 && c <= 4)
-  || (b === 'TIT' && c >= 1 && c <= 3) || (b === 'PHM' && c === 1)
-  || (b === 'HEB' && c >= 1 && c <= 13) || (b === 'JAS' && c >= 1 && c <= 5)
-  || (b === '1PE' && c >= 1 && c <= 5) || (b === '2PE' && c >= 1 && c <= 3)
-  || (b === 'JHN' && c >= 1 && c <= 21) || (b === '1JN' && c >= 1 && c <= 5)
-  || (b === '2JN' && c === 1) || (b === '3JN' && c === 1)
-  || (b === 'JUD' && c === 1) || (b === 'REV' && c >= 1 && c <= 22);
+// the chapters in app/js/data.js (what the app sends as hasBase) — isBundled() in firestore.rules
+// must give the same (tests/unit/bundled-rules.test.mjs checks every chapter)
+const data = { window: {} };
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'app', 'js', 'data.js'), 'utf8'), data);
+const bundled = new Set(data.window.BIBLE_DATA.books.flatMap((b) => Object.keys(b.chapters).map((c) => b.id + '_' + c)));
+const isBundled = (b, c) => bundled.has(b + '_' + c);
 // what Cloud.saveChapter() writes
 const chapter = (book, c, by, over = {}) => ({
   book, chapter: c, items: ITEMS, deleted: false, bookName: null,
@@ -39,7 +35,7 @@ describe('chapters: editors', () => {
   });
   it('an editor saves a bundled chapter edit and a new uploaded chapter', async () => {
     await assertSucceeds(ch(t.as.editor(), 'GEN_3').set(chapter('GEN', 3, E)));
-    await assertSucceeds(ch(t.as.editor(), 'EXO_10').set(chapter('EXO', 10, E, { bookName: 'പുറപ്പാട്' })));
+    await assertSucceeds(ch(t.as.editor(), 'ISA_10').set(chapter('ISA', 10, E, { bookName: 'ഏശയ്യാ' })));
     await assertSucceeds(ch(t.as.editor(), 'GEN_3').set(chapter('GEN', 3, E, { items: [{ v: 1, t: 'changed' }] })));
   });
   it('an editor saves edits to the bundled Exodus and New Testament chapters', async () => {
@@ -57,12 +53,20 @@ describe('chapters: editors', () => {
     await assertSucceeds(ch(t.as.editor(), '3JN_1').set(chapter('3JN', 1, E)));
     await assertSucceeds(ch(t.as.editor(), 'REV_22').set(chapter('REV', 22, E)));
     await assertFails(ch(t.as.editor(), 'REV_23').set(chapter('REV', 23, E, { hasBase: true })));  // no such chapter
-    await assertFails(ch(t.as.editor(), 'LEV_1').set(chapter('LEV', 1, E, { hasBase: true })));   // not bundled
+    await assertFails(ch(t.as.editor(), 'JER_1').set(chapter('JER', 1, E, { hasBase: true })));   // not bundled
+  });
+  it('an editor saves edits to the bundled Old Testament books (Exodus to Proverbs)', async () => {
+    for (const [b, c] of [['EXO', 40], ['LEV', 1], ['DEU', 34], ['JOS', 7], ['RUT', 4], ['2CH', 36], ['TOB', 14],
+      ['2MA', 15], ['JOB', 42], ['PSA', 119], ['PSA', 150], ['PRO', 31]]) {
+      await assertSucceeds(ch(t.as.editor(), `${b}_${c}`).set(chapter(b, c, E)));
+    }
+    await assertFails(ch(t.as.editor(), 'JOS_4').set(chapter('JOS', 4, E, { hasBase: true })));   // not typed yet
+    await assertSucceeds(ch(t.as.editor(), 'JOS_4').set(chapter('JOS', 4, E)));                   // uploaded
   });
   it('the required fields are checked', async () => {
     const db = t.as.editor();
     await assertFails(ch(db, 'GEN_4').set(chapter('GEN', 3, E)));                          // id mismatch
-    await assertFails(ch(db, 'EXO_10').set(chapter('EXO', 10, E, { hasBase: true })));        // fake "bundled"
+    await assertFails(ch(db, 'ISA_10').set(chapter('ISA', 10, E, { hasBase: true })));        // fake "bundled"
     await assertFails(ch(db, 'GEN_3').set(chapter('GEN', 3, E, { hasBase: false })));
     await assertFails(ch(db, 'GEN_3').set(chapter('GEN', 3, 'someone@example.com')));
     await assertFails(ch(db, 'GEN_3').set(chapter('GEN', 3, E, { updatedAt: Timestamp.now() })));
@@ -70,7 +74,7 @@ describe('chapters: editors', () => {
     await assertFails(ch(db, 'GEN_3').set(chapter('GEN', 3, E, { extra: 1 })));
     await assertFails(ch(db, 'GEN_3').set(chapter('GEN', 3, E, { chapter: '3' })));
     await assertFails(ch(db, 'GEN_0').set(chapter('GEN', 0, E)));
-    await assertFails(ch(db, 'EXO_10').set(chapter('EXO', 10, E, { bookName: 'x'.repeat(61) })));
+    await assertFails(ch(db, 'ISA_10').set(chapter('ISA', 10, E, { bookName: 'x'.repeat(61) })));
     const noItems = chapter('GEN', 3, E); delete noItems.items;
     await assertFails(ch(db, 'GEN_3').set(noItems));
   });
@@ -81,11 +85,11 @@ describe('chapters: editors', () => {
   });
   it('delete: editors only "restore original" (hasBase), admins anything', async () => {
     await seedChapter('GEN_3', chapter('GEN', 3, E));
-    await seedChapter('EXO_10', chapter('EXO', 10, E));
+    await seedChapter('ISA_10', chapter('ISA', 10, E));
     await assertFails(ch(t.as.reader(), 'GEN_3').delete());
-    await assertFails(ch(t.as.editor(), 'EXO_10').delete());
+    await assertFails(ch(t.as.editor(), 'ISA_10').delete());
     await assertSucceeds(ch(t.as.editor(), 'GEN_3').delete());
-    await assertSucceeds(ch(t.as.admin(), 'EXO_10').delete());
+    await assertSucceeds(ch(t.as.admin(), 'ISA_10').delete());
   });
   it('readers, blocked users and visitors can\'t write (nothing open)', async () => {
     await assertFails(ch(t.as.reader(), 'GEN_3').set(chapter('GEN', 3, R)));
@@ -99,21 +103,21 @@ describe('chapters: editors', () => {
 describe('chapters: open to everyone (settings/permissions)', () => {
   beforeEach(async () => {
     await t.seedUsers();
-    await seedChapter('EXO_10', chapter('EXO', 10, E));
+    await seedChapter('ISA_10', chapter('ISA', 10, E));
     await seedChapter('GEN_5', chapter('GEN', 5, 'admin@example.com', { items: [], deleted: true }));
   });
 
   it('openUpload: a reader creates or overwrites any chapter', async () => {
     await t.setSettings({ openUpload: true });
-    await assertSucceeds(ch(t.as.reader(), 'LEV_2').set(chapter('LEV', 2, R)));
+    await assertSucceeds(ch(t.as.reader(), 'JER_2').set(chapter('JER', 2, R)));
     await assertSucceeds(ch(t.as.reader(), 'GEN_3').set(chapter('GEN', 3, R)));
-    await assertSucceeds(ch(t.as.reader(), 'EXO_10').set(chapter('EXO', 10, R)));
+    await assertSucceeds(ch(t.as.reader(), 'ISA_10').set(chapter('ISA', 10, R)));
   });
   it('openEdit: a reader edits existing visible chapters and bundled ones, but adds no new book', async () => {
     await t.setSettings({ openEdit: true });
     await assertSucceeds(ch(t.as.reader(), 'GEN_3').set(chapter('GEN', 3, R)));      // override of a bundled chapter
-    await assertSucceeds(ch(t.as.reader(), 'EXO_10').set(chapter('EXO', 10, R)));      // existing uploaded chapter
-    await assertFails(ch(t.as.reader(), 'LEV_2').set(chapter('LEV', 2, R)));         // new, not bundled
+    await assertSucceeds(ch(t.as.reader(), 'ISA_10').set(chapter('ISA', 10, R)));      // existing uploaded chapter
+    await assertFails(ch(t.as.reader(), 'JER_2').set(chapter('JER', 2, R)));         // new, not bundled
   });
   it('a hidden chapter stays hidden for readers, also with both switches on', async () => {
     await t.setSettings({ openEdit: true, openUpload: true });
@@ -122,9 +126,9 @@ describe('chapters: open to everyone (settings/permissions)', () => {
   });
   it('readers never hide or delete, and must sign their own e-mail', async () => {
     await t.setSettings({ openEdit: true, openUpload: true });
-    await assertFails(ch(t.as.reader(), 'EXO_10').set(chapter('EXO', 10, R, { items: [], deleted: true })));
-    await assertFails(ch(t.as.reader(), 'EXO_10').delete());
-    await assertFails(ch(t.as.reader(), 'EXO_10').set(chapter('EXO', 10, E)));
+    await assertFails(ch(t.as.reader(), 'ISA_10').set(chapter('ISA', 10, R, { items: [], deleted: true })));
+    await assertFails(ch(t.as.reader(), 'ISA_10').delete());
+    await assertFails(ch(t.as.reader(), 'ISA_10').set(chapter('ISA', 10, E)));
   });
   it('blocked users and visitors stay read-only', async () => {
     await t.setSettings({ openEdit: true, openUpload: true });
@@ -134,7 +138,7 @@ describe('chapters: open to everyone (settings/permissions)', () => {
   it('switched off again: readers are refused', async () => {
     await t.setSettings({ openEdit: false, openUpload: false });
     await assertFails(ch(t.as.reader(), 'GEN_3').set(chapter('GEN', 3, R)));
-    await assertFails(ch(t.as.reader(), 'EXO_10').set(chapter('EXO', 10, R)));
+    await assertFails(ch(t.as.reader(), 'ISA_10').set(chapter('ISA', 10, R)));
   });
 });
 

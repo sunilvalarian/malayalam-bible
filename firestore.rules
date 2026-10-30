@@ -69,10 +69,33 @@ service cloud.firestore {
 
     // Chapters bundled with the app (app/js/data.js). hasBase must match this, so an editor
     // can't mark an uploaded chapter as "bundled" to get delete rights. Update when data.js
-    // gains books (e.g. `|| (b == 'EXO' && c >= 1 && c <= 40)`).
+    // gains books or chapters (tests/unit/bundled-rules.test.mjs fails until it does), then
+    // publish the rules again: a mismatch makes every save of those chapters permission-denied.
     function isBundled(b, c) {
       return (b == 'GEN' && c >= 1 && c <= 50)
-        || (b == 'EXO' && c >= 1 && c <= 3)
+        || (b == 'EXO' && c >= 1 && c <= 40)
+        || (b == 'LEV' && c >= 1 && c <= 27)
+        || (b == 'NUM' && c >= 1 && c <= 36)
+        || (b == 'DEU' && c >= 1 && c <= 34)
+        || (b == 'JOS' && c in [1, 2, 3, 7, 16, 17, 20, 21])
+        || (b == 'JDG' && c >= 1 && c <= 21)
+        || (b == 'RUT' && c >= 1 && c <= 4)
+        || (b == '1SA' && c >= 1 && c <= 31)
+        || (b == '2SA' && c >= 1 && c <= 24)
+        || (b == '1KI' && c >= 1 && c <= 22)
+        || (b == '2KI' && c >= 1 && c <= 25)
+        || (b == '1CH' && c >= 1 && c <= 29)
+        || (b == '2CH' && c >= 1 && c <= 36)
+        || (b == 'EZR' && c >= 1 && c <= 10)
+        || (b == 'NEH' && c >= 1 && c <= 13)
+        || (b == 'TOB' && c >= 1 && c <= 14)
+        || (b == 'JDT' && c >= 1 && c <= 16)
+        || (b == 'EST' && c >= 1 && c <= 16)
+        || (b == '1MA' && c >= 1 && c <= 16)
+        || (b == '2MA' && c >= 1 && c <= 15)
+        || (b == 'JOB' && c >= 1 && c <= 42)
+        || (b == 'PSA' && c >= 1 && c <= 150)
+        || (b == 'PRO' && c >= 1 && c <= 31)
         || (b == 'MAT' && c >= 1 && c <= 28)
         || (b == 'MRK' && c >= 1 && c <= 16)
         || (b == 'LUK' && c >= 1 && c <= 24)
