@@ -427,6 +427,16 @@ Worth checking against the book (Ecclesiastes, Song of Songs, Wisdom):
 
 These photos are not in the repository either.
 
+Sirach 1–43 (`tools/sources/SIR/1.txt` … `43.txt`) is typed from WhatsApp photos of 2026-11-04, one per page, sent in a folder named പ്രഭാഷകൻ (IMG-20261104-WA0000 … WA0055, pages 943–997; the three IMG-20261103 photos in that folder are spreadsheet screenshots, not pages). They were sent unordered and put in order by the printed page number; the photos of pages 988 and 990 are cropped so their numbers don't show, and page 975 was sent twice (both typings agreed). Pages 998 onwards weren't sent, so 43:28 stops at ശക്തികണ്ടെത്തും? (the rest of the verse is on page 998) and 43:29–33 and chapters 44–51 are missing. The prologue (മുഖവുര, page 943) is typed in `tools/sources/SIR/prologue.txt`, which build-data doesn't read: the app has no place for text before verse 1. One line per verse; footnote letters, footnotes and cross-references are left out.
+- The print follows the Greek numbering and leaves out these verse numbers: 1:5, 7, 21; 3:19, 25; 10:21; 11:15–16; 13:14; 16:15–16; 17:5, 9, 16, 18, 21; 18:3; 19:18–19, 21; 22:7–8; 24:18, 24; 25:12; 26:19–27. The footnote on page 975 prints 26:19–27 in small type ("found only in some manuscripts"); they are not in the text.
+
+Worth checking against the book (Sirach):
+- Uncertain readings at the page curl or edge: 4:2 (end of the line; typed ക്ഷോഭിപ്പിക്കരുത്.), 20:28 കുന്നുകൂട്ടും, 23:19 നിരീക്ഷിച്ച്, 31:13 സൃഷ്ടിക്കപ്പെട്ട, 31:14 കൈനീട്ടരുത്, 34:16 അവിടന്നുതന്നെ, 40:30 നിർല്ലജ്ജന്റെ, 33:6 (end), 2:12–15 (blurred near the spine), 2:16 (";" or ":" after അന്വേഷിക്കും), 24:30 (final full stop). In the prologue the king's name എവുഎർഗെത്തെസ് and സമയംചെലവഴിച്ചപ്പോൾ.
+- Kept as printed, possibly misprints: 8:15 വിഢിത്തത്താൽ, 20:6 and 38:21 end with a colon, 22:17 മിനുസ്സമുള്ള, 23:9 ദുസ്തഴക്കമരുത്, 23:15 നിന്ദവചനങ്ങൾ, 25:21 അഭിവാഞ്ഛയരുത്, 27:27 starts ചെയ്യുന്നവനിലേക്കുതന്നെ (a word seems to be missing before it), 28:6 a full stop after വിരാമമിടാനും, 34:17 ends without a full stop, 37:19 വിദഗ്ദനാണ്, 37:26 and 40:27 end with a comma, 39:2 ഊഴ്ന്നിറങ്ങുകയും, 39:30 ends without punctuation, 36:15 നൽകണമേ (elsewhere നല്കു…).
+- Words split at a line end, joined: for example 6:32 ശിക്ഷണവിധേയനാകും, 27:2 ഉരച്ചുചേർക്കപ്പെടും, 27:6 മനുഷ്യഹൃദയങ്ങളെയും, 33:24 വിഭജിച്ചുകൊടുക്കുക; kept apart 21:12 ശിക്ഷണ വിധേയനാക്കാനാകില്ല, 26:12 ജലാശയത്തിൽ നിന്നും, 33:17 ചക്കു നിറച്ചു, 43:1 നിർമല വിതാനമാണ്.
+
+These photos are not in the repository either.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
