@@ -445,6 +445,33 @@ Worth checking against the book (Isaiah):
 - Kept as printed, possibly misprints: 8:11 പരീശിലിപ്പിക്കുകയും, 14:27 നിശ്ചയിച്ചയിച്ചിരിക്കുന്നു, 16:8 അവളുടെ ശാഖകൾ, 22:9 ജലം നീ സംഭരിച്ചു, 23:15 ടയറിനു, 24:5 കൽപന, 3:3 അർദ്ധശതാധിപൻ, 30:12 ഇസ്രയേലിന്റെ, 31:4 ഇടയൻമാർ, 33:19 ഗർവിഷ്ടരായ, 34:9 അവരുടെ അരുവികൾ, 36:3 ഏലിയാക്കീമും (36:11 എലിയാക്കിമും), 36:22 യോവാബും, 37:27 പച്ചപുല്ലും, 16:7 കിർഹാറെസെത്തിലെ (16:11 കീർഹേരസിനെ), the heading before 18 എത്യോപ്യയ്ക്കെതിരേ (18:1 എത്യോപ്യായിലെ), 20:4 അസ്സീറിയാ രാജാവ്.
 - Words split at a line end were joined where the next line continues the word; doubtful ones include 40:3 വിശാലവീഥി and 40:2 കർത്തൃകരത്തിൽനിന്ന്.
 
+The rest of 40:17, 40:18–31 and chapters 41–66 (`41.txt` … `66.txt`) are typed from a second set of photos of 2026-11-07 in a folder named ഏശയ്യാ ബാലൻസ് (IMG-20261107-WA0000 … WA0033, pages 1057–1090, unordered, one per page, none missing or doubled), so Isaiah is complete. A heading printed above a chapter numeral opens that chapter.
+
+Worth checking against the book (Isaiah 40–66):
+- Kept as printed, possibly misprints: 41:27 ജറുസലേമിലേമിന്, 46:5 ഞങ്ങൾ തുല്യരാകാനുമായി, 52:5 അധരമായുള്ളത്, 59:18 ends with "നല്കും -", 63:13 a closing ’ with no opening quote, 44:3 അരുവികളും’ (no opening quote), 66:7 ജന്മംനല്കും, 65:19 a colon where a semicolon is expected, 44:4 no full stop after വളരും; spacing 49:26 പുതുവീഞ്ഞു കൊണ്ടെന്നപോലെ, 50:2 ചത്തുപോകുകയുംചെയ്യും, 43:12 ഞാൻ തന്നെയാണു. The running head of page 1068 says 48 – 49 although the page holds 47–48.
+- Uncertain at a blurred or curled page edge: 53:3 കണ്ടവർ (first word of page 1075), 41:4 ചെയ്തതാർ?, 44:17 അങ്ങാണല്ലോ, 45:1–2 (സൈറസിനോട്. full stop or comma, ഒടിക്കുകയും ചെയ്യും.), 63:19 the final "!", 65:7 (no punctuation readable after the last word of page 1087), and line-end punctuation in 42:19, 43:17, 48:6, 48:8, 48:20, 49:15, 53:2. In 56:1 a small mark like ‘ before കർത്താവ് (no closing quote) is left out.
+
+Jeremiah (`tools/sources/JER/1.txt` … `52.txt`, no `45.txt`) is typed from WhatsApp photos of 2026-11-07 in a folder named ജറെമിയാ (IMG-20261107-WA0038 … WA0112, 64 photos of pages 1092–1168, unordered, one per page; page 1129 was sent twice (WA0077, WA0100) and both typings agreed; no introduction page). Prose is one line per paragraph, a new paragraph only where the print leaves extra space; a poem inside a prose verse (e.g. 2:5, 10:2, 10:7, 15:2, 22:6, 49:28, 49:35) is a line of its own without a verse number, so it stays with its verse. The print numbers 8:1–22 and 9:1–26 (not the Hebrew 8:23 / 9:25). The parallel references printed with the headings of 52 (2 രാജാ …) are left out, like the footnotes and cross-references.
+
+**Pages not sent** (Jeremiah is incomplete until they are typed):
+- 1096: the rest of 3:23, 3:24–25 and 4:1–13; 4:14 starts mid-verse at എത്രനാൾ നീ നിന്റെ മധ്യേ.
+- 1104–1105: the rest of 8:12, 8:13–22 and 9:1–20; 9:21 starts mid-verse at അതു നമ്മുടെ കോട്ടകളിൽ.
+- 1110–1111: the rest of 13:5, 13:6–27 and 14:1–11; 14:12 starts mid-verse at വ്യാധികളാലും.
+- 1122: the rest of 22:14, 22:15–30 and the heading of 23.
+- 1132: the rest of 29:20, 29:21–32 and 30:1–5; 30:6 starts mid-verse at എല്ലാ മുഖവും.
+- 1136: the rest of 31:27, 31:28–40 and 32:1–3; 32:4 starts mid-word at ടുകയില്ല.
+- 1143: the rest of 36:9 and 36:10–30; 36:31 starts mid-word at യെയും.
+- 1153: the rest of 44:27, 44:28–30, all of 45 and 46:1–8; 46:9 starts mid-verse at പരിചയേന്തിയ.
+- 1157–1159: the rest of 48:27, 48:28–47 and 49:1–24 (49:25 starts at the top of page 1160).
+- 1163: the rest of 50:32 and 50:33–44; 50:45 starts mid-verse at അവരെ വലിച്ചിഴയ്ക്കും.
+- 1169: the rest of 52:24 and 52:25–34.
+
+Worth checking against the book (Jeremiah):
+- No verse number printed: 11:2 (verse 1 runs on into ഈ ഉടമ്പടിയുടെ വാക്കുകൾ നീ കേൾക്കുക), and 2:22, where [22] is put before കാരത്തിൽ കഴുകിയാലും.
+- Kept as printed, possibly misprints: 5:29 ചെയ്യേണ്ടന്നോ, 23:3 തിരിയെകൊണ്ടുവരും, 23:38 നിങ്ങൾപറയരുത്, 25:9 ബിഭത്സ, 25:13 ജറെമിയ, 26:3 ഒരോരുത്തനും, 34:14 ചെവിചായിക്കുകയോ, 40:1 വിട്ടയയച്ചതിനുശേഷം, 40:8 and 41:12 ഇഷ്മായേൽ (elsewhere ഇസ്മായേൽ), 40:8 കറേയായുടെ, 52:20 എന്നി വസ്തുക്കളുടെ; 32:43 an opening quote with no closing one.
+- Uncertain readings: 3:2 പീഡിപ്പിക്കപ്പെടാത്തത്, 6:1 ബത്ഹാഖെരമിനുമേൽ, 6:28–7:3 (blurred top of the right column of page 1101), 7:30 യഹൂദ്യർ and അവിടെ (curled corner), 10:15 അവജ്ഞാനിർമിതി, 25:4 അടുത്തേക്ക്, 33:21 തകർക്കപ്പെടുകയുള്ളൂ, 40:8 മക്കാത്ത്യനായ, 43:4 പടത്തലവന്മാരാരും, 47:6 മടങ്ങൂ, വിശ്രമിക്കൂ, നിശ്ചലമാകൂ (long or short vowel), 48:27 നീ (curled corner), 51:1 ലേബ്ഖാമായ്.
+- Words split between two pages, joined: 2:23 വഴിയിൽ, 3:7 തിരിച്ചുവരുമെന്ന്, 19:12 പോലെയാക്കാനായി, 26:4 ശ്രവിക്കുകയില്ലെങ്കിൽ, 33:3 വിളിച്ചപേക്ഷിക്കുക, 34:14 അന്ത്യത്തിൽ, 39:7 ബാബിലോണിലേക്കു, 44:11 നിശ്ചയിച്ചിരിക്കുന്നു. Line-broken words inside a page were joined where the next line continues the word; the doubtful ones are in the typing notes, not listed here.
+
 These photos are not in the repository either.
 
 ## Source documents
