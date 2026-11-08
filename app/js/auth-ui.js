@@ -196,6 +196,7 @@
     show: (d) => d.showModal(),
     notify: () => {},
     dismissible: true,       // default for open(); the admin portal turns it off
+    leave: null,             // Back / Esc on a screen that can't be closed: the admin portal leaves for the reader
   };
 
   // which kind of screen: 'cloud' (Firebase), 'owner' (local passcode), 'readonly' (public site, no Firebase)
@@ -359,14 +360,20 @@
 
   // ---- events ----
   $('#authClose').addEventListener('click', () => AuthUI.close());
-  dlg.addEventListener('cancel', (e) => { if (!state.dismissible) e.preventDefault(); });
+  dlg.addEventListener('cancel', (e) => {
+    if (state.dismissible) return;
+    e.preventDefault();
+    if (hooks.leave) hooks.leave();
+  });
   // the browser may close a modal dialog without a cancelable 'cancel' (Android back, a second Esc): a
-  // screen that must stay (the admin portal while signed out) opens again
+  // screen that must stay (the admin portal while signed out) leaves the page (hooks.leave) or opens again
   let closing = false;
   dlg.addEventListener('close', () => {
     const wanted = closing;
     closing = false;
-    if (!wanted && !state.dismissible) setTimeout(() => { if (!dlg.open && !(Cloud && Cloud.user)) hooks.show(dlg); }, 0);
+    if (wanted || state.dismissible) return;
+    if (hooks.leave) { if (!(Cloud && Cloud.user)) hooks.leave(); return; }
+    setTimeout(() => { if (!dlg.open && !(Cloud && Cloud.user)) hooks.show(dlg); }, 0);
   });
   $('#authSwitch').addEventListener('click', () => {
     state.mode = state.mode === 'signup' ? 'signin' : 'signup';

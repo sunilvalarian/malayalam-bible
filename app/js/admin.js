@@ -71,8 +71,105 @@
     $('#confirmText').textContent = text;
     $('#confirmOk').textContent = okLabel || 'ശരി';
     d.returnValue = '';
-    d.showModal();
+    openDialog(d);
     return new Promise((res) => d.addEventListener('close', () => res(d.returnValue === 'ok'), { once: true }));
+  }
+
+  // ---------- history: the Back button ----------
+  // As in the reader: each open dialog and the phone menu own one history entry, so Back closes them
+  // instead of leaving the portal. Closing one in the UI removes its entry (history.back()); anything
+  // that navigates meanwhile waits until that has happened. Every portal entry carries admIdx (0 = the
+  // first entry of this visit), so "back to the reader" knows how far back the reader is.
+  const hist = { stack: [], pendingBack: 0, queue: [], idx: 0, leaving: false };
+  const later = (fn) => { if (!hist.pendingBack) return false; hist.queue.push(fn); return true; };
+  if (history.state && typeof history.state.admIdx === 'number') hist.idx = history.state.admIdx;
+  else history.replaceState(Object.assign({}, history.state, { admIdx: 0 }), '');
+  function syncIdx() {
+    const s = history.state;
+    if (s && typeof s.admIdx === 'number') { hist.idx = s.admIdx; return; }
+    // a new #section entry (link, typed address): whatever owned an entry is now below it
+    history.replaceState(Object.assign({}, s, { admIdx: ++hist.idx }), '');
+    hist.stack.length = 0;
+    setMenu(false);
+  }
+  function pushEntry(key) {
+    hist.stack.push(key);
+    history.pushState({ dlg: key, admIdx: ++hist.idx }, '', location.href);
+  }
+  function dropEntry(key) {
+    const i = hist.stack.lastIndexOf(key);
+    if (i < 0) return;
+    hist.stack.splice(i, 1);
+    hist.pendingBack++;
+    history.back();
+  }
+  function openDialog(d) {
+    if (d.open || hist.leaving || later(() => openDialog(d))) return;
+    if (!d.dataset.hist) {
+      d.dataset.hist = '1';
+      d.addEventListener('close', () => { if (d.dataset.popClose) delete d.dataset.popClose; else dropEntry(d.id); });
+    }
+    d.showModal();
+    pushEntry(d.id);
+  }
+  window.addEventListener('popstate', () => {
+    if (hist.leaving) { location.replace(readerUrl); return; }   // history.go() stopped inside the portal
+    syncIdx();
+    if (hist.pendingBack) {
+      if (--hist.pendingBack === 0) hist.queue.splice(0).forEach((fn) => fn());
+      return;
+    }
+    const key = hist.stack.pop();
+    if (key === 'menu') { setMenu(false); return; }
+    const d = key && document.getElementById(key);
+    if (!d || !d.open) return;
+    // the login screen can't be closed: it leaves the portal instead (AuthUI hook "leave")
+    d.dataset.popClose = '1';
+    d.close();
+  });
+  // back to the reader: step back over this visit's entries when the reader is right behind them,
+  // so the history doesn't become reader → portal → reader
+  function toReader() {
+    if (later(toReader)) return;
+    hist.leaving = true;
+    hist.stack.length = 0;
+    let ref = null;
+    try { ref = new URL(document.referrer); } catch (e) { /* opened directly */ }
+    const home = new URL('./', location.href).pathname;
+    const fromReader = ref && ref.origin === location.origin && (ref.pathname === home || ref.pathname === home + 'index.html');
+    if (fromReader && history.length > hist.idx + 1) {
+      history.go(-(hist.idx + 1));
+      const t = setTimeout(() => location.replace(readerUrl), 3000);   // the reader wasn't there after all
+      window.addEventListener('pagehide', () => clearTimeout(t), { once: true });
+    } else location.replace(readerUrl);
+  }
+  // returned to with Forward (back/forward cache): start afresh
+  window.addEventListener('pageshow', (e) => {
+    if (!e.persisted || !hist.leaving) return;
+    Object.assign(hist, { stack: [], pendingBack: 0, queue: [], leaving: false });
+    syncIdx();
+    setMenu(false);
+    if (!AuthUI.isOpen) evaluate();
+  });
+  // same-page links (#section) and links back to the reader (data-reader)
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (a.hasAttribute('data-reader')) { e.preventDefault(); toReader(); }
+    else if (href.length > 1 && href[0] === '#') { e.preventDefault(); navTo(href); }
+  });
+  // go to #section[/argument]: a new history entry — from the open phone menu, the menu's entry becomes it
+  function navTo(hash) {
+    if (later(() => navTo(hash))) return;
+    if (hist.stack[hist.stack.length - 1] === 'menu') {
+      if (location.hash === hash) { closeMenu(); return; }   // the page already shown
+      hist.stack.pop();
+      setMenu(false);
+      history.replaceState({ admIdx: hist.idx }, '', hash);
+      route(false);
+    } else if (location.hash !== hash) location.hash = hash;   // → hashchange → route
   }
   function cloudError(e) {
     const c = (e && e.code) || '';
@@ -83,8 +180,9 @@
   // ---------- which screen ----------
   let authKnown = !cloudMode;
   let current = null;           // current section id
-  AuthUI.configure({ dismissible: false, notify: (m, ms) => toast(m, ms || 4500) });
+  AuthUI.configure({ dismissible: false, show: openDialog, leave: toReader, notify: (m, ms) => toast(m, ms || 4500) });
   $('#authBack').href = readerUrl;
+  $('#authBack').dataset.reader = '';
 
   function showOnly(which) {
     $('#admBoot').hidden = which !== 'boot';
@@ -119,7 +217,7 @@
         ${Cloud.blocked ? '' : '<p class="adm-denied-code">അഡ്മിൻ തന്ന ആക്സസ് കോഡ് ഉണ്ടോ? <button class="btn sm" id="deniedCode"><svg><use href="#i-ticket"/></svg><span>കോഡ് നൽകുക</span></button></p>'}
         <div class="adm-denied-actions">
           <button class="btn" id="deniedLogout"><svg><use href="#i-logout"/></svg><span>ലോഗൗട്ട്</span></button>
-          <a class="btn primary" href="${esc(readerUrl)}"><svg><use href="#i-left"/></svg><span>വായനയിലേക്ക് മടങ്ങുക</span></a>
+          <a class="btn primary" href="${esc(readerUrl)}" data-reader><svg><use href="#i-left"/></svg><span>വായനയിലേക്ക് മടങ്ങുക</span></a>
         </div>
       </div>`;
     $('#deniedLogout').addEventListener('click', () => Cloud.signOut());
@@ -131,7 +229,7 @@
   function showPortal() {
     const list = sections();
     $('#admLinks').innerHTML = list.map((s) => `<a href="#${s.id}" data-sec="${s.id}"><svg><use href="#${s.icon}"/></svg><span>${s.title}</span></a>`).join('')
-      + `<a href="${esc(readerUrl)}" class="adm-back"><svg><use href="#i-left"/></svg><span>വായനയിലേക്ക് മടങ്ങുക</span></a>`;
+      + `<a href="${esc(readerUrl)}" class="adm-back" data-reader><svg><use href="#i-left"/></svg><span>വായനയിലേക്ക് മടങ്ങുക</span></a>`;
     renderMe();
     const banner = $('#admBanner');
     banner.hidden = cloudMode;
@@ -171,35 +269,57 @@
   // ---------- routing (#section) ----------
   // #section or #section/argument (e.g. #usage/u:<uid> = one person's usage)
   let currentArg = '';
+  let argHandler = null;        // set by a section that can show a new #section/argument without starting over
   function route(force) {
     if ($('#admShell').hidden) return;
+    closeMenu();
+    if (later(() => route(force))) return;
     const list = sections();
     const parts = location.hash.replace(/^#/, '').split('/');
     let id = parts[0];
     let arg = decodeURIComponent(parts.slice(1).join('/'));
-    if (!list.some((s) => s.id === id)) { id = list[0].id; arg = ''; }
-    if (id === current && arg === currentArg && !force) return;
+    if (!list.some((s) => s.id === id)) {
+      id = list[0].id;
+      arg = '';
+      history.replaceState(history.state, '', '#' + id);   // so Back later doesn't land on a second copy of it
+    }
+    if (id === current && !force) {
+      if (arg === currentArg) return;
+      if (argHandler) { currentArg = arg; argHandler(arg); return; }
+    }
     current = id;
     currentArg = arg;
+    argHandler = null;
     if (window.Usage) window.Usage.track('admin', { sec: id });
     const sec = SECTIONS.find((s) => s.id === id);
     $$('#admLinks [data-sec]').forEach((a) => a.setAttribute('aria-current', a.dataset.sec === id ? 'page' : 'false'));
     $('#secTitle').textContent = sec.title;
     $('#secActions').innerHTML = '';
     document.title = sec.title + ' · അഡ്മിനിസ്ട്രേറ്റർ പോർട്ടൽ';
-    setMenu(false);
     RENDER[id]($('#secBody'), arg);
     $('#admMain').scrollTop = 0;
     window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', () => route(false));
+  window.addEventListener('hashchange', () => { syncIdx(); route(false); });
 
+  // phone menu: open, it owns a history entry (Back closes it)
+  const menuOpen = () => $('.adm-nav').classList.contains('open');
   function setMenu(open) {
     $('.adm-nav').classList.toggle('open', open);
     $('#admMenuBtn').setAttribute('aria-expanded', String(open));
   }
-  $('#admMenuBtn').addEventListener('click', () => setMenu(!$('.adm-nav').classList.contains('open')));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('.adm-nav').classList.contains('open')) setMenu(false); });
+  function openMenu() {
+    if (menuOpen() || later(openMenu)) return;
+    setMenu(true);
+    pushEntry('menu');
+  }
+  function closeMenu() {
+    if (!menuOpen()) return;
+    setMenu(false);
+    dropEntry('menu');
+  }
+  $('#admMenuBtn').addEventListener('click', () => (menuOpen() ? closeMenu() : openMenu()));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && menuOpen() && !document.querySelector('dialog[open]')) closeMenu(); });
 
   // ---------- sections ----------
   const RENDER = {};
@@ -417,7 +537,11 @@
 
   RENDER.usage = async (body, arg) => {
     const state = { days: 7, who: arg || '', type: '', text: '', batches: [], cursor: null, shown: 100, users: new Map() };
-    if (state.who) state.days = 30;
+    if (/^[ud]:/.test(state.who)) state.days = 30;
+    // who is shown is in the address (#usage/u:<uid>, #usage/signed …), so Back returns to the previous view
+    let loaded = false;
+    argHandler = (a) => { state.who = a; state.shown = 100; if (loaded) draw(); };
+    const whoHash = (who) => '#usage' + (who ? '/' + encodeURIComponent(who).replace(/^([ud])%3A/i, '$1:') : '');
     $('#secActions').innerHTML = `<button class="btn" id="useRefresh"><svg><use href="#i-reset"/></svg><span>പുതുക്കുക</span></button>
       <button class="btn" id="useCsv"><svg><use href="#i-download"/></svg><span>CSV</span></button>`;
     body.innerHTML = `<div class="adm-toolbar">
@@ -550,6 +674,7 @@
         const r = more ? await usageMore(since) : await usageFor(since, force);
         if (!still('usage')) return;
         setBatches(r);
+        loaded = true;
         draw();
       } catch (e) {
         if (still('usage')) $('#useOut').innerHTML = failMsg(e);
@@ -562,7 +687,7 @@
     }).catch(() => {});
 
     $('#usePeriod').addEventListener('change', (e) => { state.days = +e.target.value; load(false); });
-    $('#useWho').addEventListener('change', (e) => { state.who = e.target.value; state.shown = 100; draw(); });
+    $('#useWho').addEventListener('change', (e) => navTo(whoHash(e.target.value)));
     $('#useType').addEventListener('change', (e) => { state.type = e.target.value; state.shown = 100; draw(); });
     let tt;
     $('#useText').addEventListener('input', (e) => { clearTimeout(tt); tt = setTimeout(() => { state.text = e.target.value; state.shown = 100; draw(); }, 250); });
@@ -577,7 +702,7 @@
     });
     $('#useOut').addEventListener('click', async (e) => {
       const w = e.target.closest('[data-who]');
-      if (w) { state.who = w.dataset.who; state.shown = 100; draw(); $('#secBody').scrollIntoView({ block: 'start' }); return; }
+      if (w) { navTo(whoHash(w.dataset.who)); $('#secBody').scrollIntoView({ block: 'start' }); return; }
       if (e.target.closest('#useShowMore')) { state.shown += 200; draw(); return; }
       if (e.target.closest('#useMore')) { e.target.closest('#useMore').disabled = true; load(true); return; }
       if (e.target.closest('#purgeBtn')) {
@@ -1097,7 +1222,7 @@
     showOnly('boot');
     Cloud.init({ chapters: false }).catch((err) => {
       console.warn('cloud init failed', err);
-      $('#admBoot').innerHTML = `<div class="adm-denied-card"><h1>ബന്ധിപ്പിക്കാനായില്ല</h1><p>ഇന്റർനെറ്റ് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.</p><div class="adm-denied-actions"><button class="btn primary" onclick="location.reload()">വീണ്ടും ശ്രമിക്കുക</button><a class="btn" href="${esc(readerUrl)}">വായനയിലേക്ക് മടങ്ങുക</a></div></div>`;
+      $('#admBoot').innerHTML = `<div class="adm-denied-card"><h1>ബന്ധിപ്പിക്കാനായില്ല</h1><p>ഇന്റർനെറ്റ് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.</p><div class="adm-denied-actions"><button class="btn primary" onclick="location.reload()">വീണ്ടും ശ്രമിക്കുക</button><a class="btn" href="${esc(readerUrl)}" data-reader>വായനയിലേക്ക് മടങ്ങുക</a></div></div>`;
     });
   } else {
     LocalOwner.on(evaluate);

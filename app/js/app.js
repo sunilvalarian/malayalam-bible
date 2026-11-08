@@ -328,8 +328,8 @@
     document.title = `${b.name} ${cur.chapter} · പരിഷ്കരിച്ച മലയാളം ബൈബിൾ`;
     $('#btnPrev').disabled = !nb.prev;
     $('#btnNext').disabled = !nb.next;
-    const h = `#/${cur.book}/${cur.chapter}` + (opts.verse ? '/' + opts.verse : '');
-    setHash(h, opts.push);
+    // keepScroll: a redraw, or Back / Forward to an entry (whose address is already right)
+    if (opts.keepScroll == null) setHash(`#/${cur.book}/${cur.chapter}` + (opts.verse ? '/' + opts.verse : ''), opts.push);
     if (opts.dir && reader.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       reader.animate([{ opacity: 0, transform: `translateX(${opts.dir * 28}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
     }
@@ -409,9 +409,10 @@
   // opts.push) adds a history entry, so Back returns to where the reader was. The scroll
   // position is kept in the entry being left; the hashchange handler restores it.
   function setHash(h, push) {
+    ensureGuard();   // on the installed app's first entry: never change it
+    if (push) { history.pushState({ d: ++hist.depth }, '', h); return; }   // also to the same address: Back must find the entry left
     if (location.hash === h) return;
-    if (push) history.pushState(null, '', h);
-    else history.replaceState(history.state, '', h);
+    history.replaceState({ d: hist.depth }, '', h);   // a new place: its position is saved once it scrolls
   }
 
   function go(b, c, opts) {
@@ -421,6 +422,7 @@
       toast(`${book.name} ${c} ലഭ്യമല്ല`);
       return false;
     }
+    if (selection.size) clearSelection();   // its history entry goes first
     // called from inside a dialog that is closing: navigate once its history entry is gone
     if (historyBusy()) { hist.queue.push(() => go(b, c, opts)); return true; }
     const changed = cur.book !== b || cur.chapter !== c;
@@ -447,17 +449,27 @@
   }
 
   // ---------- selection + actions ----------
-  function clearSelection() {
+  // keepEntry: the selection's history entry is already gone (a new address was typed in)
+  function clearSelection(keepEntry) {
     selection.clear();
     $$('.v.sel', reader).forEach((e) => e.classList.remove('sel'));
     $('#actionbar').hidden = true;
     document.body.classList.remove('selecting');
+    const i = hist.stack.lastIndexOf('sel');
+    if (i >= 0) { hist.stack.splice(i, 1); if (keepEntry !== true) popEntries(1); }
+  }
+  // selected verses own a history entry: Back clears the selection
+  function selectionEntry() {
+    if (!selection.size || hist.stack.includes('sel')) return;
+    if (hist.pendingBack) { hist.queue.push(selectionEntry); return; }
+    pushEntry('sel', { sel: 1 });
   }
 
   function updateSelection() {
     $$('.v', reader).forEach((e) => e.classList.toggle('sel', selection.has(+e.dataset.v)));
     const bar = $('#actionbar');
     if (!selection.size) { clearSelection(); return; }
+    selectionEntry();
     bar.hidden = false;
     document.body.classList.add('selecting');
     $('#selRef').textContent = refText(cur.book, cur.chapter, selection);
@@ -753,46 +765,166 @@
     rerenderKeep();
   });
 
-  // ---------- dialogs ----------
-  // Each open dialog owns one history entry, so the phone's Back button closes the
-  // dialog instead of leaving the app. Closing a dialog in the UI removes its entry
-  // (history.back()); navigation waits for that to finish so the URL stays right.
-  const hist = { stack: [], pendingBack: 0, queue: [] };
+  // ---------- history: the phone's Back button ----------
+  // Back undoes the last thing on screen before it leaves the place being read:
+  //  · every open dialog owns one history entry: Back closes it (not the app);
+  //  · a step inside a dialog (picker: book → chapter → verse) owns one: Back goes one step back;
+  //  · selected verses own one: Back clears the selection;
+  //  · a jump (search result, picker, library, AI list) adds an entry: Back returns to the place
+  //    and scroll position left. Opened from a list (search, library, AI list), Back first shows
+  //    that list again as it was (query, results, scroll), and Back once more closes it;
+  //  · reading the next / previous chapter replaces the entry (no Back through every chapter);
+  //  · the installed app asks for a second Back before it closes.
+  // Each entry's scroll position is kept in its state (y), so Back and Forward restore it.
+  // Closing a dialog in the UI removes its entries (history.go(-n)); navigation and new dialogs
+  // wait in hist.queue until that has happened, so the URL stays right.
+  // hist.stack: a dialog id | 'sel' | { dlg, undo } (a step inside dialog dlg).
+  // hist.depth: the position of the current entry (state.d), to tell Back from Forward.
+  const hist = { stack: [], pendingBack: 0, queue: [], depth: 0 };
   const historyBusy = () => hist.stack.length > 0 || hist.pendingBack > 0;
+  function popEntries(n) {
+    if (!n) return;
+    if (hist.pendingBack) { hist.queue.push(() => popEntries(n)); return; }
+    hist.pendingBack++;
+    history.go(-n);
+  }
+  function pushEntry(item, state) {
+    ensureGuard();
+    hist.stack.push(item);
+    history.pushState(Object.assign({ y: Math.round(window.scrollY), d: ++hist.depth }, state), '', location.href);
+  }
+  // what Back / Forward took off the screen: close it without touching history again
+  function dropQuietly(top) {
+    if (top === 'sel') { clearSelection(); return; }
+    if (typeof top === 'object') { top.undo(); return; }
+    const d = document.getElementById(top);
+    if (d && d.open) { d.dataset.popClose = '1'; d.close(); }
+  }
   function openDialog(d) {
     if (d.open) return;
     if (hist.pendingBack) { hist.queue.push(() => openDialog(d)); return; }
     d.showModal();
-    hist.stack.push(d.id);
-    history.pushState({ dlg: d.id }, '', location.href);
+    pushEntry(d.id, { dlg: d.id });
+  }
+  // a step inside an open dialog: Back calls undo() instead of closing the dialog
+  function pushStep(d, undo) {
+    if (!d.open || hist.pendingBack) return;
+    pushEntry({ dlg: d.id, undo }, { dlg: d.id, step: 1 });
   }
   window.addEventListener('popstate', () => {
+    const was = hist.depth;
+    hist.depth = (history.state && history.state.d) || 0;
     if (hist.pendingBack) {
       if (--hist.pendingBack === 0) hist.queue.splice(0).forEach((fn) => fn());
       return;
     }
-    const id = hist.stack.pop();
-    const d = id && document.getElementById(id);
-    if (!d || !d.open) return;
-    if (d.id === 'dlgEditor' && editorDirty()) {
-      hist.stack.push(id);
-      history.pushState({ dlg: id }, '', location.href);
-      requestClose(d);
+    const editorOpen = () => $('#dlgEditor').open && editorDirty();
+    if (hist.depth > was) {   // Forward (desktop): whatever is open goes, the entry is shown
+      if (editorOpen()) { hist.pendingBack++; history.go(was - hist.depth); requestClose($('#dlgEditor')); return; }
+      while (hist.stack.length) dropQuietly(hist.stack.pop());
+      restoreEntry();
       return;
     }
-    d.dataset.popClose = '1';
-    d.close();
+    // Back by one entry (or several, from the browser's history list)
+    let k = Math.max(1, was - hist.depth);
+    for (; k > 0 && hist.stack.length; k--) {
+      const top = hist.stack.pop();
+      if (top === 'dlgEditor' && editorOpen()) { pushEntry(top, { dlg: top }); requestClose($('#dlgEditor')); return; }
+      dropQuietly(top);
+    }
+    if (k > 0) restoreEntry();   // went past everything that was open: show that entry's place
   });
   $$('dialog').forEach((d) => {
     d.addEventListener('close', () => {
       if (d.dataset.popClose) { delete d.dataset.popClose; return; }
       const i = hist.stack.lastIndexOf(d.id);
       if (i < 0) return;
-      hist.stack.splice(i, 1);
-      hist.pendingBack++;
-      history.back();
+      // the dialog's own entry and the steps taken inside it
+      let n = 0;
+      for (let j = hist.stack.length - 1; j >= i; j--) {
+        const it = hist.stack[j];
+        if (j === i || (typeof it === 'object' && it.dlg === d.id)) { hist.stack.splice(j, 1); n++; }
+      }
+      popEntries(n);
     });
   });
+
+  // Lists whose items open a place in the reader: the list's history entry stays (marked with
+  // what it showed), so Back from that place opens the list again as it was.
+  const LISTS = {
+    dlgSearch: {
+      save: () => ({ q: $('#searchInput').value, f: search.bookFilter, n: search.shown, top: $('#searchBody').scrollTop }),
+      restore(s) {
+        const inp = $('#searchInput');
+        if (inp.value !== s.q || !$('#searchBody .result')) {   // after a reload: search again
+          inp.value = s.q;
+          runSearch();
+          if (s.f && search.results.some((e) => e.b === s.f)) setBookFilter(s.f);
+          while (search.shown < s.n && $('#resultList [data-more]')) showMore();
+        }
+        $('#searchBody').scrollTop = s.top;
+      },
+    },
+    dlgLibrary: {
+      save: () => ({ tab: $('#libraryBody').dataset.tab, top: $('#libraryBody').scrollTop }),
+      restore(s) { renderLibrary(s.tab || 'bookmarks'); $('#libraryBody').scrollTop = s.top; },
+    },
+    dlgAiList: {
+      ok: () => can('ai'),
+      save: () => ({ top: $('#aiListBody').scrollTop }),
+      restore(s) {
+        if ($('#aiListBody [data-ai-go]')) $('#aiListBody').scrollTop = s.top;
+        else fillAiList().then(() => { $('#aiListBody').scrollTop = s.top; });
+      },
+    },
+  };
+  // an item of list dialog d (on top) was chosen: close d but keep its entry, then go there
+  function openFromList(d, b, c, opts) {
+    const book = bookMap.get(b);
+    if (!book || !book.chapters.has(c)) return go(b, c, opts);   // says it's unavailable; the list stays open
+    opts = Object.assign({}, opts, { push: true });
+    if (hist.stack[hist.stack.length - 1] !== d.id || hist.pendingBack || !LISTS[d.id]) { d.close(); return go(b, c, opts); }
+    // (dlg: the entry can still be the one of a dialog that closed just before d opened)
+    history.replaceState(Object.assign({}, history.state, { dlg: d.id, list: LISTS[d.id].save() }), '');
+    hist.stack.pop();
+    d.dataset.popClose = '1';
+    d.close();
+    return go(b, c, opts);
+  }
+  // Back / Forward arrived at an entry with nothing of ours open on top of it
+  function restoreEntry() {
+    const s = history.state || {};
+    if (s.root) { atRoot(); return; }
+    const L = s.dlg && s.list && LISTS[s.dlg];
+    const d = L && document.getElementById(s.dlg);
+    if (s.y == null && !d) return;   // an entry without a saved position: the hashchange handler opens it
+    const r = parseHash();
+    if (r && (r.b !== cur.book || r.c !== cur.chapter)) go(r.b, r.c, { keepScroll: s.y || 0 });
+    else window.scrollTo(0, s.y || 0);
+    if (d && !d.open && (!L.ok || L.ok())) {
+      d.showModal();
+      hist.stack.push(d.id);
+      L.restore(s.list);
+    }
+  }
+  // each entry keeps the scroll position of its place, for Back / Forward
+  const saveEntryY = debounce(() => {
+    const s = history.state;
+    if (historyBusy() || !cur.book || (s && (s.dlg || s.sel || s.root))) return;
+    history.replaceState(Object.assign({}, s, { y: Math.round(window.scrollY) }), '');
+  }, 300);
+
+  // The installed app (no browser around it): its first entry is marked root, and reading goes on
+  // in an entry above it (pushed on the first tap: Chrome skips entries added without one).
+  // Back onto root keeps the page and asks for one more Back, which closes the app.
+  function ensureGuard() {
+    if (history.state && history.state.root) history.pushState({ d: ++hist.depth }, '', location.href);
+  }
+  function atRoot() {
+    if (cur.book) history.replaceState(history.state, '', `#/${cur.book}/${cur.chapter}`);
+    toast('ആപ്പ് അടയ്ക്കാൻ വീണ്ടും Back അമർത്തുക', 2500);
+  }
+  ['pointerup', 'keydown'].forEach((t) => document.addEventListener(t, () => { if (!hist.pendingBack) ensureGuard(); }, true));
   $$('dialog').forEach((d) => {
     d.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) { requestClose(d); return; }
@@ -879,13 +1011,18 @@
       body.innerHTML = `<h3 class="picker-title">${esc(b.name)} ${picker.chapter} <small class="hint">· വാക്യം തിരഞ്ഞെടുക്കുക</small></h3><div class="grid">${cells}</div>`;
     }
   }
+  // book → chapter → verse are steps: Back goes to the grid before
+  function pickerStep() {
+    const was = { tab: picker.tab, book: picker.book, chapter: picker.chapter };
+    pushStep($('#dlgPicker'), () => { picker.book = was.book; picker.chapter = was.chapter; renderPicker(was.tab); });
+  }
   $('#dlgPicker').addEventListener('click', (e) => {
     const t = e.target.closest('[data-tab]');
     if (t) { renderPicker(t.dataset.tab); return; }
     const bk = e.target.closest('[data-book]');
-    if (bk && !bk.disabled) { picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; renderPicker('chapters'); return; }
+    if (bk && !bk.disabled) { pickerStep(); picker.book = bk.dataset.book; picker.chapter = bookMap.get(picker.book).nums[0]; renderPicker('chapters'); return; }
     const ch = e.target.closest('[data-ch]');
-    if (ch && !ch.disabled) { picker.chapter = +ch.dataset.ch; renderPicker('verses'); return; }
+    if (ch && !ch.disabled) { pickerStep(); picker.chapter = +ch.dataset.ch; renderPicker('verses'); return; }
     const vs = e.target.closest('[data-verse]');
     if (vs && !vs.disabled) pickVerse(picker.book, picker.chapter, +vs.dataset.verse);
   });
@@ -1045,22 +1182,21 @@
     if (chip) { $('#searchInput').value = chip.dataset.q; runSearch(); return; }
     if (e.target.closest('[data-more]')) { showMore(); return; }
     const bf = e.target.closest('[data-bookfilter]');
-    if (bf) {
-      search.bookFilter = search.bookFilter === bf.dataset.bookfilter ? null : bf.dataset.bookfilter;
-      $$('[data-bookfilter]').forEach((c) => c.classList.toggle('on', c.dataset.bookfilter === search.bookFilter));
-      search.shown = 0;
-      $('#resultList').innerHTML = '';
-      showMore();
-      return;
-    }
+    if (bf) { setBookFilter(search.bookFilter === bf.dataset.bookfilter ? null : bf.dataset.bookfilter); return; }
     const r = e.target.closest('[data-ref]');
     if (r) {
       const [b, c, v, ve] = r.dataset.ref.split('/');
       addRecent($('#searchInput').value);
-      $('#dlgSearch').close();
-      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null, push: true } : { push: true });
+      openFromList($('#dlgSearch'), b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null } : undefined);
     }
   });
+  function setBookFilter(f) {
+    search.bookFilter = f;
+    $$('[data-bookfilter]').forEach((c) => c.classList.toggle('on', c.dataset.bookfilter === search.bookFilter));
+    search.shown = 0;
+    $('#resultList').innerHTML = '';
+    showMore();
+  }
 
   // ---------- settings ----------
   const FONT_MIN = 14, FONT_MAX = 60;   // reading text size range (px)
@@ -1103,10 +1239,13 @@
   $('#optNumbers').addEventListener('change', (e) => changeSetting('numbers', e.target.checked));
   $('#optHeadings').addEventListener('change', (e) => changeSetting('headings', e.target.checked));
   // ☰ → AI പരിഭാഷകൾ: the chapters that have an AI translation, by book; a tap opens it in the AI view
-  async function openAiList() {
+  function openAiList() {
+    openDialog($('#dlgAiList'));
+    fillAiList();
+  }
+  async function fillAiList() {
     const body = $('#aiListBody');
     body.innerHTML = '<p class="ai-list-sum"><span class="spin"></span> ലോഡ് ചെയ്യുന്നു…</p>';
-    openDialog($('#dlgAiList'));
     const ab = await aiData();
     if (!ab) { body.innerHTML = `<div class="empty-state"><p>${navigator.onLine === false ? 'ഓഫ്‌ലൈൻ — AI പരിഭാഷ ഈ ഉപകരണത്തിൽ ഇതുവരെ ഇല്ല.' : 'AI പരിഭാഷ ലോഡ് ചെയ്യാനായില്ല.'}</p></div>`; return; }
     // only chapters the reader has
@@ -1129,10 +1268,9 @@
     const btn = e.target.closest('[data-ai-go]');
     if (!btn) return;
     const [b, c] = btn.dataset.aiGo.split('/');
-    $('#dlgAiList').close();
     aiOn = true;
     if (aiMode() === 'orig') changeSetting('ver', 'ai');
-    if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c, { push: true });
+    if (cur.book === b && cur.chapter === +c) { $('#dlgAiList').close(); rerenderKeep(); } else openFromList($('#dlgAiList'), b, +c);
   });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
 
@@ -1195,8 +1333,7 @@
     const r = e.target.closest('[data-ref]');
     if (r) {
       const [b, c, v, ve] = r.dataset.ref.split('/');
-      $('#dlgLibrary').close();
-      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null, push: true } : { push: true });
+      openFromList($('#dlgLibrary'), b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null } : undefined);
     }
   });
   function updateCounts() {
@@ -1942,16 +2079,19 @@ p{margin:0 0 .9em}
     const s = window.scrollY > 4;
     if (s !== scrolled) { scrolled = s; topbar.classList.toggle('scrolled', s); }
     saveScroll();
+    saveEntryY();
   }, { passive: true });
 
+  // a new address typed in / a link to this page (Back and Forward: popstate → restoreEntry)
   window.addEventListener('hashchange', () => {
+    const s = history.state;
+    if (s && (s.y != null || s.dlg || s.sel || s.root)) return;
     const r = parseHash();
     if (!r) return;
-    const y = history.state && history.state.y;   // Back to a place left by a jump: its scroll position
-    if (y != null) {
-      if (r.b !== cur.book || r.c !== cur.chapter) go(r.b, r.c, { keepScroll: y });
-      else window.scrollTo(0, y);
-    } else if (r.b !== cur.book || r.c !== cur.chapter || r.v) go(r.b, r.c, r.v ? { verse: r.v } : undefined);
+    if (r.b !== cur.book || r.c !== cur.chapter || r.v) {
+      if (selection.size) clearSelection(true);
+      go(r.b, r.c, r.v ? { verse: r.v } : undefined);
+    }
   });
   function parseHash() {
     const m = location.hash.match(/^#\/([^/]+)\/(\d+)(?:\/(\d+))?/);
@@ -2427,8 +2567,9 @@ p{margin:0 0 .9em}
   // dialogs use history entries; the browser's own scroll restoration would undo verse jumps
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   let pendingLink = null;
-  // a reload keeps the history entry of a dialog that was open; it isn't open any more
-  if (history.state && history.state.dlg) history.replaceState(null, '', location.href);
+  // a reload keeps the history entry of a dialog / selection that was open; it isn't open any more
+  if (history.state && (history.state.dlg || history.state.sel)) history.replaceState({ d: history.state.d }, '', location.href);
+  hist.depth = (history.state && history.state.d) || 0;
   buildLibrary();
   applySettings();
   updateCounts();
@@ -2444,6 +2585,8 @@ p{margin:0 0 .9em}
   } else {
     startAtFirst();
   }
+  // the installed app, just started: its first entry becomes root (atRoot)
+  if (isStandalone && history.length === 1) history.replaceState({ root: 1, d: 0 }, '', location.href);
   applyPermissions();
   renderAccount();
   if (!cloudMode) runPendingOpen();
