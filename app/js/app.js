@@ -329,7 +329,7 @@
     $('#btnPrev').disabled = !nb.prev;
     $('#btnNext').disabled = !nb.next;
     const h = `#/${cur.book}/${cur.chapter}` + (opts.verse ? '/' + opts.verse : '');
-    if (location.hash !== h) history.replaceState(history.state, '', h);
+    setHash(h, opts.push);
     if (opts.dir && reader.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       reader.animate([{ opacity: 0, transform: `translateX(${opts.dir * 28}px)` }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'ease-out' });
     }
@@ -405,6 +405,15 @@
     }
   }
 
+  // Reading the next / previous chapter replaces the URL; a jump (search, picker, library,
+  // opts.push) adds a history entry, so Back returns to where the reader was. The scroll
+  // position is kept in the entry being left; the hashchange handler restores it.
+  function setHash(h, push) {
+    if (location.hash === h) return;
+    if (push) history.pushState(null, '', h);
+    else history.replaceState(history.state, '', h);
+  }
+
   function go(b, c, opts) {
     const book = bookMap.get(b);
     if (!book) return false;
@@ -415,11 +424,12 @@
     // called from inside a dialog that is closing: navigate once its history entry is gone
     if (historyBusy()) { hist.queue.push(() => go(b, c, opts)); return true; }
     const changed = cur.book !== b || cur.chapter !== c;
+    if (opts && opts.push && cur.book) history.replaceState(Object.assign({}, history.state, { y: window.scrollY }), '');
     const dir = cur.book ? Math.sign(refOrder(b, c) - refOrder(cur.book, cur.chapter)) : 0;
     cur.book = b; cur.chapter = c;
     if (changed || !opts || !opts.verse) render(Object.assign({ dir: changed ? dir : 0 }, opts));
     else {
-      history.replaceState(history.state, '', `#/${b}/${c}/${opts.verse}`);
+      setHash(`#/${b}/${c}/${opts.verse}`, opts.push);
       scrollToVerse(opts.verse, opts.verseEnd, true);
     }
     settings.last = { b, c };
@@ -824,7 +834,7 @@
   const picker = { tab: 'chapters', book: null, chapter: null };
   // navigation happens only once a verse is chosen: book → chapter → verse
   function pickVerse(bookId, ch, v) {
-    if (go(bookId, ch, { verse: v })) $('#dlgPicker').close();
+    if (go(bookId, ch, { verse: v, push: true })) $('#dlgPicker').close();
   }
 
   function openPicker(tab) {
@@ -1048,7 +1058,7 @@
       const [b, c, v, ve] = r.dataset.ref.split('/');
       addRecent($('#searchInput').value);
       $('#dlgSearch').close();
-      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null } : undefined);
+      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null, push: true } : { push: true });
     }
   });
 
@@ -1122,7 +1132,7 @@
     $('#dlgAiList').close();
     aiOn = true;
     if (aiMode() === 'orig') changeSetting('ver', 'ai');
-    if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c);
+    if (cur.book === b && cur.chapter === +c) rerenderKeep(); else go(b, +c, { push: true });
   });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
 
@@ -1186,7 +1196,7 @@
     if (r) {
       const [b, c, v, ve] = r.dataset.ref.split('/');
       $('#dlgLibrary').close();
-      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null } : undefined);
+      go(b, +c, v ? { verse: +v, verseEnd: ve ? +ve : null, push: true } : { push: true });
     }
   });
   function updateCounts() {
@@ -1936,7 +1946,12 @@ p{margin:0 0 .9em}
 
   window.addEventListener('hashchange', () => {
     const r = parseHash();
-    if (r && (r.b !== cur.book || r.c !== cur.chapter || r.v)) go(r.b, r.c, r.v ? { verse: r.v } : undefined);
+    if (!r) return;
+    const y = history.state && history.state.y;   // Back to a place left by a jump: its scroll position
+    if (y != null) {
+      if (r.b !== cur.book || r.c !== cur.chapter) go(r.b, r.c, { keepScroll: y });
+      else window.scrollTo(0, y);
+    } else if (r.b !== cur.book || r.c !== cur.chapter || r.v) go(r.b, r.c, r.v ? { verse: r.v } : undefined);
   });
   function parseHash() {
     const m = location.hash.match(/^#\/([^/]+)\/(\d+)(?:\/(\d+))?/);
