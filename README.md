@@ -469,6 +469,15 @@ Worth checking against the book (Jeremiah):
 
 These photos are not in the repository either.
 
+Lamentations 1–5 (`tools/sources/LAM/1.txt` … `5.txt`) is typed from WhatsApp photos of 2026-11-15 in a folder named വിലാപങ്ങൾ (IMG-20261115-WA0007 … WA0014, pages 1171–1178, unordered, one per page, none missing or doubled; no introduction page). Every chapter has all its verses (22, 22, 66, 22, 22). The print has no section headings. The poem lines are joined into one line per verse; footnote letters and footnotes are left out.
+
+Worth checking against the book (Lamentations):
+- Kept as printed, possibly misprints: 1:12 a full stop (not a comma) after പതിപ്പിക്കപ്പെട്ട and after ഏല്പിച്ച; 3:38 നന്മയല്ലാതെ തിന്മകൾ പുറപ്പെടുന്നില്ല; 2:21 നിലംപറ്റി കിടക്കുന്നു with a space; 4:20 the full stop after the closing quote (ജീവിക്കും’.); 3:56 നിലവിളിക്കെതിരെ (elsewhere എതിരേ).
+- Uncertain at the curled right edge: 1:21 the mark after കേട്ടു (typed ;), 1:22 ഏറെയാണ്; and 5:13–15 / 5:20 line-end punctuation.
+- Words split at a line end, joined: 1:3 അടിമത്തംമൂലവും, 1:6 മാനുകളെപ്പോലെയായി, 1:7 നാശത്തെപ്രതി, 1:8 അവഹേളനാപാത്രമായിത്തീർന്നു, 1:14 കൂട്ടിയിണക്കപ്പെട്ടു, 2:6 മുന്തിരിത്തോപ്പുപോലെ, 2:7 ശത്രുകരത്തിന്, സമാഗമദിനംപോലെ, 2:9 നിയമരഹിതരായ, 2:22 ഓടിരക്ഷപ്പെടുന്നവനോ, 3:11 തെറ്റിച്ചുകൊണ്ടുപോയി, 3:21 കൊണ്ടുവന്ന്, 3:22 കെട്ടുപോകുന്നില്ല, 3:30 ചെകിടുകൊടുക്കട്ടെ, 3:36 അട്ടിമറിക്കാനും, 4:3 ഒട്ടകപ്പക്ഷിയെപ്പോലെയായിരിക്കുന്നു; kept apart 1:11 ആഹാരത്തിനു വേണ്ടി, 2:13 ഉറപ്പു തരും.
+
+These photos are not in the repository either.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
