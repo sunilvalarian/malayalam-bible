@@ -478,6 +478,15 @@ Worth checking against the book (Lamentations):
 
 These photos are not in the repository either.
 
+Baruch 1–6 (`tools/sources/BAR/1.txt` … `6.txt`) is typed from WhatsApp photos of 2026-11-15 in a folder named ബാറൂക്ക് (IMG-20261115-WA0015 … WA0023, pages 1180–1188, unordered, one per page, none missing or doubled; no introduction page). Every chapter has all its verses (22, 35, 38, 37, 9, 72). Prose is one line per paragraph, a new paragraph only where the print leaves extra space. Chapter 6 is the Letter of Jeremiah: its heading (ജറെമിയായുടെ ലേഖനം) and the unnumbered paragraph before verse 1 (ബാബിലോൺ രാജാവ് അടിമകളാക്കി … സന്ദേശമായിരുന്നു അത്.) are both `##` lines, like a psalm title. Footnote letters, footnotes and cross-references are left out.
+
+Worth checking against the book (Baruch):
+- Uncertain at the curled page edge: 1:21 സകല വചനങ്ങളുമനുസരിച്ചുള്ള (the end of page 1180 is bent away; 1181 resumes at നുസരിച്ചുള്ള), 1:13 ഞങ്ങളിൽനിന്നു, 2:19 കാരുണ്യയാചന, and the left edge of page 1183 (3:13–18, 3:19–28), where the first letters of each line are on the curl but readable.
+- Kept as printed, possibly misprints: 4:33 ദുഖിതയാകും (no visarga), 6:45 സ്വർണപ്പണിക്കരാലുമാണ്, 6:56 പരിഗണിക്കുകയയോ, 6:12 ന്യായാധിപനെപോലെ, 6:31 അടിയന്തിരത്തിൽ, 6:50 എല്ലാജനതകൾക്കും, 3:9 ആർജ്ജിക്കാൻ; 6:57 സ്വർണം പൂശിയതുമായ with a space (elsewhere സ്വർണംപൂശിയ…).
+- Words split at a line end: joined 2:18 കണ്ണുമങ്ങിയവനും, 3:2 പാപംചെയ്തിരിക്കുന്നു, 3:3 സിംഹാസനസ്ഥനാണ്, 3:4 പാപംചെയ്യുകയും, 5:6 രാജകീയസിംഹാസനംപോലെ, 5:7 ശാശ്വതശൈലങ്ങളും, 5:8 സുഗന്ധവൃക്ഷങ്ങളും, 6:31 മുറവിളികൂട്ടുകയും, 6:58 ഉടമസ്ഥനുപകരിക്കുന്ന, 6:71 കൊണ്ടുതന്നെ; kept apart 2:25 കഠിന യാതനകളാലും, 2:26 യൂദാ ഭവനത്തിന്റെയും, 6:7 സ്വർണം പൂശിയവയും, 6:25 ഉയർത്തി നിർത്തേണ്ടത്.
+
+These photos are not in the repository either.
+
 ## Source documents
 Files sent from ☰ → *ഉറവിട ഫയലുകൾ സൂക്ഷിക്കുക* land in `tools/uploads/<BOOK ID>/<chapter>/<time>-<file name>` (without a chapter: directly in the book's folder). The time is UTC; photos taken in the dialog are named `page-01.jpg`, `page-02.jpg`, … in the order taken, and photos larger than 700 KB are reduced to 2000 px (JPEG, quality 0.8) first, which keeps a page photo at a few hundred KB.
 - **On the published site** the Pages Function [`functions/api/sources/upload.js`](functions/api/sources/upload.js) commits each file to `main` on GitHub. The commit message starts with `[CF-Pages-Skip]` (so Cloudflare doesn't redeploy) and records the book, chapter, who sent it and the note. So **`git pull` before working on the repository**, and before pushing.
