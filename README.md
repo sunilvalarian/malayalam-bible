@@ -297,7 +297,17 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
-Daniel (`tools/sources/DAN/1.txt` … `14.txt`), Hosea (`tools/sources/HOS/1.txt` … `14.txt`) and Joel (`tools/sources/JOL/1.txt` … `4.txt`) were typed in full from photos of the printed Bible (pages 1252–1277, 1279–1290 and 1291–1296, one photo per page): Daniel 262 verses (chapter 3 has 67 with the Azariah prayer section), Hosea 177 verses, Joel 85 verses. All verses are present. Daniel chapter 3 has unusual numbering where Azariah's prayer (the Song of the Three) is numbered separately (1–67) under a section heading, and the story continues with verses 24–33; this is as printed. Possible gap: Hosea 6:11 cuts off at the bottom of page 1283, and page 1284 starts at 7:1 with no visible continuation of that verse. The photos are not in the repository. Daniel chapter 3 may need post-processing if the app's verse display collapses the duplicate verse numbers.
+Daniel (`tools/sources/DAN/1.txt` … `14.txt`), Hosea (`tools/sources/HOS/1.txt` … `14.txt`) and Joel (`tools/sources/JOL/1.txt` … `4.txt`) were typed in full from photos of the printed Bible (pages 1252–1277, 1279–1290 and 1291–1296, one photo per page; the photos are not in the repository). No verse is unreadable or missing:
+
+| Book | Verses per chapter | Total |
+|---|---|---|
+| Daniel | 21, 49, 100, 34, 30, 29, 28, 27, 27, 21, 45, 13, 64 (Susanna), 42 (Bel and the Dragon) | 530 |
+| Hosea | 9, 25, 5, 19, 15, 11, 16, 14, 17, 15, 11, 15, 15, 10 | 197 |
+| Joel | 20, 27, 5, 21 | 73 |
+
+- **Daniel 3** is typed as printed: the story 1–23, then *അസരിയായുടെ കീർത്തനം* numbered again from 1 to 67 (in the print's own order: 32 before 31, 36 before 35, 48 49 46 47, 55 before 54), then the story 24–33. Verse numbers 1–33 therefore occur twice in the chapter, which the build report shows as "67 verses".
+- **Numbering** follows the print: Hosea 2 starts at what the Hebrew calls 1:10, and Joel 3:1–5 is 2:28–32 in many Bibles.
+- **Worth checking against the book**: Hosea 6:11 (the photo of page 1283 is cut off at the bottom; page 1284 starts at 7:1), Daniel 7:7 ഘോരനും, 5:1–3 ഉന്നതോദ്യോഗസ്ഥർ, 5:7 ജോത്സ്യന്മാരെ, 5:11 ജ്യോത്സ്യരുടെ, 6:26 ദാരിയുസ്, 10:6 വാഗ്ധ്വനി, and Susanna 13:20–34. The page number of page 1264 is cut off in its photo.
 
 1 Samuel (`tools/sources/1SA/1.txt` … `31.txt`) is typed in full from photos of pages 327–368 (one photo per page; the photo of page 327 shows only the lower part, without the page number). Every verse is there: 1:28, 2:36, 3:21, 4:22, 5:12, 6:21, 7:17, 8:22, 9:27, 10:27, 11:15, 12:25, 13:23, 14:52, 15:35, 16:23, 17:58, 18:30, 19:24, 20:42, 21:16, 22:23, 23:28, 24:23, 25:44, 26:25, 27:12, 28:25, 29:11, 30:31, 31:13 (810 verses). The numbering follows the Hebrew division: the second half of 20:42 in many Bibles is 21:1 here, and 23:29 is 24:1 here. Hannah's song (2:1–10) is one line per verse; 15:22–23 and 16:12 have an unnumbered line where the print starts a new paragraph inside the verse. Kept as printed: 2:8 ധൂളിയിൽനിന്ന്എഴുന്നേല്പിക്കുന്നവൻ, 3:16 ending "ഇതാ, ഞാൻ" with no punctuation, 4:3 ഉടമ്പടിപ്പേടകം but 4:4–5 ഉടമ്പടിപേടകം, 15:5 വാഗ്വാദത്തിലേർപ്പെട്ടു, 16:1 ബേത്ലെഹംകാരനായ, 23:27 യാത്രയാകു, 24:1 എൻഗേദി but 24:2 ഏൻഗേദി.
 
