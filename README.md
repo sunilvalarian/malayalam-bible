@@ -305,7 +305,7 @@ Daniel (`tools/sources/DAN/1.txt` … `14.txt`), Hosea (`tools/sources/HOS/1.txt
 | Hosea | 9, 25, 5, 19, 15, 11, 16, 14, 17, 15, 11, 15, 15, 10 | 197 |
 | Joel | 20, 27, 5, 21 | 73 |
 
-- **Daniel 3** is typed as printed: the story 1–23, then *അസരിയായുടെ കീർത്തനം* numbered again from 1 to 67 (in the print's own order: 32 before 31, 36 before 35, 48 49 46 47, 55 before 54), then the story 24–33. Verse numbers 1–33 therefore occur twice in the chapter, which the build report shows as "67 verses".
+- **Daniel 3** is numbered 1–100 as in the Vulgate, not as printed. The print has the story 1–23, then *അസരിയായുടെ കീർത്തനം* numbered again from 1 to 67, then the story 24–33. Verse numbers that occur twice in one chapter would share links, highlights and notes, so the song is stored as 24–90 (printed number + 23) and the end of the story as 91–100 (printed + 67). The print's own order inside the song is kept: 55 before 54, 59 before 58, 71 72 69 70, and 78 before 77.
 - **Numbering** follows the print: Hosea 2 starts at what the Hebrew calls 1:10, and Joel 3:1–5 is 2:28–32 in many Bibles.
 - **Worth checking against the book**: Hosea 6:11 (the photo of page 1283 is cut off at the bottom; page 1284 starts at 7:1), Daniel 7:7 ഘോരനും, 5:1–3 ഉന്നതോദ്യോഗസ്ഥർ, 5:7 ജോത്സ്യന്മാരെ, 5:11 ജ്യോത്സ്യരുടെ, 6:26 ദാരിയുസ്, 10:6 വാഗ്ധ്വനി, and Susanna 13:20–34. The page number of page 1264 is cut off in its photo.
 
