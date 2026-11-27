@@ -309,6 +309,27 @@ Daniel (`tools/sources/DAN/1.txt` … `14.txt`), Hosea (`tools/sources/HOS/1.txt
 - **Numbering** follows the print: Hosea 2 starts at what the Hebrew calls 1:10, and Joel 3:1–5 is 2:28–32 in many Bibles.
 - **Worth checking against the book**: Hosea 6:11 (the photo of page 1283 is cut off at the bottom; page 1284 starts at 7:1), Daniel 7:7 ഘോരനും, 5:1–3 ഉന്നതോദ്യോഗസ്ഥർ, 5:7 ജോത്സ്യന്മാരെ, 5:11 ജ്യോത്സ്യരുടെ, 6:26 ദാരിയുസ്, 10:6 വാഗ്ധ്വനി, and Susanna 13:20–34. The page number of page 1264 is cut off in its photo.
 
+The other minor prophets, Amos to Malachi (`tools/sources/AMO`, `OBA`, `JON`, `MIC`, `NAM`, `HAB`, `ZEP`, `HAG`, `ZEC`, `MAL`), were typed in full from photos of pages 1298–1356. The photos are not in page order, and several are only a strip of a page. They are not in the repository. No verse is unreadable or missing:
+
+| Book | Pages | Verses per chapter | Total |
+|---|---|---|---|
+| Amos | 1298–1306 | 15, 16, 15, 13, 27, 14, 17, 14, 15 | 146 |
+| Obadiah | 1307–1309 | 21 | 21 |
+| Jonah | 1310–1313 | 16, 11, 10, 11 | 48 |
+| Micah | 1315–1321 | 16, 13, 12, 14, 14, 16, 20 | 105 |
+| Nahum | 1322–1325 | 14, 14, 19 | 47 |
+| Habakkuk | 1326–1329 | 17, 20, 19 | 56 |
+| Zephaniah | 1330–1334 | 18, 15, 20 | 53 |
+| Haggai | 1335–1337 | 15, 23 | 38 |
+| Zechariah | 1338–1350 | 17, 17, 10, 14, 11, 15, 14, 23, 17, 12, 17, 14, 9, 21 | 211 |
+| Malachi | 1351–1356 | 14, 17, 18, 6 | 55 |
+
+- **Numbering** follows the print: Jonah 2 is 1–11 (2:1 is 1:17 in many Bibles, and the other pairs below are the same way round), Micah 4:14 is 5:1, Nahum 2:1 is 1:15, Zechariah 2:1–4 is 1:18–21, and Malachi has 4 chapters (4:1–6 is 3:19–24 in the Hebrew).
+- **Unnumbered lines**: the paragraph after Zechariah 1:6 and the sentence after the poetry in 2:8 are joined to the verse before them. The closing line of Habakkuk 3 (ഗായകനേതാവിന്, എന്റെ തന്ത്രീവാദ്യങ്ങളോടെ.) is joined to 3:19. സെലാ stays inside Habakkuk 3:3, 3:9 and 3:13.
+- **Edited from the reading**: in this font ഷ്വ looks like ഷ്യ or ഷ, so the high priest's name in Haggai and Zechariah is typed ജോഷ്വ, as in the rest of the Bible. ദു:ഖ in Zechariah 12:10 is typed with the visarga (ദുഃഖ).
+- **Kept as printed**: the unclosed quotes in Haggai 1:2 and 2:12 and in Zechariah 1:4, 2:6, 5:6 and 5:10. Haggai 2:4 സെരുബാബേൽ (elsewhere സെറുബാബേൽ), 1:1 and 2:1 ദാരിയൂസ് but 2:10 ദാരിയുസിന്റെ. Zephaniah 2:11 ദീപുകളെല്ലാം. Nahum 3:3 ആരുഢനാകുന്ന. Habakkuk 2:13 വ്യർഥതിനുവേണ്ടി. Zechariah 12:10–12 ദുഃഖാചരണം. Zechariah 14:10 പിന്നീംകവാടം.
+- **Worth checking against the book**: Amos 1:5 ബഥേദനിൽനിന്ന്, 2:7 പുഴിയിൽ, 6:2 കല്നേ. Obadiah 5 കവരുന്നൂള്ളൂ, 19 ഫിലിസ്തൃയും. Micah 7:1 ആത്മാവ് (the photo looks like ആരമാവ്), 5:4–5 and 7:12 അസ്സ്റീരിയാ. Habakkuk 3:5 വസന്ത. Malachi 2:11 മ്ലേച്ഛമായവ, 2:17 അസഹൃപ്പെടുത്തി (usually അസഹ്യ). Zechariah 11:6 കഷണിക്കും, 7:7 നിവാസയിടവും, 14:13 കർത്തൃസംഭ്രാന്തി.
+
 1 Samuel (`tools/sources/1SA/1.txt` … `31.txt`) is typed in full from photos of pages 327–368 (one photo per page; the photo of page 327 shows only the lower part, without the page number). Every verse is there: 1:28, 2:36, 3:21, 4:22, 5:12, 6:21, 7:17, 8:22, 9:27, 10:27, 11:15, 12:25, 13:23, 14:52, 15:35, 16:23, 17:58, 18:30, 19:24, 20:42, 21:16, 22:23, 23:28, 24:23, 25:44, 26:25, 27:12, 28:25, 29:11, 30:31, 31:13 (810 verses). The numbering follows the Hebrew division: the second half of 20:42 in many Bibles is 21:1 here, and 23:29 is 24:1 here. Hannah's song (2:1–10) is one line per verse; 15:22–23 and 16:12 have an unnumbered line where the print starts a new paragraph inside the verse. Kept as printed: 2:8 ധൂളിയിൽനിന്ന്എഴുന്നേല്പിക്കുന്നവൻ, 3:16 ending "ഇതാ, ഞാൻ" with no punctuation, 4:3 ഉടമ്പടിപ്പേടകം but 4:4–5 ഉടമ്പടിപേടകം, 15:5 വാഗ്വാദത്തിലേർപ്പെട്ടു, 16:1 ബേത്ലെഹംകാരനായ, 23:27 യാത്രയാകു, 24:1 എൻഗേദി but 24:2 ഏൻഗേദി.
 
 Worth checking against the book (1 Samuel):
