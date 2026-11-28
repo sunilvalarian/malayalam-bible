@@ -269,29 +269,10 @@
         }
       }
       const aiLine = ctx.ai && lastSeg.get(it.v) === i && ctx.ai.has(it.v) ? `<span class="ai-line">${ctx.ai.get(it.v)}</span>` : '';
-      // ctx.dropcap: the chapter's first letter is printed large (and verse 1's number left out)
-      const cap = ctx.dropcap && first && it.v === 1 && !seen.cap ? dropCap(it.t) : null;
-      if (cap) {
-        seen.cap = true;
-        html += `<span class="${cls}" data-v="1"><span class="dropcap">${esc(cap[0])}</span>${esc(cap[1])}${marks}${aiLine}</span> `;
-        return;
-      }
       html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}${aiLine}</span> `;
     });
     close();
     return html;
-  }
-
-  // [first letter, rest] of a verse that starts with a Malayalam letter (a whole syllable cluster:
-  // the letter with its vowel signs, or a conjunct), else null
-  const graphemes = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('ml', { granularity: 'grapheme' }) : null;
-  function dropCap(t) {
-    if (!/^[അ-ഹ]/.test(t || '')) return null;
-    let n = graphemes ? graphemes.segment(t)[Symbol.iterator]().next().value.segment.length : 1;
-    // a conjunct (letter + virama + letter …) is one shape: keep it together
-    while (t[n] && /[ാ-്ൗ‌‍]/.test(t[n])) n++;
-    while (t[n - 1] === '്' && /[ക-ഹ]/.test(t[n] || '')) { n++; while (t[n] && /[ാ-്ൗ]/.test(t[n])) n++; }
-    return [t.slice(0, n), t.slice(n)];
   }
 
   function noteFor(b, c, v) {
@@ -334,7 +315,7 @@
     shown = { book: cur.book, chapter: cur.chapter, items: mode === 'ai' ? aiItems : items, ai: mode !== 'orig' };
     const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
     const verSwitch = aiItems ? `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('cmp', 'താരതമ്യം', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ, മാറിയ വാക്കുകൾ അടയാളപ്പെടുത്തി')}<button data-ver="off" class="ver-off" title="AI അടയ്ക്കുക — സാധാരണ വായന" aria-label="AI അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button></div>` : '';
-    const ctx = { book: cur.book, chapter: cur.chapter, dropcap: mode !== 'cmp' };
+    const ctx = { book: cur.book, chapter: cur.chapter };
     if (mode === 'cmp') ctx.ai = aiUnderVerses(items, aiItems);
     const aiFoot = mode === 'orig' ? '' : `<div class="ai-note">AI പരിഭാഷ: Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.${mode === 'cmp' ? ' <ins>പച്ച</ins> = Original-ൽ ഇല്ലാത്ത വാക്കുകൾ.' : ''}</div>`;
     const foot = `<div class="ch-foot">
@@ -1311,7 +1292,11 @@
   }
   const COLOR_VAR = (c) => `var(--hl-${c})`;
   function renderLibrary(tab) {
-    $$('#dlgLibrary [data-lib]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.lib === tab)));
+    $$('#dlgLibrary [data-lib]').forEach((t) => {
+      t.setAttribute('aria-selected', String(t.dataset.lib === tab));
+      // four tabs don't fit a phone width: keep the chosen one in view
+      if (t.dataset.lib === tab) requestAnimationFrame(() => { const bar = t.parentElement; bar.scrollLeft = t.offsetLeft - (bar.clientWidth - t.offsetWidth) / 2; });
+    });
     const body = $('#libraryBody');
     body.dataset.tab = tab;
     let rows = [];
