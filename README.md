@@ -3,6 +3,8 @@
 Open **`app/index.html`** in Chrome or Edge (double-click works, no server needed). Editing, uploads and the data tools need a login (or, without Firebase, the local owner passcode — see [Login and permissions](#login-and-permissions)).
 
 ## Features
+- **Look**: warm paper colours with a wine-red accent and gold verse numbers (Light / Sepia / Dark). The chapter opens with the book name in gold, a large chapter number and an ornament; the first letter of verse 1 is printed large (its number is left out then; copy and share still use the plain text). Section headings have a gold bar, and a thin gold line under the top bar shows how far into the chapter you are. Edited chapters are no longer marked in the chapter grid.
+- **Daily Mass readings** (📅 in the top bar, or ☰ → *ഇന്നത്തെ വായനകൾ*): the day's readings of the Latin-rite Mass, with **ഇന്നത്തെ വചനം** (a verse from them) on top. A strip of days at the top picks another day; the liturgical colour of each day is its dot, and a ✓ marks the days marked *വായിച്ചു* (kept in this browser). Chips jump to ഒന്നാം വായന / സങ്കീർത്തനം / രണ്ടാം വായന / സുവിശേഷം. Each reading can be copied or opened in the Bible (*ബൈബിളിൽ തുറക്കുക*), and Back returns to the readings. See [Daily Mass readings](#daily-mass-readings).
 - **Reading**: chapter title, section headings, superscript verse numbers. Swipe or use ← → (or the round buttons) to change chapter. The app remembers where you stopped.
 - **Chapter / verse navigation**: tap the `ഉത്പത്തി 1 ▾` button. At the top, pick **പുസ്തകം / അധ്യായം / വാക്യം** together from three dropdowns and press പോകുക. Below that are Book → Chapter → Verse grids, or type a reference: `3`, `3:15`, `3 15`, `12:1-5`, `ഉത്പ 22:2`, `gen 3:15`.
 - **Word search** (🔍 or `/`): finds partial words (`അനുഗ്രഹ`). Several words must all appear in the verse. Use `"quotes"` for an exact phrase. "Whole word" option. Search all books, this book, or this chapter.
@@ -66,6 +68,7 @@ The published site can use Firebase for login. Permissions are enforced on Fireb
 - New accounts start as **Reader**. **Blocked** (role `none`, set by an admin) = signed in, but nothing more than a visitor.
 - `sunilvalarian@gmail.com` is always **Admin** once its e-mail is verified (with any sign-in method). Change this in both `firestore.rules` and `app/js/firebase-config.js`.
 - `haiabel43@gmail.com` is a **preset editor**: it starts as **Editor** (edit chapters, upload PDFs) on its first sign-in, once its e-mail is verified. After that an admin can change the role in the portal and the change sticks. The list is `APP_EDITORS` in `app/js/firebase-config.js` and `presetEditors()` in `firestore.rules`; keep the two the same.
+- `haiabel43@gmail.com` also **always sees the AI translation** (like an admin), once its e-mail is verified, whatever the **AI** switch in the portal says: `APP_AI_USERS` in `app/js/firebase-config.js`. Only the app checks it (the translation is a public file), so the rules don't change.
 - Edits by editors are saved to Firestore and show up live for everyone.
 
 ### Single sign-on login screen
@@ -214,6 +217,11 @@ npm run test:rules    # firestore.rules against the Firestore emulator (own port
 npm run test:e2e      # Chrome + emulators + dev server: offline start, usage upload, portal
 ```
 
+## Daily Mass readings
+`app/js/lectionary.js` lists the readings day by day (Roman calendar, Latin rite), **22 November 2026 – 2 January 2027** for now: the end of Ordinary Time (year II), Advent and Christmas of the liturgical year 2026–27 (Sundays year B). Outside those dates the window says today's readings aren't in the app yet and shows the nearest day. The Syro-Malabar and Syro-Malankara calendars are not included.
+
+The file has only references; the text comes from the app's own books, with the online edits, so a correction to a chapter shows up in the readings too. Each day: `d` date, `t` title, `s` season line, `c` colour (`green white red violet rose`), `w` the verse for ഇന്നത്തെ വചനം, `r` the readings as `[kind, book id, 'chapter:verses']` (several chapters: `'18:1-2,21-23; 19:1-3,9'`). The references use this Bible's numbering: the Psalms don't count the title as a verse (the lectionary's Ps 85:9-14 is 85:8-13 here), Malachi has 4 chapters (Mal 3:23-24 is 4:5-6), and a part of a verse (4b) is the whole verse. To add more days, append entries in date order; `npm run test:unit` (`tests/unit/lectionary.test.mjs`) checks that the days follow each other and that every verse is in `data.js`. Verses the app doesn't have yet are listed under the reading (now: Psalm 103:8, 10 on 9 December; Luke 2:31, which this translation joins into verse 30).
+
 ## Where changes are stored
 In local mode, edits, uploads, highlights and notes are saved in the browser's localStorage, on this computer and in this browser only. In login mode, chapter edits live in Firestore and personal data syncs to the user's account. To keep a copy in the repository:
 - ☰ → **data.js എക്സ്പോർട്ട്** (editors / local owner) downloads a new `data.js`. Replace `app/js/data.js` with it, and the edits become part of the app for everyone who opens it.
@@ -244,7 +252,7 @@ Worth checking against the book:
 
 The photos are not in the repository.
 
-Other books' chapter PDFs go in the same folder, with the chapter number in the file name (`tools/sources/MAT/അധ്യായം 5.pdf`); their fixes are under the book id in `tools/text-fixes.js`. Matthew 1–16 come from the PDFs (not in them, so missing in the text: 11:23–24 and 14:7). Matthew 17–28 were typed from photos of the printed Bible (pages 24–42), as `17.txt` … `28.txt`: the PDF of chapter 17 was a blank page and the one of chapter 18 stopped at verse 23. Cross-references and footnotes of the print are left out.
+Other books' chapter PDFs go in the same folder, with the chapter number in the file name (`tools/sources/MAT/അധ്യായം 5.pdf`); their fixes are under the book id in `tools/text-fixes.js`. Matthew 1–16 come from the PDFs (not in them, so missing in the text: 11:23–24 and 14:7). In chapter 4 the PDF's numbers of verses 18–25 came out as `*`, `"` and `?`, and 9:38 was run into 9:37; `tools/text-fixes.js` puts them back. Matthew 17–28 were typed from photos of the printed Bible (pages 24–42), as `17.txt` … `28.txt`: the PDF of chapter 17 was a blank page and the one of chapter 18 stopped at verse 23. Cross-references and footnotes of the print are left out.
 
 Mark (`tools/sources/MRK/1.txt` … `16.txt`) was typed in full from photos of the printed Bible (pages 44–69, one photo per page), with all 678 verses (1:45, 2:28, 3:35, 4:41, 5:43, 6:56, 7:37, 8:38, 9:50, 10:52, 11:33, 12:44, 13:37, 14:72, 15:47, 16:20). The verse numbering follows the print, e.g. 7:16, 9:44, 9:46 and 11:26 are there. The photo of page 60 (11:4–29) is blurred and was read zoomed in, so check those verses against the book. The photos are not in the repository.
 

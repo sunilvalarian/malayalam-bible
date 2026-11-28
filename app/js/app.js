@@ -269,10 +269,29 @@
         }
       }
       const aiLine = ctx.ai && lastSeg.get(it.v) === i && ctx.ai.has(it.v) ? `<span class="ai-line">${ctx.ai.get(it.v)}</span>` : '';
+      // ctx.dropcap: the chapter's first letter is printed large (and verse 1's number left out)
+      const cap = ctx.dropcap && first && it.v === 1 && !seen.cap ? dropCap(it.t) : null;
+      if (cap) {
+        seen.cap = true;
+        html += `<span class="${cls}" data-v="1"><span class="dropcap">${esc(cap[0])}</span>${esc(cap[1])}${marks}${aiLine}</span> `;
+        return;
+      }
       html += `<span class="${cls}" data-v="${it.v}">${first ? `<sup class="vn">${it.v}</sup>` : ''}${esc(it.t)}${marks}${aiLine}</span> `;
     });
     close();
     return html;
+  }
+
+  // [first letter, rest] of a verse that starts with a Malayalam letter (a whole syllable cluster:
+  // the letter with its vowel signs, or a conjunct), else null
+  const graphemes = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('ml', { granularity: 'grapheme' }) : null;
+  function dropCap(t) {
+    if (!/^[അ-ഹ]/.test(t || '')) return null;
+    let n = graphemes ? graphemes.segment(t)[Symbol.iterator]().next().value.segment.length : 1;
+    // a conjunct (letter + virama + letter …) is one shape: keep it together
+    while (t[n] && /[ാ-്ൗ‌‍]/.test(t[n])) n++;
+    while (t[n - 1] === '്' && /[ക-ഹ]/.test(t[n] || '')) { n++; while (t[n] && /[ാ-്ൗ]/.test(t[n])) n++; }
+    return [t.slice(0, n), t.slice(n)];
   }
 
   function noteFor(b, c, v) {
@@ -315,7 +334,7 @@
     shown = { book: cur.book, chapter: cur.chapter, items: mode === 'ai' ? aiItems : items, ai: mode !== 'orig' };
     const verBtn = (v, label, title) => `<button data-ver="${v}" aria-pressed="${mode === v}" title="${title}">${label}</button>`;
     const verSwitch = aiItems ? `<div class="ver-switch" role="group" aria-label="പാഠം">${verBtn('orig', 'Original', 'ഈ ആപ്പിലെ മലയാളം പരിഭാഷ')}${verBtn('ai', 'AI', 'Claude മൂലഭാഷയിൽ നിന്ന് ചെയ്ത പരിഭാഷ')}${verBtn('cmp', 'താരതമ്യം', 'ഓരോ വാക്യത്തിനും താഴെ AI പരിഭാഷ, മാറിയ വാക്കുകൾ അടയാളപ്പെടുത്തി')}<button data-ver="off" class="ver-off" title="AI അടയ്ക്കുക — സാധാരണ വായന" aria-label="AI അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button></div>` : '';
-    const ctx = { book: cur.book, chapter: cur.chapter };
+    const ctx = { book: cur.book, chapter: cur.chapter, dropcap: mode !== 'cmp' };
     if (mode === 'cmp') ctx.ai = aiUnderVerses(items, aiItems);
     const aiFoot = mode === 'orig' ? '' : `<div class="ai-note">AI പരിഭാഷ: Claude മൂലഭാഷയിൽ (ഹീബ്രു / ഗ്രീക്ക്) നിന്ന് യന്ത്രം ചെയ്ത പരിഭാഷ. തെറ്റുകൾ ഉണ്ടാകാം — താരതമ്യത്തിന് മാത്രം.${mode === 'cmp' ? ' <ins>പച്ച</ins> = Original-ൽ ഇല്ലാത്ത വാക്കുകൾ.' : ''}</div>`;
     const foot = `<div class="ch-foot">
@@ -869,6 +888,10 @@
       save: () => ({ tab: $('#libraryBody').dataset.tab, top: $('#libraryBody').scrollTop }),
       restore(s) { renderLibrary(s.tab || 'bookmarks'); $('#libraryBody').scrollTop = s.top; },
     },
+    dlgReadings: {
+      save: () => ({ i: lect.i, top: $('#readingsBody').scrollTop }),
+      restore(s) { renderReadings(s.i); $('#readingsBody').scrollTop = s.top; },
+    },
     dlgAiList: {
       ok: () => can('ai'),
       save: () => ({ top: $('#aiListBody').scrollTop }),
@@ -998,7 +1021,7 @@
       let cells = '';
       for (let n = 1; n <= max; n++) {
         const has = b.chapters.has(n);
-        const cls = [b.id === cur.book && n === cur.chapter ? 'cur' : '', b.changed.has(n) ? 'edited' : ''].join(' ').trim();
+        const cls = b.id === cur.book && n === cur.chapter ? 'cur' : '';
         cells += `<button ${cls ? `class="${cls}"` : ''} data-ch="${n}" ${has ? '' : 'disabled title="ലഭ്യമല്ല"'}>${n}</button>`;
       }
       body.innerHTML = `<h3 class="picker-title">${esc(b.name)} <small class="hint">· അധ്യായം തിരഞ്ഞെടുക്കുക</small></h3><div class="grid">${cells}</div>`;
@@ -1221,7 +1244,7 @@
     segOn('#themeSeg', settings.theme);
     segOn('#layoutSeg', settings.layout);
     const dark = settings.theme === 'dark' || (settings.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    $('meta[name="theme-color"]').content = dark ? '#121212' : settings.theme === 'sepia' ? '#f4ecd8' : '#fbfaf7';
+    $('meta[name="theme-color"]').content = dark ? '#13110f' : settings.theme === 'sepia' ? '#f1e6cd' : '#faf6ee';
   }
   // the last value of a setting that was changed (a slider gives many steps), for the usage log
   const logSetting = debounce((k, v) => Usage.track('setting', { key: k, val: String(v) }), 1500);
@@ -1342,6 +1365,189 @@
     set('#cntHighlights', Object.keys(user.hl).length);
     set('#cntNotes', Object.keys(user.notes).length);
   }
+
+  // ---------- daily Mass readings ----------
+  // ☰ → ഇന്നത്തെ വായനകൾ and the calendar button in the top bar: a day's Mass readings from
+  // js/lectionary.js. That file has only the references: the text comes from the reader's books
+  // (online edits included). ഇന്നത്തെ വചനം on top is a verse of the day's readings. The days are a
+  // strip; ബൈബിളിൽ തുറക്കുക opens the passage in the reader, and Back returns to the readings.
+  const LECT = (window.LECTIONARY && window.LECTIONARY.days) || [];
+  const LIT_COLOUR = {
+    green: ['#3f7d4e', 'പച്ച'], white: ['#c49a3c', 'വെള്ള'], red: ['#b3362c', 'ചുവപ്പ്'],
+    violet: ['#6b4c9a', 'വയലറ്റ്'], rose: ['#c86b8a', 'റോസ്'],
+  };
+  const READING_LABEL = { first: 'ഒന്നാം വായന', psalm: 'പ്രതിവചന സങ്കീർത്തനം', second: 'രണ്ടാം വായന', gospel: 'സുവിശേഷം' };
+  const READING_SHORT = { first: 'ഒന്നാം വായന', psalm: 'സങ്കീർത്തനം', second: 'രണ്ടാം വായന', gospel: 'സുവിശേഷം' };
+  const WEEKDAY = ['ഞായർ', 'തിങ്കൾ', 'ചൊവ്വ', 'ബുധൻ', 'വ്യാഴം', 'വെള്ളി', 'ശനി'];
+  const WEEKDAY_SHORT = ['ഞാ', 'തി', 'ചൊ', 'ബു', 'വ്യാ', 'വെ', 'ശ'];
+  const MONTH = ['ജനുവരി', 'ഫെബ്രുവരി', 'മാർച്ച്', 'ഏപ്രിൽ', 'മേയ്', 'ജൂൺ', 'ജൂലൈ', 'ഓഗസ്റ്റ്', 'സെപ്റ്റംബർ', 'ഒക്ടോബർ', 'നവംബർ', 'ഡിസംബർ'];
+  const lect = { i: -1, word: null, done: new Set(LS.get('readingsDone', [])) };
+  const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const dayOf = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+  const dayText = (d) => `${WEEKDAY[d.getDay()]}, ${d.getDate()} ${MONTH[d.getMonth()]} ${d.getFullYear()}`;
+  const lectBook = (id) => (id === 'PSA' ? 'സങ്കീർത്തനം' : bookName(id));
+  // "18:1-2,21-23; 19:1-3,9" → [[18, 1, 2], [18, 21, 23], [19, 1, 3], [19, 9, 9]]
+  function lectSegments(ref) {
+    const out = [];
+    for (const part of ref.split(';')) {
+      const [c, vs] = part.trim().split(':');
+      for (const r of vs.split(',')) { const [a, z] = r.trim().split('-').map(Number); out.push([+c, a, z || a]); }
+    }
+    return out;
+  }
+  // a reading as paragraphs (a psalm: a line per verse), and the verses this Bible doesn't have yet
+  function lectText(id, ref, poem) {
+    const b = bookMap.get(id);
+    let html = '', prev = null;
+    const missing = [];
+    for (const [c, a, z] of lectSegments(ref)) {
+      const have = new Set();
+      let started = false;
+      for (const it of (b && b.chapters.get(c)) || []) {
+        if (it.h !== undefined || !it.v || it.v < a || it.v > z) continue;
+        const firstOfVerse = !have.has(it.v);
+        have.add(it.v);
+        if (!started || it.p || (poem && firstOfVerse)) {
+          const gap = !started && prev && prev[0] === c && a > prev[2] + 1;   // verses left out: ⁂
+          html += (html ? '</p>' : '') + `<p${gap ? ' class="gap"' : ''}>`;
+        }
+        const num = !started && prev && prev[0] !== c ? `${c}:${it.v}` : it.v;   // a new chapter: 19:1
+        html += `${firstOfVerse ? `<sup class="vn">${num}</sup>` : ''}${esc(it.t)} `;
+        started = true;
+      }
+      for (let v = a; v <= z; v++) if (!have.has(v)) missing.push(`${c}:${v}`);
+      prev = [c, a, z];
+    }
+    return { html: html ? html + '</p>' : '', missing };
+  }
+  // ഇന്നത്തെ വചനം: 'LUK 21:36' or 'LUK 1:46-47'
+  function lectWord(w) {
+    const m = /^(\S+) (\d+):(\d+)(?:-(\d+))?$/.exec(w || '');
+    if (!m) return null;
+    const id = m[1], c = +m[2], v = +m[3], ve = m[4] ? +m[4] : null;
+    const b = bookMap.get(id);
+    if (!b || !b.chapters.has(c)) return null;
+    const vm = P.verseMap(b.chapters.get(c));
+    const parts = [];
+    for (let x = v; x <= (ve || v); x++) if (vm.has(x)) parts.push(vm.get(x));
+    if (!parts.length) return null;
+    return { b: id, c, v, ve, text: parts.join(' '), ref: `${lectBook(id)} ${c}:${v}${ve ? '-' + ve : ''}` };
+  }
+  const lectTodayIndex = () => LECT.findIndex((d) => d.d === isoDay(new Date()));
+
+  function openReadings() {
+    openDialog($('#dlgReadings'));
+    renderReadings(null);
+  }
+  // i: the day to show (null: today, or the nearest day there is)
+  function renderReadings(i) {
+    const body = $('#readingsBody');
+    const strip = $('#lectWeek');
+    if (!LECT.length) { strip.innerHTML = ''; body.innerHTML = '<div class="lect-empty">വായനകൾ ലഭ്യമല്ല.</div>'; return; }
+    const today = lectTodayIndex();
+    let notice = '';
+    if (i == null || !LECT[i]) {
+      i = today;
+      if (i < 0) {
+        const before = isoDay(new Date()) < LECT[0].d;
+        i = before ? 0 : LECT.length - 1;
+        notice = `<div class="lect-empty">ഇന്നത്തെ (${dayText(new Date())}) വായനകൾ ആപ്പിൽ ഇതുവരെ ചേർത്തിട്ടില്ല. താഴെ: ലഭ്യമായ ${before ? 'ആദ്യത്തെ' : 'അവസാനത്തെ'} ദിവസം.</div>`;
+      }
+    }
+    lect.i = i;
+    const day = LECT[i];
+    const colour = (c) => LIT_COLOUR[c] || LIT_COLOUR.green;
+    strip.innerHTML = LECT.map((d, k) => {
+      const x = dayOf(d.d);
+      const cls = ['lect-day', k === i ? 'on' : '', k === today ? 'today' : '', lect.done.has(d.d) ? 'done' : ''].join(' ').trim();
+      return `<button class="${cls}" data-day="${k}" style="--lc:${colour(d.c)[0]}" aria-label="${esc(dayText(x))}" aria-pressed="${k === i}"><span>${k === today ? 'ഇന്ന്' : WEEKDAY_SHORT[x.getDay()]}</span><b>${x.getDate()}</b><i></i></button>`;
+    }).join('');
+    const on = $('.lect-day.on', strip);
+    if (on) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2;
+
+    const word = lect.word = lectWord(day.w);
+    const done = lect.done.has(day.d);
+    body.style.setProperty('--lc', colour(day.c)[0]);
+    body.innerHTML = notice + `
+      <div class="lect-hero">
+        <div class="date">${esc(dayText(dayOf(day.d)))}</div>
+        <h3>${esc(day.t)}</h3>
+        <div class="lect-pills"><span class="lect-pill">${esc(day.s)}</span><span class="lect-pill"><i></i>${colour(day.c)[1]}</span></div>
+      </div>
+      ${word ? `<div class="lect-word">
+        <div class="tag">${i === today ? 'ഇന്നത്തെ വചനം' : 'ഈ ദിവസത്തെ വചനം'}</div>
+        <blockquote>${esc(word.text)}</blockquote>
+        <div class="ref">${esc(word.ref)}</div>
+        <div class="row">
+          <button data-lect-copy="word"><svg><use href="#i-copy"/></svg>പകർത്തുക</button>
+          <button data-lect-go="${esc(word.b)}/${word.c}/${word.v}/${word.ve || ''}"><svg><use href="#i-book"/></svg>ബൈബിളിൽ തുറക്കുക</button>
+        </div>
+      </div>` : ''}
+      <nav class="lect-jump">${day.r.map((r, k) => `<button data-jump="${k}"${k ? '' : ' class="on"'}>${READING_SHORT[r[0]]}</button>`).join('')}</nav>
+      ${day.r.map(([kind, id, ref], k) => {
+        const t = lectText(id, ref, kind === 'psalm');
+        const [c, a, z] = lectSegments(ref)[0];
+        const label = kind === 'psalm' && id !== 'PSA' ? 'പ്രതിവചന ഗീതം' : READING_LABEL[kind];
+        return `<section class="lect-reading ${kind}" id="lect${k}">
+          <div class="lbl">${label}</div>
+          <h4>${kind === 'gospel' ? '<svg><use href="#i-cross"/></svg>' : ''}${esc(lectBook(id))} ${esc(ref.replace(/\s*;\s*/g, '; ').replace(/,/g, ', '))}</h4>
+          ${t.missing.length ? `<p class="lect-missing">ഈ വാക്യങ്ങൾ ആപ്പിൽ ഇതുവരെ ഇല്ല: ${esc(t.missing.join(', '))}</p>` : ''}
+          <div class="lect-text">${t.html}</div>
+          <div class="lect-actions">
+            <button class="btn sm" data-lect-go="${esc(id)}/${c}/${a}/${z > a ? z : ''}"><svg><use href="#i-book"/></svg>ബൈബിളിൽ തുറക്കുക</button>
+            <button class="btn sm" data-lect-copy="${k}"><svg><use href="#i-copy"/></svg>പകർത്തുക</button>
+          </div>
+        </section>`;
+      }).join('')}
+      <button class="btn primary lect-done${done ? ' is-done' : ''}" data-lect-done><svg><use href="#i-check"/></svg>${done ? 'വായിച്ചു' : 'വായിച്ചതായി അടയാളപ്പെടുത്തുക'}</button>
+      <p class="lect-note">${esc((window.LECTIONARY || {}).rite || '')} ആരാധനാക്രമം · ബൈബിൾ പാഠം ഈ ആപ്പിൽ നിന്ന്</p>`;
+    body.scrollTop = 0;
+  }
+  $('#dlgReadings').addEventListener('click', async (e) => {
+    const dayBtn = e.target.closest('[data-day]');
+    if (dayBtn) { renderReadings(+dayBtn.dataset.day); return; }
+    const jump = e.target.closest('[data-jump]');
+    if (jump) { const s = $('#lect' + jump.dataset.jump); if (s) s.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    const goBtn = e.target.closest('[data-lect-go]');
+    if (goBtn) {
+      const [b, c, v, ve] = goBtn.dataset.lectGo.split('/');
+      openFromList($('#dlgReadings'), b, +c, { verse: +v, verseEnd: ve ? +ve : null });
+      return;
+    }
+    const cp = e.target.closest('[data-lect-copy]');
+    if (cp) {
+      const k = cp.dataset.lectCopy;
+      const day = LECT[lect.i];
+      let text = '';
+      if (k === 'word') { if (lect.word) text = `${lect.word.text}\n— ${lect.word.ref}`; }
+      else {
+        const s = $('#lect' + k);
+        const [, id, ref] = day.r[+k];
+        if (s) text = `${$('.lect-text', s).innerText.replace(/\s+/g, ' ').trim()}\n— ${lectBook(id)} ${ref}`;
+      }
+      if (text) toast((await copyText(text)) ? 'പകർത്തി' : 'പകർത്താൻ കഴിഞ്ഞില്ല');
+      return;
+    }
+    if (e.target.closest('[data-lect-done]')) {
+      const d = LECT[lect.i].d;
+      if (lect.done.has(d)) lect.done.delete(d); else { lect.done.add(d); toast('വായന പൂർത്തിയായി ✓'); }
+      LS.set('readingsDone', [...lect.done].sort().slice(-120));
+      const body = $('#readingsBody'), top = body.scrollTop;
+      renderReadings(lect.i);
+      body.scrollTop = top;
+    }
+  });
+  // the chip of the reading being read is marked
+  $('#readingsBody').addEventListener('scroll', debounce(() => {
+    const body = $('#readingsBody');
+    const secs = $$('.lect-reading', body);
+    if (!secs.length) return;
+    const top = body.getBoundingClientRect().top;
+    let at = 0;
+    secs.forEach((s, k) => { if (s.getBoundingClientRect().top - top < 120) at = k; });
+    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 4) at = secs.length - 1;
+    $$('.lect-jump button', body).forEach((b, k) => b.classList.toggle('on', k === at));
+  }, 60), { passive: true });
 
   // ---------- quick verse edit ----------
   let verseEditCtx = null;
@@ -1998,6 +2204,7 @@ p{margin:0 0 .9em}
     else if (a === 'sources') openSources();
     else if (a === 'edit') openEditor(cur.book, cur.chapter);
     else if (a === 'aiList') openAiList();
+    else if (a === 'readings') openReadings();
     else if (a === 'share') openShare(true);
     else if (a === 'normalView') { aiOn = false; if (cur.book) rerenderKeep(); }
     else if (a === 'exportHtml') exportHtmlBook();
@@ -2030,6 +2237,7 @@ p{margin:0 0 .9em}
   });
   $('#btnRef').addEventListener('click', () => openPicker('books'));
   $('#btnSearch').addEventListener('click', openSearch);
+  $('#btnReadings').addEventListener('click', () => { Usage.track('menu', { a: 'readings' }); openReadings(); });
   $('#btnSettings').addEventListener('click', () => { const d = $('#dlgSettings'); if (d.open) d.close(); else openDialog(d); });
   const step = (dir) => { const nb = neighbours(); const t = dir < 0 ? nb.prev : nb.next; if (t) go(t.b, t.c); };
   $('#btnPrev').addEventListener('click', () => step(-1));
@@ -2074,10 +2282,13 @@ p{margin:0 0 .9em}
   // (battery: the class changes only when crossing the line, and the position is saved once scrolling stops)
   const saveScroll = debounce(() => { settings.lastScroll = { b: cur.book, c: cur.chapter, y: window.scrollY }; saveSettings(); }, 1200);
   const topbar = $('.topbar');
+  const progress = $('#readProgress');
   let scrolled = false;
   window.addEventListener('scroll', () => {
     const s = window.scrollY > 4;
     if (s !== scrolled) { scrolled = s; topbar.classList.toggle('scrolled', s); }
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`;
     saveScroll();
     saveEntryY();
   }, { passive: true });

@@ -4,13 +4,13 @@
  * `git push` the new version is picked up in the background (past the browser's HTTP cache)
  * and the open page is told, so it can offer to reload (js/app.js, 'content-updated').
  * Bump VERSION when the list of files changes (and APP_VERSION in js/usage.js with it). */
-const VERSION = 'v31';
+const VERSION = 'v32';
 const CACHE = 'ml-bible-' + VERSION;
 const FONT_CACHE = 'ml-bible-fonts';
 const LIB_CACHE = 'ml-bible-lib';       // versioned CDN files (the URL changes with the version)
 const SHELL = [
   './', './index.html', './css/style.css',
-  './js/books.js', './js/data.js', './js/parser.js', './js/pdf-extract.js', './js/docx-extract.js', './js/ocr.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
+  './js/books.js', './js/data.js', './js/lectionary.js', './js/parser.js', './js/pdf-extract.js', './js/docx-extract.js', './js/ocr.js', './js/firebase-config.js', './js/cloud.js', './js/usage.js', './js/auth-ui.js', './js/app.js',
   './admin.html', './css/admin.css', './js/admin.js',
   './app.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/apple-touch-icon.png',
 ];

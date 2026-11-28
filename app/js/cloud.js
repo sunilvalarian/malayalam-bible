@@ -42,6 +42,7 @@
     : window.FIREBASE_CONFIG;
   const OWNERS = (window.APP_OWNERS || []).map((e) => e.toLowerCase());
   const PRESET_EDITORS = (window.APP_EDITORS || []).map((e) => e.toLowerCase());
+  const AI_USERS = (window.APP_AI_USERS || []).map((e) => e.toLowerCase());
   const configured = !!(config && config.apiKey && config.projectId);
 
   const ss = {
@@ -259,8 +260,9 @@
 
     can(perm) {
       if (!this.user) return false;
-      // the AI translation in the reader: admins, and users an admin switched it on for
-      if (perm === 'ai') return this.role === 'admin' || (this.role !== 'none' && this.aiOn);
+      // the AI translation in the reader: admins, users an admin switched it on for, and the
+      // e-mails of APP_AI_USERS (firebase-config.js) once verified
+      if (perm === 'ai') return this.role === 'admin' || (this.role !== 'none' && (this.aiOn || (this.user.verified && AI_USERS.includes(this.user.email))));
       if (ROLE_RANK[this.role] >= ROLE_RANK[PERMS[perm] || 'admin']) return true;
       // opened to everyone by an admin: any signed-in user who isn't blocked
       return this.role !== 'none' && !!OPEN_PERMS[perm] && this.settings[OPEN_PERMS[perm]] === true;

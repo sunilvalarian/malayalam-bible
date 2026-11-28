@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#fbfaf7">
+<meta name="theme-color" content="#faf6ee">
 <meta name="description" content="പരിഷ്കരിച്ച മലയാളം ബൈബിൾ — വായിക്കുക, തിരയുക, ഹൈലൈറ്റ് ചെയ്യുക">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -72,6 +72,8 @@
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14.5 8.5l2 2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-cross" viewBox="0 0 24 24"><path d="M12 3v18M6 9h12"/></symbol>
     <symbol id="i-ticket" viewBox="0 0 24 24"><path d="M3 7h18v3.5a1.5 1.5 0 0 0 0 3V17H3v-3.5a1.5 1.5 0 0 0 0-3z"/><path d="M15 7v10" stroke-dasharray="2 2"/></symbol>
   </defs>
 </svg>
@@ -83,9 +85,11 @@
   </button>
   <div class="topbar-right">
     <span class="net-pill" id="netPill" role="status" title="ഇന്റർനെറ്റ് ഇല്ല — വായന, തിരയൽ, ഹൈലൈറ്റ്, കുറിപ്പ് എല്ലാം പ്രവർത്തിക്കും; മാറ്റങ്ങൾ പിന്നീട് സിങ്ക് ചെയ്യും" hidden>ഓഫ്‌ലൈൻ</span>
+    <button class="icon-btn" id="btnReadings" aria-label="ഇന്നത്തെ വായനകൾ" title="ഇന്നത്തെ വായനകൾ"><svg><use href="#i-cal"/></svg></button>
     <button class="icon-btn" id="btnSearch" aria-label="തിരയുക" title="തിരയുക (/)"><svg><use href="#i-search"/></svg></button>
     <button class="icon-btn" id="btnSettings" aria-label="വായനാ ക്രമീകരണം" title="വായനാ ക്രമീകരണം"><svg><use href="#i-aa"/></svg></button>
   </div>
+  <div class="read-progress" id="readProgress" aria-hidden="true"></div>
 </header>
 
 <main id="main">
@@ -139,6 +143,7 @@
   <div class="account" id="accountCard"></div>
   <nav class="menu">
     <button data-menu="install" id="menuInstall" class="install" hidden><svg><use href="#i-download"/></svg><span class="m-text">ആപ്പ് ആയി ഇൻസ്റ്റാൾ ചെയ്യുക<small>ഹോം സ്ക്രീനിൽ ചേർക്കാം, ഓഫ്‌ലൈനിലും വായിക്കാം</small></span></button>
+    <button data-menu="readings"><svg><use href="#i-cal"/></svg><span class="m-text">ഇന്നത്തെ വായനകൾ<small>ഇന്നത്തെ വചനവും ദിവ്യബലിയിലെ വായനകളും</small></span></button>
     <div class="menu-label">എന്റെ ലൈബ്രറി</div>
     <button data-menu="bookmarks"><svg><use href="#i-bookmark"/></svg>ബുക്ക്മാർക്കുകൾ <span class="count" id="cntBookmarks"></span></button>
     <button data-menu="highlights"><svg><use href="#i-highlight"/></svg>ഹൈലൈറ്റുകൾ <span class="count" id="cntHighlights"></span></button>
@@ -253,6 +258,16 @@
     <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
   </div>
   <div class="sheet-body" id="libraryBody"></div>
+</dialog>
+
+<!-- daily Mass readings (js/lectionary.js; js/app.js, openReadings) -->
+<dialog class="sheet" id="dlgReadings" aria-label="ഇന്നത്തെ വായനകൾ">
+  <div class="sheet-head">
+    <h2 class="sheet-title"><svg><use href="#i-cal"/></svg>ദിവ്യബലി വായനകൾ</h2>
+    <button class="icon-btn" data-close aria-label="അടയ്ക്കുക"><svg><use href="#i-x"/></svg></button>
+  </div>
+  <div class="lect-week" id="lectWeek" role="group" aria-label="ദിവസം"></div>
+  <div class="sheet-body" id="readingsBody"></div>
 </dialog>
 
 <!-- note -->
@@ -431,6 +446,7 @@
 
 <script src="js/books.js"></script>
 <script src="js/data.js"></script>
+<script src="js/lectionary.js"></script>
 <script src="js/parser.js"></script>
 <script src="js/pdf-extract.js"></script>
 <script src="js/docx-extract.js"></script>

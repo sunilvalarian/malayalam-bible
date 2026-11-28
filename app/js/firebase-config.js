@@ -26,6 +26,10 @@ window.APP_OWNERS = ['sunilvalarian@gmail.com'];
 // presetEditors() in firestore.rules.
 window.APP_EDITORS = ['haiabel43@gmail.com'];
 
+// These e-mails always see the AI translation (like admins), after e-mail verification, without
+// the per-user switch in the portal. Only the app checks this: the translation is a public file.
+window.APP_AI_USERS = ['haiabel43@gmail.com'];
+
 // Sign-in methods shown on the login screen (each must also be enabled in Firebase →
 // Authentication → Sign-in method; see README). Set one to false to hide its button.
 //   passkey needs the Cloudflare Pages Function in functions/ plus the FIREBASE_SERVICE_ACCOUNT secret.
